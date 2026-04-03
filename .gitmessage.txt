@@ -1,0 +1,14 @@
+<type>(<scope>): <subject>
+
+# Types:
+# feat, fix, refactor, test, docs, chore, perf, build, ci
+#
+# Example:
+# feat(auth): add login refresh flow
+#
+# Body:
+# - Why is this change needed?
+# - What behavior changed?
+#
+# Footer:
+# - BREAKING CHANGE: <description>

@@ -1,0 +1,36 @@
+import { Body, Controller, Get, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
+import { DreamsService } from './dreams.service';
+import { CreateDreamDto } from './dto/create-dream.dto';
+import { CreateProposalDto } from './dto/create-proposal.dto';
+
+@Controller('dreams')
+export class DreamsController {
+  private readonly dreamsService: DreamsService;
+
+  constructor(@Inject(DreamsService) dreamsService: DreamsService) {
+    this.dreamsService = dreamsService;
+  }
+
+  @Get('public')
+  listPublicDreams() {
+    return this.dreamsService.listPublicDreams();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  createDream(@CurrentUser() currentUser: JwtPayload, @Body() dto: CreateDreamDto) {
+    return this.dreamsService.createDream(currentUser, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':dreamId/proposals')
+  createProposal(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('dreamId') dreamId: string,
+    @Body() dto: CreateProposalDto,
+  ) {
+    return this.dreamsService.createProposal(currentUser, dreamId, dto);
+  }
+}

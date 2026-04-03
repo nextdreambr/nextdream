@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-03-26T16:27:36-03:00",
+  "phase": "ad-hoc",
+  "phase_name": "backend-foundation-and-core-api",
+  "phase_dir": ".",
+  "plan": 1,
+  "task": 5,
+  "total_tasks": 6,
+  "status": "paused",
+  "completed_tasks": [
+    {
+      "id": 1,
+      "name": "Auditar o estado atual do frontend e ajustar o plano executável",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "name": "Adicionar fundação local com ADR, Docker Compose, env, lint, typecheck e test base",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "name": "Criar backend NestJS com auth JWT e serviços base",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "name": "Implementar domínio de sonhos e propostas com testes",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "name": "Executar lint, typecheck, testes, build e validar Docker localmente",
+      "status": "done"
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": 5,
+      "name": "Integrar frontend aos endpoints reais para auth, sonhos e propostas, removendo os mocks correspondentes",
+      "status": "not_started"
+    }
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {
+      "action": "Ao retomar, decidir se os containers locais podem permanecer ligados ou devem ser recriados com docker compose up -d",
+      "context": "Os serviços locais foram iniciados e estavam saudáveis no fim da sessão",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Manter o frontend atual na raiz e adicionar a API em apps/api",
+      "rationale": "Menor churn estrutural e progresso mais rápido na remoção dos mocks",
+      "phase": "ad-hoc"
+    },
+    {
+      "decision": "Usar NestJS + TypeORM com sqljs em testes e Postgres em ambiente local",
+      "rationale": "Permite testes rápidos sem container para API e validação local real com Docker",
+      "phase": "ad-hoc"
+    },
+    {
+      "decision": "Cobrir primeiro o núcleo de auth, dreams e proposals por teste de integração",
+      "rationale": "Entrega uma espinha dorsal funcional antes de reescrever o frontend",
+      "phase": "ad-hoc"
+    }
+  ],
+  "uncommitted_files": [
+    ".env.example",
+    "docker-compose.yml",
+    "docs/decisions/0001-backend-architecture.md",
+    "eslint.config.js",
+    "package.json",
+    "tsconfig.base.json",
+    "tsconfig.web.json",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "src/app/App.test.tsx",
+    "apps/api/package.json",
+    "apps/api/tsconfig.json",
+    "apps/api/tsconfig.build.json",
+    "apps/api/vitest.config.ts",
+    "apps/api/src/**",
+    "apps/api/test/app.test.ts"
+  ],
+  "next_action": "Comecar pela integracao do frontend: criar um cliente HTTP em src/app/lib/api.ts, trocar AppContext para sessao real com token persistido, e conectar Login/Register/CreateDream/SupporterDreamDetail aos endpoints ja implementados.",
+  "context_notes": "O backend central esta verde com health, register, login, create dream, create proposal e accept proposal. O frontend ainda depende de AppContext demo e mockData. O repositorio nao e um git repo proprio, entao o handoff foi salvo em arquivo local sem commit."
+}
