@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, SlidersHorizontal, X, MapPin, Video, Users } from 'lucide-react';
-import { mockDreams, dreamCategories } from '../../data/mockData';
 import { DreamCard } from '../../components/shared/DreamCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { useNavigate } from 'react-router';
+import { DREAM_CATEGORIES } from '../../data/dreamCategories';
+import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
 
 export default function ExploreDreams() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [dreams, setDreams] = useState<PublicDream[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     category: '',
@@ -17,7 +21,34 @@ export default function ExploreDreams() {
     shortDuration: false,
   });
 
-  const publishedDreams = mockDreams.filter(d => d.status === 'publicado' || d.status === 'em-conversa');
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadDreams() {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await dreamsApi.listPublic();
+        if (mounted) setDreams(data);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError('Não foi possível carregar os sonhos no momento.');
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    void loadDreams();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const publishedDreams = dreams.filter(d => d.status === 'publicado' || d.status === 'em-conversa');
 
   const filtered = publishedDreams.filter(d => {
     if (query && !d.title.toLowerCase().includes(query.toLowerCase()) && !d.description.toLowerCase().includes(query.toLowerCase())) return false;
@@ -34,7 +65,9 @@ export default function ExploreDreams() {
     <div className="max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Explorar Sonhos</h1>
-        <p className="text-gray-500 text-sm">{filtered.length} sonhos aguardando um apoiador como você</p>
+        <p className="text-gray-500 text-sm">
+          {loading ? 'Carregando sonhos...' : `${filtered.length} sonhos aguardando um apoiador como você`}
+        </p>
       </div>
 
       {/* Search + filter */}
@@ -75,7 +108,7 @@ export default function ExploreDreams() {
           <div>
             <p className="text-xs text-gray-500 mb-2">Categoria</p>
             <div className="flex flex-wrap gap-2">
-              {dreamCategories.slice(0, 8).map(cat => (
+              {DREAM_CATEGORIES.slice(0, 8).map(cat => (
                 <button key={cat} onClick={() => setFilters(f => ({ ...f, category: f.category === cat ? '' : cat }))}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
                     ${filters.category === cat ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}>
@@ -159,7 +192,15 @@ export default function ExploreDreams() {
       )}
 
       {/* Dreams grid */}
-      {filtered.length === 0 ? (
+      {error ? (
+        <EmptyState
+          icon={Search}
+          title="Não foi possível carregar os sonhos"
+          description={error}
+          actionLabel="Tentar novamente"
+          onAction={() => window.location.reload()}
+        />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={Search}
           title="Nenhum sonho encontrado"
@@ -172,7 +213,11 @@ export default function ExploreDreams() {
           {filtered.map(dream => (
             <DreamCard
               key={dream.id}
-              dream={dream}
+              dream={{
+                ...dream,
+                tags: [dream.category, dream.format, dream.urgency],
+                proposalsCount: 0,
+              }}
               onClick={() => navigate(`/apoiador/sonhos/${dream.id}`)}
               variant="supporter"
             />

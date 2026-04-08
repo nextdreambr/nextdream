@@ -59,6 +59,36 @@ export class DreamsService {
     return dreams.map((dream) => this.serializeDream(dream));
   }
 
+  async listMyDreams(currentUser: JwtPayload) {
+    if (currentUser.role !== 'paciente') {
+      throw new ForbiddenException('Only patients can list their dreams');
+    }
+
+    const dreams = await this.dreamsRepository.find({
+      where: { patientId: currentUser.sub },
+      order: { createdAt: 'DESC' },
+    });
+
+    return dreams.map((dream) => this.serializeDream(dream));
+  }
+
+  async listDreamProposals(currentUser: JwtPayload, dreamId: string) {
+    const dream = await this.dreamsRepository.findOneBy({ id: dreamId });
+    if (!dream) {
+      throw new NotFoundException('Dream not found');
+    }
+    if (dream.patientId !== currentUser.sub) {
+      throw new ForbiddenException('Only the dream owner can view proposals');
+    }
+
+    const proposals = await this.proposalsRepository.find({
+      where: { dreamId: dream.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    return proposals.map((proposal) => this.serializeProposal(proposal));
+  }
+
   async createProposal(currentUser: JwtPayload, dreamId: string, dto: CreateProposalDto) {
     if (currentUser.role !== 'apoiador') {
       throw new ForbiddenException('Only supporters can send proposals');
@@ -114,6 +144,35 @@ export class DreamsService {
     };
   }
 
+  async listSupporterProposals(currentUser: JwtPayload) {
+    if (currentUser.role !== 'apoiador') {
+      throw new ForbiddenException('Only supporters can list their proposals');
+    }
+
+    const proposals = await this.proposalsRepository.find({
+      where: { supporterId: currentUser.sub },
+      order: { createdAt: 'DESC' },
+    });
+
+    return proposals.map((proposal) => this.serializeProposal(proposal));
+  }
+
+  async listReceivedProposals(currentUser: JwtPayload) {
+    if (currentUser.role !== 'paciente') {
+      throw new ForbiddenException('Only patients can list received proposals');
+    }
+
+    const proposals = await this.proposalsRepository
+      .createQueryBuilder('proposal')
+      .leftJoinAndSelect('proposal.dream', 'dream')
+      .leftJoinAndSelect('proposal.supporter', 'supporter')
+      .where('dream.patientId = :patientId', { patientId: currentUser.sub })
+      .orderBy('proposal.createdAt', 'DESC')
+      .getMany();
+
+    return proposals.map((proposal) => this.serializeProposal(proposal));
+  }
+
   private serializeDream(dream: Dream) {
     return {
       id: dream.id,
@@ -136,6 +195,9 @@ export class DreamsService {
     return {
       id: proposal.id,
       dreamId: proposal.dreamId,
+      dreamTitle: proposal.dream?.title,
+      dreamStatus: proposal.dream?.status,
+      dreamCategory: proposal.dream?.category,
       supporterId: proposal.supporterId,
       supporterName: proposal.supporter?.name,
       message: proposal.message,

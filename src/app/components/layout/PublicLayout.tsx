@@ -1,7 +1,6 @@
 import { Outlet, Link } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
-import { DemoBar } from './DemoBar';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 export function PublicLayout() {
@@ -101,8 +100,6 @@ export function PublicLayout() {
           </div>
         </div>
       </footer>
-
-      <DemoBar />
     </div>
   );
 }

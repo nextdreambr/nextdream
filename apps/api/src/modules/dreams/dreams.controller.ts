@@ -19,6 +19,12 @@ export class DreamsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('mine')
+  listMyDreams(@CurrentUser() currentUser: JwtPayload) {
+    return this.dreamsService.listMyDreams(currentUser);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   createDream(@CurrentUser() currentUser: JwtPayload, @Body() dto: CreateDreamDto) {
     return this.dreamsService.createDream(currentUser, dto);
@@ -32,5 +38,14 @@ export class DreamsController {
     @Body() dto: CreateProposalDto,
   ) {
     return this.dreamsService.createProposal(currentUser, dreamId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':dreamId/proposals')
+  listDreamProposals(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('dreamId') dreamId: string,
+  ) {
+    return this.dreamsService.listDreamProposals(currentUser, dreamId);
   }
 }

@@ -1,15 +1,45 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Search, Send, MessageCircle, ChevronRight, Heart, Star, TrendingUp } from 'lucide-react';
-import { mockDreams, mockProposals } from '../../data/mockData';
 import { DreamCard } from '../../components/shared/DreamCard';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router';
+import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
 
 export default function SupporterDashboard() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
-  const suggestedDreams = mockDreams.filter(d => d.status === 'publicado').slice(0, 3);
-  const myProposals = mockProposals.filter(p => p.supporterId === 's1');
+  const [suggestedDreams, setSuggestedDreams] = useState<PublicDream[]>([]);
+  const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      setError('');
+      try {
+        const [dreams, proposals] = await Promise.all([
+          dreamsApi.listPublic(),
+          proposalsApi.listMine(),
+        ]);
+        if (!mounted) return;
+        setSuggestedDreams(dreams.filter((d) => d.status === 'publicado').slice(0, 3));
+        setMyProposals(proposals);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar seu dashboard.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const acceptedProposals = myProposals.filter(p => p.status === 'aceita').length;
 
   return (
@@ -35,7 +65,7 @@ export default function SupporterDashboard() {
         {[
           { label: 'Propostas enviadas', value: myProposals.length, icon: Send, color: 'bg-blue-100 text-blue-600', link: '/apoiador/propostas' },
           { label: 'Conexões feitas', value: acceptedProposals, icon: Heart, color: 'bg-teal-100 text-teal-600', link: '/apoiador/chat' },
-          { label: 'Sonhos disponíveis', value: mockDreams.filter(d => d.status === 'publicado').length, icon: Star, color: 'bg-pink-100 text-pink-600', link: '/apoiador/explorar' },
+          { label: 'Sonhos disponíveis', value: suggestedDreams.length, icon: Star, color: 'bg-pink-100 text-pink-600', link: '/apoiador/explorar' },
         ].map((s, i) => (
           <Link key={i} to={s.link}
             className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-all flex flex-col items-center text-center gap-2">
@@ -61,8 +91,18 @@ export default function SupporterDashboard() {
         </div>
         <div className="p-4 space-y-3">
           {suggestedDreams.map(dream => (
-            <DreamCard key={dream.id} dream={dream} onClick={() => navigate(`/apoiador/sonhos/${dream.id}`)} />
+            <DreamCard
+              key={dream.id}
+              dream={{
+                ...dream,
+                tags: [dream.category, dream.format, dream.urgency],
+              }}
+              onClick={() => navigate(`/apoiador/sonhos/${dream.id}`)}
+            />
           ))}
+          {!loading && suggestedDreams.length === 0 && (
+            <p className="text-sm text-gray-500 px-2 py-3">Nenhum sonho público disponível no momento.</p>
+          )}
         </div>
       </div>
 
@@ -79,10 +119,10 @@ export default function SupporterDashboard() {
             {myProposals.slice(0, 3).map(prop => (
               <div key={prop.id} className="px-5 py-4 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center text-lg shrink-0">
-                  {prop.dreamTitle.includes('praia') ? '🌅' : prop.dreamTitle.includes('violão') ? '🎵' : '✨'}
+                  {prop.dreamTitle?.includes('praia') ? '🌅' : prop.dreamTitle?.includes('violão') ? '🎵' : '✨'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{prop.dreamTitle}</p>
+                  <p className="text-sm text-gray-800 truncate">{prop.dreamTitle ?? 'Sonho'}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {prop.status === 'aceita' ? '✅ Aceita — chat aberto!' : prop.status === 'em-analise' ? '⏳ Em análise' : '📬 Enviada'}
                   </p>
@@ -95,6 +135,12 @@ export default function SupporterDashboard() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
         </div>
       )}
 

@@ -1,8 +1,7 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { Outlet, Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { Home, Search, Send, MessageCircle, User, Bell, Menu, X, ChevronRight, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { DemoBar } from './DemoBar';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 const navItems = [
@@ -27,6 +26,13 @@ export function SupporterLayout() {
   const navigate = useNavigate();
   const { currentUser, notifications, logout } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  if (!currentUser) {
+    return <Navigate to="/login?tipo=apoiador" replace state={{ from: location.pathname }} />;
+  }
+  if (currentUser.role !== 'apoiador') {
+    return <Navigate to="/" replace />;
+  }
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
 
@@ -191,8 +197,6 @@ export function SupporterLayout() {
           })}
         </div>
       </div>
-
-      <DemoBar />
     </div>
   );
 }

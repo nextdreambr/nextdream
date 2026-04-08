@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Save, Plus, X, Shield, Tag, FileText, Bell, AlertTriangle, Pencil, Trash2, Check } from 'lucide-react';
-import { dreamCategories } from '../../data/mockData';
+import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +27,10 @@ interface Rule {
 
 const initialWords = ['pix', 'doação', 'doacao', 'transferência', 'transferencia', 'pagamento', 'dinheiro', 'r$', 'vaquinha', 'arrecadação', 'crowdfunding'];
 
-const initialCategories = dreamCategories.map((c, i) => ({ id: `cat-${i}`, name: c }));
+const initialCategories: Array<{ id: string; name: string }> = DREAM_CATEGORIES.map((c, i) => ({
+  id: `cat-${i}`,
+  name: c,
+}));
 
 const initialTemplates: Template[] = [
   { id: 't1', title: 'Videochamada', text: 'Posso te ajudar por videochamada! Tenho disponibilidade nos fins de semana e me adaptarei ao seu horário.' },

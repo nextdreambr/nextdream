@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
+import { getRequiredEnv } from '../../config/env';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -72,11 +73,11 @@ export class AuthService {
 
     return {
       accessToken: await this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_ACCESS_SECRET ?? 'change-me-access-secret',
+        secret: getRequiredEnv('JWT_ACCESS_SECRET'),
         expiresIn: '1h',
       }),
       refreshToken: await this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET ?? 'change-me-refresh-secret',
+        secret: getRequiredEnv('JWT_REFRESH_SECRET'),
         expiresIn: '7d',
       }),
       user: {

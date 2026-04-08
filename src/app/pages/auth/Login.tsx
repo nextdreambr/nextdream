@@ -2,35 +2,47 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { ApiError, authApi } from '../../lib/api';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const { login } = useApp();
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get('tipo');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      // If coming from a CTA with tipo, go to profile selection
-      if (tipo) {
-        navigate(`/selecionar-perfil?tipo=${tipo}`);
-      } else {
-        login('paciente');
-        navigate('/paciente/dashboard');
-      }
-    }, 800);
+  const routeByRole = (role: 'paciente' | 'apoiador' | 'admin') => {
+    if (role === 'paciente') return '/paciente/dashboard';
+    if (role === 'apoiador') return '/apoiador/dashboard';
+    return '/admin';
   };
 
-  const handleDemoLogin = (role: 'paciente' | 'apoiador' | 'admin') => {
-    login(role);
-    if (role === 'paciente') navigate('/paciente/dashboard');
-    else if (role === 'apoiador') navigate('/apoiador/dashboard');
-    else navigate('/admin');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const session = await authApi.login({ email: email.trim(), password });
+      login(session);
+      if (tipo && session.user.role !== tipo) {
+        setError(`Sua conta é do tipo ${session.user.role}. Redirecionando para sua área.`);
+      }
+      navigate(routeByRole(session.user.role));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Não foi possível entrar agora. Tente novamente.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,35 +55,24 @@ export default function Login() {
           <p className="text-gray-500 text-sm mt-1">Entre na sua conta NextDream</p>
         </div>
 
-        {/* Demo logins */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
-          <p className="text-xs text-blue-700 font-medium mb-3">🎯 Demo — Entrar como:</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { role: 'paciente' as const, label: 'Paciente', color: 'border-pink-300 text-pink-700 hover:bg-pink-50' },
-              { role: 'apoiador' as const, label: 'Apoiador', color: 'border-teal-300 text-teal-700 hover:bg-teal-50' },
-              { role: 'admin' as const, label: 'Admin', color: 'border-orange-300 text-orange-700 hover:bg-orange-50' },
-            ].map(item => (
-              <button
-                key={item.role}
-                onClick={() => handleDemoLogin(item.role)}
-                className={`border rounded-xl py-2 text-xs font-medium transition-colors ${item.color}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2">
+                {error}
+              </div>
+            )}
             <div>
               <label className="text-sm text-gray-700 block mb-1.5">E-mail</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
+                  autoComplete="email"
+                  required
                   className="w-full pl-10 pr-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
                 />
               </div>
@@ -83,7 +84,11 @@ export default function Login() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
                   className="w-full pl-10 pr-10 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
@@ -129,7 +134,7 @@ export default function Login() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Não tem conta?{' '}
-          <Link to={tipo ? `/cadastro?tipo=${tipo}` : '/selecionar-perfil'} className="text-pink-600 hover:text-pink-700 font-medium">Criar conta gratuita</Link>
+          <Link to={tipo ? `/cadastro?tipo=${tipo}` : '/cadastro'} className="text-pink-600 hover:text-pink-700 font-medium">Criar conta gratuita</Link>
         </p>
       </div>
     </div>

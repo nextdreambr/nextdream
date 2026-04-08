@@ -1,10 +1,13 @@
 import { Link, useNavigate } from 'react-router';
 import { Plus, Star, Search, SlidersHorizontal, X, Edit, CheckCircle } from 'lucide-react';
-import { useState } from 'react';
-import { mockDreams, DreamStatus, dreamCategories } from '../../data/mockData';
+import { useEffect, useState } from 'react';
 import { DreamStatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
+import { DREAM_CATEGORIES } from '../../data/dreamCategories';
+import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
+
+type DreamStatus = PublicDream['status'];
 
 const statusOptions: { value: DreamStatus; label: string }[] = [
   { value: 'publicado', label: 'Publicado' },
@@ -27,6 +30,8 @@ const categoryTheme: Record<string, { img: string; accent: string; tagColor: str
 
 export default function MyDreams() {
   const navigate = useNavigate();
+  const [myDreams, setMyDreams] = useState<PublicDream[]>([]);
+  const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -35,7 +40,22 @@ export default function MyDreams() {
     format: '',
   });
 
-  const myDreams = mockDreams.filter(d => d.patientId === 'p1');
+  useEffect(() => {
+    let mounted = true;
+    async function loadDreams() {
+      try {
+        const dreams = await dreamsApi.listMine();
+        if (mounted) setMyDreams(dreams);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar seus sonhos.');
+      }
+    }
+    void loadDreams();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filtered = myDreams.filter(d => {
     if (query && !d.title.toLowerCase().includes(query.toLowerCase()) && !d.description.toLowerCase().includes(query.toLowerCase())) return false;
@@ -117,7 +137,7 @@ export default function MyDreams() {
           <div>
             <p className="text-xs text-gray-500 mb-2">Categoria</p>
             <div className="flex flex-wrap gap-2">
-              {dreamCategories.slice(0, 8).map(cat => (
+              {DREAM_CATEGORIES.slice(0, 8).map(cat => (
                 <button
                   key={cat}
                   onClick={() => setFilters(f => ({ ...f, category: f.category === cat ? '' : cat }))}
@@ -210,14 +230,12 @@ export default function MyDreams() {
                         {dream.category}
                       </span>
                     </div>
-                    {dream.proposalsCount > 0 && (
-                      <div className="absolute top-4 right-4">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-green-500 text-white shadow-sm">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          {dream.proposalsCount} {dream.proposalsCount === 1 ? 'proposta' : 'propostas'}
-                        </span>
-                      </div>
-                    )}
+                    <div className="absolute top-4 right-4">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/90 text-gray-700 shadow-sm">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        {dream.status}
+                      </span>
+                    </div>
                   </div>
                   <div className="p-6 flex flex-col flex-1">
                     <div className="mb-3">
@@ -251,6 +269,11 @@ export default function MyDreams() {
               </div>
             );
           })}
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
         </div>
       )}
     </div>

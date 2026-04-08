@@ -80,12 +80,11 @@ import { ... } from 'react-router-dom';
 │   │   └── AppContext.tsx              ← estado global, RBAC, usuário, notificações
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── RootLayout.tsx          ← wrapper raiz (AppProvider + DemoBar)
+│   │   │   ├── RootLayout.tsx          ← wrapper raiz (AppProvider)
 │   │   │   ├── PublicLayout.tsx        ← header + footer público
 │   │   │   ├── PatientLayout.tsx       ← sidebar/nav do paciente
 │   │   │   ├── SupporterLayout.tsx     ← sidebar/nav do apoiador
 │   │   │   ├── AdminLayout.tsx         ← sidebar escura do admin
-│   │   │   └── DemoBar.tsx             ← barra fixa de troca de role (demo)
 │   │   ├── shared/
 │   │   │   ├── DreamCard.tsx           ← card reutilizável de sonho
 │   │   │   ├── EmptyState.tsx          ← estado vazio genérico
@@ -95,7 +94,7 @@ import { ... } from 'react-router-dom';
 │   │   │   └── ImageWithFallback.tsx   ← substituto do <img> (NÃO modificar)
 │   │   └── ui/                         ← shadcn/ui (NÃO modificar)
 │   ├── data/
-│   │   ├── mockData.ts                 ← dados fictícios (usuários, sonhos, propostas, chats)
+│   │   ├── mockData.ts                 ← legado de prototipação (evitar novos usos)
 │   │   └── publicDreams.ts             ← sonhos exibidos na landing e área pública
 │   └── pages/
 │       ├── Landing.tsx
@@ -163,7 +162,7 @@ import { createBrowserRouter } from 'react-router';
 
 export const router = createBrowserRouter([
   {
-    Component: RootLayout,          // provê AppContext + DemoBar para TODAS as rotas
+    Component: RootLayout,          // provê AppContext para TODAS as rotas
     children: [
       {
         path: '/',
@@ -233,11 +232,11 @@ import { useApp } from '../../context/AppContext';
 
 function MeuComponente() {
   const { currentRole, currentUser, notifications, unreadCount,
-          switchRole, login, logout, markNotificationRead } = useApp();
+          login, logout, markNotificationRead } = useApp();
 }
 \`\`\`
 
-### Usuários mockados disponíveis
+### Usuários de referência para teste local
 
 | Role      | Nome            | Email                    | ID  |
 |-----------|-----------------|--------------------------|-----|
@@ -245,12 +244,11 @@ function MeuComponente() {
 | apoiador  | Fernanda Lima   | fernanda@email.com       | s1  |
 | admin     | Admin NextDream  | admin@nextdream.com.br   | a1  |
 
-### DemoBar (troca de role em tempo real)
+### Sessão e RBAC atuais
 
 \`\`\`
-Barra fixa no bottom da tela com 4 botões: Público / Paciente / Apoiador / Admin
-Chama switchRole(role) + navigate(path) ao clicar
-NÃO remover — é o mecanismo de demonstração do protótipo
+Sessão baseada em accessToken/refreshToken persistidos no localStorage
+RBAC aplicado por role retornada pelo backend (paciente/apoiador/admin)
 \`\`\`
 
 ---
@@ -492,16 +490,10 @@ import svgPaths from '../imports/svg-HASH';       // SVG vetorial
 
 ---
 
-## 10. Dados Mockados
+## 10. Dados de Desenvolvimento
 
 \`\`\`ts
-// /src/app/data/mockData.ts  — contém:
-// - mockUsers[]          → usuários pacientes e apoiadores
-// - mockDreams[]         → sonhos com status variados
-// - mockProposals[]      → propostas vinculadas a sonhos
-// - mockChats[]          → conversas com mensagens
-// - mockReports[]        → denúncias para o admin
-// - mockAdminStats       → métricas do dashboard admin
+// /src/app/data/mockData.ts  — legado de prototipação (evitar novos usos)
 
 // /src/app/data/publicDreams.ts — contém:
 // - publicDreams[]       → sonhos exibidos na landing e /sonhos/:id
@@ -606,7 +598,7 @@ import svgPaths from '../imports/svg-HASH';       // SVG vetorial
 - Portal completo do Paciente (dashboard, sonhos, propostas, chat, perfil, notificações, celebração)
 - Portal completo do Apoiador (dashboard, explorar, propostas, chat, perfil, notificações)
 - Portal completo do Admin (9 telas com padrão UX consistente)
-- RBAC com AppContext e DemoBar funcional
+- RBAC com AppContext e sessão JWT funcional
 - Central de denúncias com navegação bidirecional (badges 🚩 + location.state.openId)
 - Design system completo (tokens, componentes, responsividade)
 

@@ -1,11 +1,89 @@
+# NextDream
 
-  # Nextdream-2026-final
+NextDream is a local-first monorepo with:
 
-  This is a code bundle for Nextdream-2026-final. The original project is available at https://www.figma.com/design/mesSQJJUcTZTCH5niMRUm6/Nextdream-2026-final.
+- Web app (`React + Vite`) in the repository root
+- API (`NestJS + TypeORM`) in `apps/api`
+- Local infrastructure via Docker Compose (`Postgres`, `Redis`, `MinIO`, `Mailpit`)
 
-  ## Running the code
+## Status
 
-  Run `npm i` to install the dependencies.
+The core flows are implemented and validated locally:
 
-  Run `npm run dev` to start the development server.
+- Authentication (`register/login`)
+- Dreams and proposals
+- Conversation/chat with polling
+- Admin operational module (overview, moderation, audit trail)
+
+## Requirements
+
+- Node.js 22+
+- npm 10+
+- Docker + Docker Compose
+
+## Quick Start
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Initialize local environment file:
+
+```bash
+npm run setup
+```
+
+3. Start local infrastructure:
+
+```bash
+docker compose up -d
+```
+
+4. Start API and web app (separate terminals):
+
+```bash
+npm run dev:api
+npm run dev:web
+```
+
+5. Open:
+
+- Web: `http://localhost:5173`
+- API health: `http://localhost:4000/health`
+
+## Environment
+
+`npm run setup` creates `.env.local` from `.env.example` if it does not exist.
+Review and adjust `.env.local` for your machine if needed.
+
+## Quality Gates
+
+Before opening a PR, run:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+```
+
+## Repository Conventions
+
+- `docs/decisions/` contains Architecture Decision Records (ADRs)
+- Prefer small, verifiable changes (vertical slices)
+- Never commit secrets
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Security
+
+See [SECURITY.md](./SECURITY.md).
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
   

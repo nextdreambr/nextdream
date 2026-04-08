@@ -1,4 +1,5 @@
-import { DreamStatus, ProposalStatus } from '../../data/mockData';
+type DreamStatus = 'rascunho' | 'publicado' | 'em-conversa' | 'realizando' | 'concluido' | 'pausado' | 'cancelado';
+type ProposalStatus = 'enviada' | 'em-analise' | 'aceita' | 'recusada' | 'expirada';
 
 const dreamStatusConfig: Record<DreamStatus, { label: string; classes: string }> = {
   rascunho: { label: 'Rascunho', classes: 'bg-gray-100 text-gray-600 border-gray-200' },

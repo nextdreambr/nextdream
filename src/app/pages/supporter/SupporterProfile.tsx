@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapPin, Shield, Bell, Lock, ChevronRight, Edit2, Heart, Send, CheckCircle, Star, Award, Clock, Globe, AlertTriangle, X, Save, Loader2, Camera, Trash2, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router';
-import { mockProposals } from '../../data/mockData';
+import { ApiError, Proposal, proposalsApi } from '../../lib/api';
 
 const helpTypes = [
   { id: 'companhia', emoji: '🤝', label: 'Companhia' },
@@ -37,8 +37,26 @@ export default function SupporterProfile() {
     chat: true,
     email: false,
   });
+  const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [error, setError] = useState('');
 
-  const myProposals = mockProposals.filter(p => p.supporterId === 's1');
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const data = await proposalsApi.listMine();
+        if (mounted) setMyProposals(data);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar dados do perfil.');
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const accepted = myProposals.filter(p => p.status === 'aceita').length;
   const sent = myProposals.length;
 
@@ -367,6 +385,11 @@ export default function SupporterProfile() {
           <strong>Lembrete de conduta:</strong> O NextDream não permite pedidos de dinheiro, PIX ou qualquer compensação financeira. Seu papel é oferecer tempo, presença e carinho. Violações resultam em suspensão imediata.
         </p>
       </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* App version */}
       <p className="text-xs text-center text-gray-400 pb-2">NextDream v1.0 • Protótipo</p>

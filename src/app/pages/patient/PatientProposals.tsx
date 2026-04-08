@@ -1,25 +1,59 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Inbox, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
-import { mockProposals, mockDreams } from '../../data/mockData';
 import { ProposalStatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
+import { ApiError, Proposal, proposalsApi } from '../../lib/api';
 
 export default function PatientProposals() {
   const navigate = useNavigate();
-  const [accepted, setAccepted] = useState<string[]>(['pr2']);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [accepted, setAccepted] = useState<string[]>([]);
   const [refused, setRefused] = useState<string[]>([]);
+  const [error, setError] = useState('');
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
-  const myDreamIds = mockDreams.filter(d => d.patientId === 'p1').map(d => d.id);
-  const proposals = mockProposals.filter(p => myDreamIds.includes(p.dreamId));
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const data = await proposalsApi.listReceived();
+        if (mounted) {
+          setProposals(data);
+          setAccepted(data.filter((proposal) => proposal.status === 'aceita').map((proposal) => proposal.id));
+        }
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar as propostas recebidas.');
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  const getStatus = (p: typeof proposals[0]) => {
+  const getStatus = (p: Proposal) => {
     if (accepted.includes(p.id)) return 'aceita';
     if (refused.includes(p.id)) return 'recusada';
     return p.status;
   };
 
   const pending = proposals.filter(p => !accepted.includes(p.id) && !refused.includes(p.id) && p.status !== 'aceita' && p.status !== 'recusada');
+
+  const handleAccept = async (proposalId: string) => {
+    setAcceptingId(proposalId);
+    try {
+      const acceptedProposal = await proposalsApi.accept(proposalId);
+      setAccepted((current) => [...current, proposalId]);
+      setTimeout(() => navigate(`/paciente/chat?conversationId=${acceptedProposal.conversationId}`), 300);
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError('Não foi possível aceitar a proposta agora.');
+    } finally {
+      setAcceptingId(null);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
@@ -59,14 +93,14 @@ export default function PatientProposals() {
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center text-pink-700 font-semibold">
-                      {proposal.supporterName[0]}
+                      {(proposal.supporterName ?? 'A')[0]}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{proposal.supporterName}</p>
-                      <p className="text-xs text-pink-600">{proposal.dreamTitle}</p>
+                      <p className="text-sm font-medium text-gray-800">{proposal.supporterName ?? 'Apoiador'}</p>
+                      <p className="text-xs text-pink-600">{proposal.dreamTitle ?? 'Sonho'}</p>
                     </div>
                   </div>
-                  <ProposalStatusBadge status={status as any} />
+                  <ProposalStatusBadge status={status} />
                 </div>
 
                 <p className="text-sm text-gray-600 leading-relaxed mb-3">{proposal.message}</p>
@@ -87,10 +121,15 @@ export default function PatientProposals() {
                 {isPending && (
                   <div className="flex gap-3">
                     <button
-                      onClick={() => { setAccepted(a => [...a, proposal.id]); setTimeout(() => navigate('/paciente/chat'), 500); }}
+                      onClick={() => handleAccept(proposal.id)}
+                      disabled={acceptingId === proposal.id}
                       className="flex-1 flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
                     >
-                      <CheckCircle className="w-4 h-4" /> Aceitar
+                      {acceptingId === proposal.id ? (
+                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <><CheckCircle className="w-4 h-4" /> Aceitar</>
+                      )}
                     </button>
                     <button
                       onClick={() => setRefused(r => [...r, proposal.id])}
@@ -115,6 +154,11 @@ export default function PatientProposals() {
               </div>
             );
           })}
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
         </div>
       )}
     </div>

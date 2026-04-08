@@ -35,6 +35,15 @@ export class User {
   @Column({ type: 'boolean', default: true })
   verified!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  suspended!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  suspensionReason?: string;
+
+  @Column({ type: process.env.NODE_ENV === 'test' ? 'datetime' : 'timestamp', nullable: true })
+  suspendedAt?: Date;
+
   @CreateDateColumn()
   createdAt!: Date;
 

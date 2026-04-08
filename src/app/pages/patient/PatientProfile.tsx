@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapPin, Shield, Bell, Lock, ChevronRight, Edit2, Star, MessageCircle, Heart, AlertTriangle, CheckCircle, X, Save, Clock, Loader2, Camera, Trash2, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router';
-import { mockDreams, mockProposals } from '../../data/mockData';
+import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
 
 export default function PatientProfile() {
   const { currentUser, logout } = useApp();
@@ -24,10 +24,32 @@ export default function PatientProfile() {
     lembretes: true,
     email: false,
   });
+  const [myDreams, setMyDreams] = useState<PublicDream[]>([]);
+  const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [error, setError] = useState('');
 
-  const myDreams = mockDreams.filter(d => d.patientId === 'p1');
-  const myDreamIds = myDreams.map(d => d.id);
-  const myProposals = mockProposals.filter(p => myDreamIds.includes(p.dreamId));
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const [dreams, proposals] = await Promise.all([
+          dreamsApi.listMine(),
+          proposalsApi.listReceived(),
+        ]);
+        if (!mounted) return;
+        setMyDreams(dreams);
+        setMyProposals(proposals);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar dados do perfil.');
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const completedDreams = myDreams.filter(d => d.status === 'concluido').length;
 
   const handleStartEditing = () => {
@@ -201,9 +223,7 @@ export default function PatientProfile() {
                       dream.status === 'em-conversa' ? 'bg-amber-100 text-amber-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>{dream.status}</span>
-                    {dream.proposalsCount > 0 && (
-                      <span className="text-xs text-gray-400">{dream.proposalsCount} proposta{dream.proposalsCount > 1 ? 's' : ''}</span>
-                    )}
+                    <span className="text-xs text-gray-400">Atualizado em {new Date(dream.updatedAt).toLocaleDateString('pt-BR')}</span>
                   </div>
                 </div>
                 {dream.status === 'em-conversa' && (
@@ -318,6 +338,11 @@ export default function PatientProfile() {
           <strong>Sua segurança é prioridade:</strong> O NextDream nunca exige dinheiro. Se alguém pedir PIX, transferência ou qualquer valor, denuncie imediatamente pelo chat. Sua privacidade está protegida.
         </p>
       </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <p className="text-xs text-center text-gray-400 pb-2">NextDream v1.0 • Protótipo</p>
 

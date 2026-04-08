@@ -55,3 +55,23 @@ npm run lint --workspace apps/api
 npm run typecheck --workspace apps/api
 npm run test --workspace apps/api
 ```
+
+## Pull Request Checklist
+
+- Keep the PR scoped to one problem/feature
+- Include tests for behavior changes
+- Update docs when behavior or contracts change
+- Confirm no secrets are included
+
+## Branch Policy
+
+- `main` (or `master`) is protected and should be updated via Pull Request
+- External contributors should open PRs targeting `main`
+- Only the maintainer account (`@renanmpimentel`) should have direct push/merge permissions on the default branch
+
+## Architecture Changes
+
+If you need to change architecture or major technical direction:
+
+- add or update an ADR in `docs/decisions/`
+- explain tradeoffs and migration impact

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Heart, Star, CheckCircle, ArrowRight } from 'lucide-react';
-import { mockDreams } from '../../data/mockData';
+import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
 
 const RATINGS = [1, 2, 3, 4, 5];
 
@@ -10,13 +10,33 @@ const emoticons = ['😢', '😕', '😐', '😊', '🤩'];
 export default function DreamCompletion() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const dream = mockDreams.find(d => d.id === id) || mockDreams[0];
+  const [dream, setDream] = useState<PublicDream | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const [step, setStep] = useState<'celebrate' | 'feedback' | 'done'>('celebrate');
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [anonymous, setAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      if (!id) return;
+      try {
+        const dreams = await dreamsApi.listMine();
+        if (!mounted) return;
+        setDream(dreams.find((item) => item.id === id) ?? null);
+      } catch (err) {
+        if (err instanceof ApiError) setLoadError(err.message);
+        else setLoadError('Não foi possível carregar o sonho concluído.');
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
 
   const handleSubmitFeedback = () => {
     setSubmitting(true);
@@ -45,7 +65,7 @@ export default function DreamCompletion() {
             Sonho realizado! 🎊
           </h1>
           <p className="text-white/80 text-lg mb-2" style={{ fontWeight: 600 }}>
-            "{dream.title}"
+            "{dream?.title ?? 'Seu sonho'}"
           </p>
           <p className="text-pink-200 text-sm leading-relaxed mb-8">
             Que momento lindo! Você merecia cada segundo disso. O NextDream é feito de histórias como a sua.
@@ -99,7 +119,7 @@ export default function DreamCompletion() {
               </div>
               <div>
                 <p className="text-xs text-pink-600 font-medium mb-0.5">Sonho concluído</p>
-                <p className="text-sm font-semibold text-gray-800 leading-snug">{dream.title}</p>
+                <p className="text-sm font-semibold text-gray-800 leading-snug">{dream?.title ?? 'Sonho'}</p>
               </div>
             </div>
 
@@ -211,6 +231,11 @@ export default function DreamCompletion() {
             <p className="text-sm text-gray-600 italic leading-relaxed">"{comment}"</p>
           )}
         </div>
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 mb-4">
+            {loadError}
+          </div>
+        )}
         <div className="flex flex-col gap-3">
           <button
             onClick={() => navigate('/paciente/sonhos/criar')}

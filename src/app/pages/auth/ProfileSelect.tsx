@@ -1,7 +1,6 @@
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Star, Heart, ArrowRight, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
-import { useApp } from '../../context/AppContext';
 
 export default function ProfileSelect() {
   const [searchParams] = useSearchParams();
@@ -10,11 +9,9 @@ export default function ProfileSelect() {
     initialType === 'paciente' ? 'paciente' : initialType === 'apoiador' ? 'apoiador' : null
   );
   const navigate = useNavigate();
-  const { login } = useApp();
 
   const handleContinue = () => {
     if (!selected) return;
-    login(selected);
     navigate(selected === 'paciente' ? '/onboarding/paciente' : '/onboarding/apoiador');
   };
 

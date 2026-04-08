@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { AuthSession, setAccessTokenGetter } from '../lib/api';
 
 export type AppRole = 'public' | 'paciente' | 'apoiador' | 'admin';
 
@@ -23,62 +24,94 @@ interface Notification {
 
 interface AppContextType {
   currentRole: AppRole;
+  accessToken: string | null;
+  refreshToken: string | null;
   currentUser: AppUser | null;
+  isAuthenticated: boolean;
   notifications: Notification[];
   unreadCount: number;
-  switchRole: (role: AppRole) => void;
-  login: (role: AppRole) => void;
+  login: (session: AuthSession) => void;
   logout: () => void;
   markNotificationRead: (id: string) => void;
 }
 
-const mockPatient: AppUser = {
-  id: 'p1', name: 'Ana Souza', email: 'ana@email.com',
-  role: 'paciente', city: 'Santos, SP', verified: true,
-};
-const mockSupporter: AppUser = {
-  id: 's1', name: 'Fernanda Lima', email: 'fernanda@email.com',
-  role: 'apoiador', city: 'Santos, SP', verified: true,
-};
-const mockAdmin: AppUser = {
-  id: 'a1', name: 'Admin NextDream', email: 'admin@nextdream.com.br',
-  role: 'admin', verified: true,
-};
-
-const mockNotifications: Notification[] = [
-  { id: 'n1', type: 'proposta', title: 'Nova proposta recebida!',  message: 'Fernanda Lima enviou uma proposta para "Ver o nascer do sol na praia"', read: false, createdAt: '2026-02-20 14:30' },
-  { id: 'n2', type: 'mensagem', title: 'Nova mensagem',            message: 'Pedro Rocha enviou uma mensagem sobre seu sonho',                       read: false, createdAt: '2026-02-20 10:15' },
-  { id: 'n3', type: 'aceito',   title: 'Proposta aceita! 🎉',     message: 'Ana Souza aceitou sua proposta para "Ver o nascer do sol na praia"',    read: true,  createdAt: '2026-02-18 09:00' },
-];
+const STORAGE_KEY = 'nextdream.auth.session';
 
 const AppContext = createContext<AppContextType | null>(null);
 
+function loadStoredSession(): AuthSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthSession;
+    if (!parsed.accessToken || !parsed.refreshToken || !parsed.user) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function toAppUser(session: AuthSession | null): AppUser | null {
+  if (!session) return null;
+  return {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    role: session.user.role,
+    city: session.user.city,
+    verified: session.user.verified,
+  };
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentRole, setCurrentRole] = useState<AppRole>('public');
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const currentUser = toAppUser(session);
+  const currentRole: AppRole = currentUser?.role ?? 'public';
+  const accessToken = session?.accessToken ?? null;
+  const refreshToken = session?.refreshToken ?? null;
+  const isAuthenticated = Boolean(session?.accessToken && session?.user);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const switchRole = useCallback((role: AppRole) => {
-    setCurrentRole(role);
-    if (role === 'paciente')      setCurrentUser(mockPatient);
-    else if (role === 'apoiador') setCurrentUser(mockSupporter);
-    else if (role === 'admin')    setCurrentUser(mockAdmin);
-    else                          setCurrentUser(null);
+  const login = useCallback((authSession: AuthSession) => {
+    setSession(authSession);
   }, []);
 
-  const login  = useCallback((role: AppRole) => { switchRole(role); }, [switchRole]);
-  const logout = useCallback(() => { setCurrentRole('public'); setCurrentUser(null); }, []);
+  const logout = useCallback(() => {
+    setSession(null);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, []);
 
+  useEffect(() => {
+    if (!session) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  }, [session]);
+
+  useEffect(() => {
+    setAccessTokenGetter(() => accessToken);
+  }, [accessToken]);
+
   return (
     <AppContext.Provider value={{
-      currentRole, currentUser, notifications, unreadCount,
-      switchRole, login, logout, markNotificationRead,
+      currentRole,
+      accessToken,
+      refreshToken,
+      currentUser,
+      isAuthenticated,
+      notifications,
+      unreadCount,
+      login,
+      logout,
+      markNotificationRead,
     }}>
       {children}
     </AppContext.Provider>

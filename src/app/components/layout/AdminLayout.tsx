@@ -1,8 +1,7 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { Outlet, Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { BarChart2, Users, Star, Send, MessageCircle, AlertTriangle, Settings, FileText, Menu, X, Shield, LogOut, ChevronRight, Mail } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { DemoBar } from './DemoBar';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 const navItems = [
@@ -23,6 +22,13 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const { currentUser, logout } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  if (!currentUser) {
+    return <Navigate to="/login?tipo=admin" replace state={{ from: location.pathname }} />;
+  }
+  if (currentUser.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
 
   const handleLogout = () => {
     logout();
@@ -147,8 +153,6 @@ export function AdminLayout() {
           <Outlet />
         </main>
       </div>
-
-      <DemoBar />
     </div>
   );
 }

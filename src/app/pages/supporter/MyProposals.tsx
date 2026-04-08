@@ -1,12 +1,31 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Send, MessageCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { mockProposals } from '../../data/mockData';
 import { ProposalStatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
+import { ApiError, Proposal, proposalsApi } from '../../lib/api';
 
 export default function MyProposals() {
   const navigate = useNavigate();
-  const myProposals = mockProposals.filter(p => p.supporterId === 's1');
+  const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const proposals = await proposalsApi.listMine();
+        if (mounted) setMyProposals(proposals);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar suas propostas.');
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const statusIcon = {
     enviada: <Send className="w-4 h-4 text-blue-500" />,
@@ -60,11 +79,11 @@ export default function MyProposals() {
                 ${proposal.status === 'aceita' ? 'border-green-200' : proposal.status === 'recusada' ? 'border-gray-200 opacity-70' : 'border-gray-100'}`}>
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-xl shrink-0">
-                    {proposal.dreamTitle.includes('praia') ? '🌅' : proposal.dreamTitle.includes('histórias') ? '💬' : proposal.dreamTitle.includes('sarau') ? '📚' : '✨'}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{proposal.dreamTitle}</p>
+                <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-xl shrink-0">
+                  {proposal.dreamTitle?.includes('praia') ? '🌅' : proposal.dreamTitle?.includes('histórias') ? '💬' : proposal.dreamTitle?.includes('sarau') ? '📚' : '✨'}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{proposal.dreamTitle ?? 'Sonho'}</p>
                     <p className="text-xs text-gray-500 mt-0.5">Enviada em {new Date(proposal.createdAt).toLocaleDateString('pt-BR')}</p>
                   </div>
                 </div>
@@ -90,6 +109,11 @@ export default function MyProposals() {
               )}
             </div>
           ))}
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
         </div>
       )}
     </div>

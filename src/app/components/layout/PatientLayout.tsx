@@ -1,8 +1,7 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { Outlet, Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { Home, Star, Inbox, MessageCircle, User, Bell, Menu, X, ChevronRight, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { DemoBar } from './DemoBar';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 const navItems = [
@@ -28,6 +27,13 @@ export function PatientLayout() {
   const navigate = useNavigate();
   const { currentUser, notifications, unreadCount, logout } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  if (!currentUser) {
+    return <Navigate to="/login?tipo=paciente" replace state={{ from: location.pathname }} />;
+  }
+  if (currentUser.role !== 'paciente') {
+    return <Navigate to="/" replace />;
+  }
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
 
@@ -216,8 +222,6 @@ export function PatientLayout() {
           })}
         </div>
       </div>
-
-      <DemoBar />
     </div>
   );
 }

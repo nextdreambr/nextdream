@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, MapPin, Video, MapPinned, Clock, Send, AlertTriangle, Heart } from 'lucide-react';
-import { mockDreams } from '../../data/mockData';
 import { DreamStatusBadge, UrgencyBadge } from '../../components/shared/StatusBadge';
+import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
 
 const templates = [
   { label: '💻 Video', text: 'Posso te ajudar por videochamada! Tenho disponibilidade nos fins de semana e seria uma honra conhecer sua história.' },
@@ -13,6 +13,9 @@ const templates = [
 export default function SupporterDreamDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [dream, setDream] = useState<PublicDream | null>(null);
+  const [loadingDream, setLoadingDream] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [showProposal, setShowProposal] = useState(false);
   const [message, setMessage] = useState('');
   const [offering, setOffering] = useState('');
@@ -22,10 +25,48 @@ export default function SupporterDreamDetail() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [warning, setWarning] = useState('');
-
-  const dream = mockDreams.find(d => d.id === id) || mockDreams[0];
+  const [submitError, setSubmitError] = useState('');
 
   const BLOCKED = ['pix', 'r$', 'dinheiro', 'pagamento', 'doação'];
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadDream() {
+      if (!id) {
+        setLoadError('Sonho inválido.');
+        setLoadingDream(false);
+        return;
+      }
+
+      setLoadingDream(true);
+      setLoadError('');
+
+      try {
+        const dreams = await dreamsApi.listPublic();
+        const current = dreams.find((item) => item.id === id);
+        if (!current) {
+          setLoadError('Sonho não encontrado ou indisponível.');
+          return;
+        }
+        if (mounted) setDream(current);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setLoadError(err.message);
+        } else {
+          setLoadError('Não foi possível carregar o sonho agora.');
+        }
+      } finally {
+        if (mounted) setLoadingDream(false);
+      }
+    }
+
+    void loadDream();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
 
   const handleMsgChange = (val: string) => {
     if (BLOCKED.some(w => val.toLowerCase().includes(w))) {
@@ -36,11 +77,52 @@ export default function SupporterDreamDetail() {
     setMessage(val);
   };
 
-  const handleSend = () => {
-    if (!conductAccepted || warning || !message.trim()) return;
+  const handleSend = async () => {
+    if (!conductAccepted || warning || !message.trim() || !id) return;
+    setSubmitError('');
     setSending(true);
-    setTimeout(() => { setSent(true); setSending(false); }, 1000);
+    try {
+      await dreamsApi.createProposal(id, {
+        message: message.trim(),
+        offering: offering.trim(),
+        availability: availability.trim(),
+        duration: duration.trim(),
+      });
+      setSent(true);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setSubmitError(err.message);
+      } else {
+        setSubmitError('Não foi possível enviar a proposta agora.');
+      }
+    } finally {
+      setSending(false);
+    }
   };
+
+  if (loadingDream) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center text-gray-500">
+        Carregando sonho...
+      </div>
+    );
+  }
+
+  if (!dream) {
+    return (
+      <div className="max-w-2xl mx-auto py-16">
+        <div className="bg-white border border-red-200 rounded-2xl p-6">
+          <p className="text-red-700 text-sm">{loadError || 'Não encontramos este sonho.'}</p>
+          <button
+            onClick={() => navigate('/apoiador/explorar')}
+            className="mt-4 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-sm"
+          >
+            Voltar para explorar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (sent) {
     return (
@@ -56,12 +138,7 @@ export default function SupporterDreamDetail() {
           <div className="bg-teal-50 rounded-2xl p-5 text-left mb-6">
             <p className="text-sm font-medium text-teal-800 mb-3">O que acontece agora:</p>
             <div className="space-y-2">
-              {[
-                '✉️ O paciente receberá sua proposta',
-                '⏳ Aguarde a análise (costuma ser rápida)',
-                '✅ Se aceito, um chat privado será aberto',
-                '💬 Vocês combinam todos os detalhes no chat',
-              ].map((step, i) => (
+              {['✉️ O paciente receberá sua proposta', '⏳ Aguarde a análise (costuma ser rápida)', '✅ Se aceito, um chat privado será aberto', '💬 Vocês combinam todos os detalhes no chat'].map((step, i) => (
                 <p key={i} className="text-sm text-teal-700">{step}</p>
               ))}
             </div>
@@ -127,7 +204,7 @@ export default function SupporterDreamDetail() {
           )}
 
           <div className="flex flex-wrap gap-1.5">
-            {dream.tags.map(tag => (
+            {[dream.category, dream.format, dream.urgency].map((tag) => (
               <span key={tag} className="px-2.5 py-1 bg-pink-50 text-pink-600 rounded-full text-xs">#{tag}</span>
             ))}
           </div>
@@ -181,6 +258,12 @@ export default function SupporterDreamDetail() {
                 </div>
               )}
             </div>
+
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                {submitError}
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1.5">O que você oferece</label>

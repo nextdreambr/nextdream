@@ -1,5 +1,4 @@
 import { MapPin, Users, Video, MapPinned, ChevronRight } from 'lucide-react';
-import { Dream } from '../../data/mockData';
 import { DreamStatusBadge, UrgencyBadge } from './StatusBadge';
 
 const categoryEmoji: Record<string, string> = {
@@ -18,7 +17,18 @@ const categoryEmoji: Record<string, string> = {
 };
 
 interface DreamCardProps {
-  dream: Dream;
+  dream: {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    format: 'remoto' | 'presencial' | 'ambos';
+    urgency: 'baixa' | 'media' | 'alta';
+    status: 'rascunho' | 'publicado' | 'em-conversa' | 'realizando' | 'concluido' | 'pausado' | 'cancelado';
+    patientCity?: string;
+    tags?: string[];
+    proposalsCount?: number;
+  };
   onClick?: () => void;
   variant?: 'supporter' | 'patient';
   showStatus?: boolean;
@@ -48,7 +58,7 @@ export function DreamCard({ dream, onClick, showStatus = false }: DreamCardProps
       <p className="text-gray-500 text-sm line-clamp-2 mb-3 leading-relaxed">{dream.description}</p>
 
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {dream.tags.slice(0, 3).map(tag => (
+        {(dream.tags ?? []).slice(0, 3).map(tag => (
           <span key={tag} className="px-2 py-0.5 bg-pink-50 text-pink-600 rounded-full text-xs">
             #{tag}
           </span>
@@ -67,7 +77,7 @@ export function DreamCard({ dream, onClick, showStatus = false }: DreamCardProps
             {dream.format === 'remoto' ? <Video className="w-3 h-3" /> : dream.format === 'presencial' ? <MapPinned className="w-3 h-3" /> : <Users className="w-3 h-3" />}
             {dream.format === 'remoto' ? 'Online' : dream.format === 'presencial' ? 'Presencial' : 'Ambos'}
           </span>
-          {dream.proposalsCount > 0 && (
+          {(dream.proposalsCount ?? 0) > 0 && (
             <span className="flex items-center gap-1">
               <Users className="w-3 h-3" />
               {dream.proposalsCount} {dream.proposalsCount === 1 ? 'proposta' : 'propostas'}

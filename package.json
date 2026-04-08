@@ -1,12 +1,13 @@
 {
-  "name": "@figma/my-make-file",
-  "private": true,
+  "name": "nextdream",
+  "private": false,
   "version": "0.0.1",
   "type": "module",
   "workspaces": [
     "apps/api"
   ],
   "scripts": {
+    "setup": "node scripts/setup.mjs",
     "dev": "vite",
     "dev:web": "vite",
     "dev:api": "npm run start:dev --workspace apps/api",

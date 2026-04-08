@@ -1,13 +1,40 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Star, Inbox, MessageCircle, Plus, ChevronRight, CheckCircle, Clock, Users } from 'lucide-react';
-import { mockDreams, mockProposals } from '../../data/mockData';
 import { DreamStatusBadge } from '../../components/shared/StatusBadge';
 import { useApp } from '../../context/AppContext';
+import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
 
 export default function PatientDashboard() {
   const { currentUser } = useApp();
-  const myDreams = mockDreams.filter(d => d.patientId === 'p1').slice(0, 3);
-  const newProposals = mockProposals.filter(p => p.status === 'em-analise' || p.status === 'enviada').length;
+  const [myDreams, setMyDreams] = useState<PublicDream[]>([]);
+  const [receivedProposals, setReceivedProposals] = useState<Proposal[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const [dreams, proposals] = await Promise.all([
+          dreamsApi.listMine(),
+          proposalsApi.listReceived(),
+        ]);
+        if (!mounted) return;
+        setMyDreams(dreams);
+        setReceivedProposals(proposals);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Não foi possível carregar o dashboard.');
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const visibleDreams = myDreams.slice(0, 3);
+  const newProposals = receivedProposals.filter((p) => p.status === 'em-analise' || p.status === 'enviada').length;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -32,7 +59,7 @@ export default function PatientDashboard() {
         {[
           {
             label: 'Meus sonhos',
-            value: myDreams.length,
+            value: visibleDreams.length,
             icon: Star,
             color: 'bg-pink-100 text-pink-600',
             link: '/paciente/sonhos',
@@ -88,7 +115,7 @@ export default function PatientDashboard() {
           </div>
         ) : (
           <div className="divide-y divide-pink-50">
-            {myDreams.map(dream => (
+            {visibleDreams.map(dream => (
               <Link key={dream.id} to={`/paciente/sonhos/${dream.id}`}
                 className="flex items-center gap-4 px-5 py-4 hover:bg-pink-50/50 transition-colors group">
                 <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-xl shrink-0">
@@ -98,9 +125,7 @@ export default function PatientDashboard() {
                   <p className="text-sm text-gray-800 group-hover:text-pink-700 transition-colors truncate">{dream.title}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <DreamStatusBadge status={dream.status} />
-                    {dream.proposalsCount > 0 && (
-                      <span className="text-xs text-amber-600 font-medium">{dream.proposalsCount} {dream.proposalsCount === 1 ? 'proposta' : 'propostas'}</span>
-                    )}
+                    <span className="text-xs text-amber-600 font-medium">Sonho ativo</span>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-pink-500 transition-colors" />
@@ -132,9 +157,9 @@ export default function PatientDashboard() {
       <div className="bg-white rounded-2xl border border-pink-100 p-5">
         <h3 className="text-gray-700 text-sm mb-4">Seu progresso para a realização</h3>
         <div className="space-y-3">
-          {[
-            { done: true, icon: CheckCircle, label: 'Conta criada', sub: 'Você está na plataforma ✓' },
-            { done: myDreams.length > 0, icon: Star, label: 'Publicar um sonho', sub: myDreams.length > 0 ? `${myDreams.length} sonho${myDreams.length > 1 ? 's' : ''} publicado${myDreams.length > 1 ? 's' : ''}` : 'Conte o que você deseja', link: '/paciente/sonhos/criar' },
+            {[
+              { done: true, icon: CheckCircle, label: 'Conta criada', sub: 'Você está na plataforma ✓' },
+            { done: visibleDreams.length > 0, icon: Star, label: 'Publicar um sonho', sub: visibleDreams.length > 0 ? `${visibleDreams.length} sonho${visibleDreams.length > 1 ? 's' : ''} publicado${visibleDreams.length > 1 ? 's' : ''}` : 'Conte o que você deseja', link: '/paciente/sonhos/criar' },
             { done: newProposals > 0, icon: Users, label: 'Receber uma proposta', sub: newProposals > 0 ? 'Apoiadores encontraram você!' : 'Aguardando propostas...' },
             { done: false, icon: MessageCircle, label: 'Aceitar e conversar', sub: 'Chat seguro se abrirá' },
           ].map((item, i) => (
@@ -153,6 +178,11 @@ export default function PatientDashboard() {
           ))}
         </div>
       </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

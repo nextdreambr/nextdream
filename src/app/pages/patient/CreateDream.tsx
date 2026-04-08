@@ -4,10 +4,11 @@ import {
   ArrowLeft, ArrowRight, CheckCircle, AlertTriangle,
   Lock, Star, Globe, Shield, Image as ImageIcon, X, Pencil, MapPin, ChevronDown,
 } from 'lucide-react';
-import { dreamCategories } from '../../data/mockData';
+import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ImagePickerModal, type StockImage } from '../../components/shared/ImagePickerModal';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { BRAZIL_STATES } from '../../data/brazilCities';
+import { ApiError, dreamsApi } from '../../lib/api';
 
 const steps = ['Conte seu sonho', 'Preferências', 'Privacidade', 'Revisar e publicar'];
 
@@ -38,6 +39,7 @@ export default function CreateDream() {
   });
   const [warning, setWarning] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState('');
   const [showImagePicker, setShowImagePicker] = useState(false);
   const navigate = useNavigate();
 
@@ -58,9 +60,28 @@ export default function CreateDream() {
     return true;
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
+    setPublishError('');
     setPublishing(true);
-    setTimeout(() => navigate('/paciente/sonhos'), 1200);
+    try {
+      await dreamsApi.create({
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        format: form.format as 'remoto' | 'presencial' | 'ambos',
+        urgency: form.urgency as 'baixa' | 'media' | 'alta',
+        privacy: form.privacy as 'publico' | 'verificados' | 'anonimo',
+      });
+      navigate('/paciente/sonhos');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPublishError(err.message);
+      } else {
+        setPublishError('Não foi possível publicar o sonho agora. Tente novamente.');
+      }
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const selectedState = BRAZIL_STATES.find(s => s.uf === form.state);
@@ -190,7 +211,7 @@ export default function CreateDream() {
             <div>
               <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Categoria</label>
               <div className="flex flex-wrap gap-2">
-                {dreamCategories.map(cat => (
+                {DREAM_CATEGORIES.map(cat => (
                   <button type="button" key={cat}
                     onClick={() => setForm(f => ({ ...f, category: cat }))}
                     className={`px-3 py-1.5 rounded-xl text-xs border transition-all
@@ -531,6 +552,12 @@ export default function CreateDream() {
           </div>
         )}
       </div>
+
+      {publishError && (
+        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          {publishError}
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex gap-3 mt-6">
