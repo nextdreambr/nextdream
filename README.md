@@ -57,6 +57,7 @@ npm run dev:web
 
 `npm run setup` creates `.env.local` from `.env.example` if it does not exist.
 Review and adjust `.env.local` for your machine if needed.
+For production deployment, use `.env.production.example` as a template and keep real values in secrets/environment managers.
 
 ## Quality Gates
 
