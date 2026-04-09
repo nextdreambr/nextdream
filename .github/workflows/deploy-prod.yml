@@ -11,7 +11,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: [self-hosted, Linux, oci-prod]
     environment: production
-    timeout-minutes: 45
+    timeout-minutes: 25
     concurrency:
       group: deploy-production
       cancel-in-progress: true
@@ -35,8 +35,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "Syncing workspace into $APP_DIR ..."
           mkdir -p "$APP_DIR"
-          rsync -a --delete --exclude '.git' ./ "$APP_DIR"/
+          timeout 5m rsync -a --delete --exclude '.git' --exclude 'node_modules' ./ "$APP_DIR"/
 
           cat > "$APP_DIR/.env.production" <<EOV
           NODE_ENV=${NODE_ENV}
@@ -59,10 +60,13 @@ jobs:
             exit 1
           fi
 
-          "${COMPOSE[@]}" -f docker-compose.prod.yml up -d --build
+          echo "Building and starting containers ..."
+          timeout 20m "${COMPOSE[@]}" -f docker-compose.prod.yml up -d --build
+          echo "Compose services status:"
           "${COMPOSE[@]}" -f docker-compose.prod.yml ps
           sleep 5
 
+          echo "Waiting for API healthcheck ..."
           if ! curl --fail --silent --show-error --max-time 20 --retry 5 --retry-delay 3 http://127.0.0.1/api/health >/dev/null; then
             "${COMPOSE[@]}" -f docker-compose.prod.yml ps || true
             "${COMPOSE[@]}" -f docker-compose.prod.yml logs --tail 120 api || true
