@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 45
     concurrency:
       group: deploy-production
-      cancel-in-progress: false
+      cancel-in-progress: true
 
     steps:
       - name: Checkout
