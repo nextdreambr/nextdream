@@ -50,7 +50,21 @@ jobs:
           EOV
 
           cd "$APP_DIR"
-          docker compose -f docker-compose.prod.yml up -d --build
-          docker compose -f docker-compose.prod.yml ps
+          if docker compose version >/dev/null 2>&1; then
+            COMPOSE=(docker compose)
+          elif command -v docker-compose >/dev/null 2>&1; then
+            COMPOSE=(docker-compose)
+          else
+            echo "Docker Compose is not available on runner"
+            exit 1
+          fi
+
+          "${COMPOSE[@]}" -f docker-compose.prod.yml up -d --build
+          "${COMPOSE[@]}" -f docker-compose.prod.yml ps
           sleep 5
-          curl -fsS http://127.0.0.1/api/health >/dev/null
+
+          if ! curl --fail --silent --show-error --max-time 20 --retry 5 --retry-delay 3 http://127.0.0.1/api/health >/dev/null; then
+            "${COMPOSE[@]}" -f docker-compose.prod.yml ps || true
+            "${COMPOSE[@]}" -f docker-compose.prod.yml logs --tail 120 api || true
+            exit 1
+          fi
