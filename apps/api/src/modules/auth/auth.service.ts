@@ -12,18 +12,22 @@ import { User } from '../../entities/user.entity';
 import { getRequiredEnv } from '../../config/env';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
   private readonly usersRepository: Repository<User>;
   private readonly jwtService: JwtService;
+  private readonly mailService: MailService;
 
   constructor(
     @InjectRepository(User) usersRepository: Repository<User>,
     @Inject(JwtService) jwtService: JwtService,
+    @Inject(MailService) mailService: MailService,
   ) {
     this.usersRepository = usersRepository;
     this.jwtService = jwtService;
+    this.mailService = mailService;
   }
 
   async register(dto: RegisterDto) {
@@ -44,6 +48,11 @@ export class AuthService {
     });
 
     const saved = await this.usersRepository.save(user);
+    await this.mailService.sendWelcomeEmail({
+      to: saved.email,
+      name: saved.name,
+      role: saved.role,
+    });
     return this.buildAuthResponse(saved);
   }
 
@@ -87,6 +96,7 @@ export class AuthService {
         role: user.role,
         city: user.city,
         verified: user.verified,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
       },
     };
   }

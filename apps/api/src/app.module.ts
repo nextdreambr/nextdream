@@ -6,6 +6,7 @@ import { AdminContactMessage } from './entities/admin-contact-message.entity';
 import { AdminReport } from './entities/admin-report.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Message } from './entities/message.entity';
+import { Notification } from './entities/notification.entity';
 import { ValidationPipe } from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { Dream } from './entities/dream.entity';
@@ -18,6 +19,7 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { DreamsModule } from './modules/dreams/dreams.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
 import { HealthModule } from './modules/health/health.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -34,6 +36,7 @@ import { HealthModule } from './modules/health/health.module';
             Proposal,
             Conversation,
             Message,
+            Notification,
             AdminContactMessage,
             AdminReport,
             AuditLog,
@@ -61,6 +64,7 @@ import { HealthModule } from './modules/health/health.module';
     DreamsModule,
     ProposalsModule,
     ConversationsModule,
+    NotificationsModule,
     AdminModule,
   ],
   providers: [

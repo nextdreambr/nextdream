@@ -11,6 +11,7 @@
     "dev": "vite",
     "dev:web": "vite",
     "dev:api": "npm run start:dev --workspace apps/api",
+    "seed:local": "npm run seed:local --workspace apps/api",
     "build": "npm run build:web && npm run build:api",
     "build:web": "vite build",
     "build:api": "npm run build --workspace apps/api",

@@ -52,6 +52,25 @@ npm run dev:web
 
 - Web: `http://localhost:5173`
 - API health: `http://localhost:4000/health`
+- Local mail inbox (Mailpit): `http://localhost:8025`
+
+New registrations now trigger a welcome email through SMTP (`SMTP_*` vars in `.env.local`).
+
+## Local Seed (for flow validation)
+
+Populate deterministic local demo data (users, dreams, proposals, conversation, admin report/contact):
+
+```bash
+npm run seed:local
+```
+
+Default seeded credentials (`password: Seed123!`):
+
+- `paciente1@nextdream.local`
+- `paciente2@nextdream.local`
+- `apoiador1@nextdream.local`
+- `apoiador2@nextdream.local`
+- `admin@nextdream.local`
 
 ## Environment
 

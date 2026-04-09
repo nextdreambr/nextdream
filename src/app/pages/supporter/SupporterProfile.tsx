@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MapPin, Shield, Bell, Lock, ChevronRight, Edit2, Heart, Send, CheckCircle, Star, Award, Clock, Globe, AlertTriangle, X, Save, Loader2, Camera, Trash2, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router';
-import { ApiError, Proposal, proposalsApi } from '../../lib/api';
+import { ApiError, notificationsApi, Proposal, proposalsApi } from '../../lib/api';
 
 const helpTypes = [
   { id: 'companhia', emoji: '🤝', label: 'Companhia' },
@@ -29,7 +29,7 @@ export default function SupporterProfile() {
   const [editActiveHelp, setEditActiveHelp] = useState(['companhia', 'video', 'aprendizado']);
   const [name, setName] = useState(currentUser?.name || '');
   const [editName, setEditName] = useState(currentUser?.name || '');
-  const [bio, setBio] = useState('Adoro ajudar pessoas e tenho experiência em acessibilidade. Moro em Santos e posso me deslocar pela Baixada Santista. Falo inglês e espanhol também.');
+  const [bio, setBio] = useState('');
   const [editBio, setEditBio] = useState(bio);
   const [notifications, setNotifications] = useState({
     novasProp: true,
@@ -44,8 +44,14 @@ export default function SupporterProfile() {
     let mounted = true;
     async function load() {
       try {
-        const data = await proposalsApi.listMine();
-        if (mounted) setMyProposals(data);
+        const [data, preferences] = await Promise.all([
+          proposalsApi.listMine(),
+          notificationsApi.getPreferences(),
+        ]);
+        if (mounted) {
+          setMyProposals(data);
+          setNotifications((prev) => ({ ...prev, email: preferences.emailEnabled }));
+        }
       } catch (err) {
         if (err instanceof ApiError) setError(err.message);
         else setError('Não foi possível carregar dados do perfil.');
@@ -335,7 +341,15 @@ export default function SupporterProfile() {
                     <p className="text-xs text-gray-400">{item.desc}</p>
                   </div>
                   <button
-                    onClick={() => setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                    onClick={() => {
+                      const nextValue = !notifications[item.key];
+                      setNotifications(prev => ({ ...prev, [item.key]: nextValue }));
+                      if (item.key === 'email') {
+                        void notificationsApi.updatePreferences({ emailEnabled: nextValue }).catch(() => {
+                          setNotifications(prev => ({ ...prev, email: !nextValue }));
+                        });
+                      }
+                    }}
                     className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${notifications[item.key] ? 'bg-teal-500' : 'bg-gray-300'}`}
                   >
                     <div className={`w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-transform ${notifications[item.key] ? 'translate-x-5' : 'translate-x-0.5'}`} />

@@ -38,6 +38,9 @@ export class User {
   @Column({ type: 'boolean', default: false })
   suspended!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  emailNotificationsEnabled!: boolean;
+
   @Column({ type: 'text', nullable: true })
   suspensionReason?: string;
 
