@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+dist
+apps/api/dist
+coverage
+apps/api/coverage
+.worktrees
+worktrees
+.env
+.env.local
+.env.production
+*.log

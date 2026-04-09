@@ -1,0 +1,51 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: ["main"]
+    types: ["completed"]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          port: ${{ secrets.OCI_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            APP_DIR=${APP_DIR:-/opt/nextdream}
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone https://github.com/nextdreambr/nextdream.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch --all --prune
+            git checkout main
+            git reset --hard origin/main
+
+            cat > .env.production <<EOV
+            NODE_ENV=${{ vars.NODE_ENV }}
+            API_PORT=${{ vars.API_PORT }}
+            APP_URL=${{ vars.APP_URL }}
+            CORS_ORIGIN=${{ vars.CORS_ORIGIN }}
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+            DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+            JWT_ACCESS_SECRET=${{ secrets.PROD_JWT_ACCESS_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.PROD_JWT_REFRESH_SECRET }}
+            EOV
+
+            docker compose -f docker-compose.prod.yml pull || true
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml ps
+            sleep 5
+            curl -fsS http://127.0.0.1/api/health >/dev/null

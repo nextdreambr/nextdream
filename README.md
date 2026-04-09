@@ -57,6 +57,35 @@ npm run dev:web
 
 `npm run setup` creates `.env.local` from `.env.example` if it does not exist.
 Review and adjust `.env.local` for your machine if needed.
+For production deployment, use `.env.production.example` as a template and keep real values in secrets/environment managers.
+
+## Production Deployment
+
+- Build/runtime assets:
+  - `Dockerfile.web`
+  - `Dockerfile.api`
+  - `docker-compose.prod.yml`
+- CI/CD:
+  - `.github/workflows/deploy-prod.yml` (deploys after successful `CI` on `main`)
+- Cloudflare runbook:
+  - `docs/cloudflare-free-setup.md`
+
+Required GitHub Environment `production` values:
+
+- Secrets:
+  - `PROD_DATABASE_URL`
+  - `PROD_JWT_ACCESS_SECRET`
+  - `PROD_JWT_REFRESH_SECRET`
+  - `OCI_HOST`
+  - `OCI_USER`
+  - `OCI_SSH_KEY`
+  - `OCI_PORT`
+- Variables:
+  - `NODE_ENV`
+  - `API_PORT`
+  - `APP_URL`
+  - `CORS_ORIGIN`
+  - `VITE_API_URL`
 
 ## Quality Gates
 
