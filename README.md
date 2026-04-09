@@ -67,10 +67,6 @@ For production deployment, use `.env.production.example` as a template and keep 
   - `docker-compose.prod.yml`
 - CI/CD:
   - `.github/workflows/deploy-prod.yml` (deploys after successful `CI` on `main` via self-hosted runner)
-- Cloudflare runbook:
-  - `docs/cloudflare-free-setup.md`
-- OCI self-hosted runner setup:
-  - `docs/oci-self-hosted-runner.md`
 
 Required GitHub Environment `production` values:
 
@@ -99,7 +95,6 @@ npm run build
 
 ## Repository Conventions
 
-- `docs/decisions/` contains Architecture Decision Records (ADRs)
 - Prefer small, verifiable changes (vertical slices)
 - Never commit secrets
 
