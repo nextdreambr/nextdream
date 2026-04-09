@@ -9,45 +9,48 @@ on:
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, oci-prod]
     environment: production
+    timeout-minutes: 45
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USER }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          port: ${{ secrets.OCI_PORT || 22 }}
-          timeout: 15m
-          command_timeout: 30m
-          script: |
-            set -euo pipefail
-            APP_DIR=${APP_DIR:-/opt/nextdream}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            if [ ! -d "$APP_DIR/.git" ]; then
-              git clone https://github.com/nextdreambr/nextdream.git "$APP_DIR"
-            fi
+      - name: Deploy on OCI self-hosted runner
+        shell: bash
+        env:
+          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          NODE_ENV: ${{ vars.NODE_ENV }}
+          API_PORT: ${{ vars.API_PORT }}
+          APP_URL: ${{ vars.APP_URL }}
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
+        run: |
+          set -euo pipefail
 
-            cd "$APP_DIR"
-            git fetch --all --prune
-            git checkout main
-            git reset --hard origin/main
+          mkdir -p "$APP_DIR"
+          rsync -a --delete --exclude '.git' ./ "$APP_DIR"/
 
-            cat > .env.production <<EOV
-            NODE_ENV=${{ vars.NODE_ENV }}
-            API_PORT=${{ vars.API_PORT }}
-            APP_URL=${{ vars.APP_URL }}
-            CORS_ORIGIN=${{ vars.CORS_ORIGIN }}
-            VITE_API_URL=${{ vars.VITE_API_URL }}
-            DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
-            JWT_ACCESS_SECRET=${{ secrets.PROD_JWT_ACCESS_SECRET }}
-            JWT_REFRESH_SECRET=${{ secrets.PROD_JWT_REFRESH_SECRET }}
-            EOV
+          cat > "$APP_DIR/.env.production" <<EOV
+          NODE_ENV=${NODE_ENV}
+          API_PORT=${API_PORT}
+          APP_URL=${APP_URL}
+          CORS_ORIGIN=${CORS_ORIGIN}
+          VITE_API_URL=${VITE_API_URL}
+          DATABASE_URL=${DATABASE_URL}
+          JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+          JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+          EOV
 
-            docker compose -f docker-compose.prod.yml pull || true
-            docker compose -f docker-compose.prod.yml up -d --build
-            docker compose -f docker-compose.prod.yml ps
-            sleep 5
-            curl -fsS http://127.0.0.1/api/health >/dev/null
+          cd "$APP_DIR"
+          docker compose -f docker-compose.prod.yml up -d --build
+          docker compose -f docker-compose.prod.yml ps
+          sleep 5
+          curl -fsS http://127.0.0.1/api/health >/dev/null

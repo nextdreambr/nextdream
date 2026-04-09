@@ -66,9 +66,11 @@ For production deployment, use `.env.production.example` as a template and keep 
   - `Dockerfile.api`
   - `docker-compose.prod.yml`
 - CI/CD:
-  - `.github/workflows/deploy-prod.yml` (deploys after successful `CI` on `main`)
+  - `.github/workflows/deploy-prod.yml` (deploys after successful `CI` on `main` via self-hosted runner)
 - Cloudflare runbook:
   - `docs/cloudflare-free-setup.md`
+- OCI self-hosted runner setup:
+  - `docs/oci-self-hosted-runner.md`
 
 Required GitHub Environment `production` values:
 
@@ -76,16 +78,13 @@ Required GitHub Environment `production` values:
   - `PROD_DATABASE_URL`
   - `PROD_JWT_ACCESS_SECRET`
   - `PROD_JWT_REFRESH_SECRET`
-  - `OCI_HOST`
-  - `OCI_USER`
-  - `OCI_SSH_KEY`
-  - `OCI_PORT`
 - Variables:
   - `NODE_ENV`
   - `API_PORT`
   - `APP_URL`
   - `CORS_ORIGIN`
   - `VITE_API_URL`
+  - `APP_DIR` (recommended: `/opt/nextdream`)
 
 ## Quality Gates
 
