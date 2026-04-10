@@ -123,6 +123,9 @@ jobs:
       IMAGE_REPO_BASE: ghcr.io/${{ needs.resolve-release.outputs.repo_lc }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Validate required deployment variables
         env:
           OCI_HOST: ${{ vars.OCI_HOST }}
