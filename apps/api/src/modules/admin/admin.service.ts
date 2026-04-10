@@ -194,8 +194,6 @@ export class AdminService {
   }
 
   async listMessages() {
-    await this.ensureContactSeedData();
-
     const messages = await this.contactMessagesRepository.find({ order: { createdAt: 'DESC' } });
     return messages.map((message) => ({
       id: message.id,
@@ -360,23 +358,6 @@ export class AdminService {
         recipient: 'Paciente',
       },
     ];
-  }
-
-  private async ensureContactSeedData() {
-    const count = await this.contactMessagesRepository.count();
-    if (count > 0) {
-      return;
-    }
-
-    const seed = this.contactMessagesRepository.create({
-      name: 'Visitante Site',
-      email: 'visitante@example.com',
-      subject: 'Dúvida sobre cadastro',
-      body: 'Quero entender como funciona o processo para apoiadores.',
-      status: 'novo',
-    });
-
-    await this.contactMessagesRepository.save(seed);
   }
 
   private async logAction(

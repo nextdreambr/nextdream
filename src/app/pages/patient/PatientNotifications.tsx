@@ -1,17 +1,7 @@
 import React from 'react';
 import { Bell, CheckCheck, Inbox, MessageCircle, Star, Shield, ChevronRight, Heart, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useState } from 'react';
-
-interface PatientNotif {
-  id: string;
-  type: 'proposta' | 'mensagem' | 'aceito' | 'concluido' | 'seguranca' | 'dica';
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
-  actionPath?: string;
-}
+import { useApp } from '../../context/AppContext';
 
 const typeIcon: Record<string, React.ReactNode> = {
   proposta: <Inbox className="w-4 h-4 text-pink-500" />,
@@ -31,70 +21,6 @@ const typeBg: Record<string, string> = {
   dica: 'bg-pink-50',
 };
 
-const mockNotifications: PatientNotif[] = [
-  {
-    id: 'pn1',
-    type: 'proposta',
-    title: 'Nova proposta recebida! 💌',
-    message: 'Carlos Mendes enviou uma proposta para realizar seu sonho "Ver o nascer do sol na praia uma última vez". Clique para ver os detalhes.',
-    read: false,
-    createdAt: '2026-02-25 09:15',
-    actionPath: '/paciente/propostas',
-  },
-  {
-    id: 'pn2',
-    type: 'proposta',
-    title: 'Mais uma proposta chegou!',
-    message: 'Mariana Lima também quer ajudar com "Ver o nascer do sol na praia uma última vez". Você tem 2 propostas esperando sua avaliação.',
-    read: false,
-    createdAt: '2026-02-25 11:40',
-    actionPath: '/paciente/propostas',
-  },
-  {
-    id: 'pn3',
-    type: 'mensagem',
-    title: 'Nova mensagem no chat',
-    message: 'Carlos Mendes enviou uma mensagem: "Olá! Estou muito feliz em poder ajudar. Podemos combinar os detalhes?"',
-    read: false,
-    createdAt: '2026-02-24 15:00',
-    actionPath: '/paciente/chat',
-  },
-  {
-    id: 'pn4',
-    type: 'aceito',
-    title: 'Conexão realizada! 🎉',
-    message: 'Você aceitou a proposta de Carlos Mendes para "Ver o nascer do sol na praia". O chat foi liberado — combine todos os detalhes por lá!',
-    read: true,
-    createdAt: '2026-02-22 14:30',
-    actionPath: '/paciente/chat',
-  },
-  {
-    id: 'pn5',
-    type: 'dica',
-    title: 'Dica da comunidade',
-    message: 'Ao combinar um encontro presencial, compartilhe apenas o que for necessário. Prefira locais públicos para o primeiro encontro.',
-    read: true,
-    createdAt: '2026-02-20 09:00',
-  },
-  {
-    id: 'pn6',
-    type: 'concluido',
-    title: 'Sonho concluído! ⭐',
-    message: '"Ouvir histórias de quem viajou pelo mundo" foi marcado como concluído. Que experiência incrível! Não esqueça de compartilhar como foi.',
-    read: true,
-    createdAt: '2026-02-18 18:00',
-    actionPath: '/paciente/sonhos',
-  },
-  {
-    id: 'pn7',
-    type: 'seguranca',
-    title: 'Lembrete de segurança',
-    message: 'Nunca compartilhe seu endereço completo, CPF ou dados financeiros fora da plataforma. Em caso de problema, use o botão de denúncia no chat.',
-    read: true,
-    createdAt: '2026-02-15 09:00',
-  },
-];
-
 function timeAgo(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date('2026-02-25');
@@ -108,20 +34,13 @@ function timeAgo(dateStr: string): string {
 
 export default function PatientNotifications() {
   const navigate = useNavigate();
-  const [notifs, setNotifs] = useState<PatientNotif[]>(mockNotifications);
+  const { notifications, markNotificationRead, markAllNotificationsRead } = useApp();
+  const notifs = notifications;
 
   const unread = notifs.filter(n => !n.read).length;
 
-  const markAllRead = () => {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const markRead = (id: string) => {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
-  const handleClick = (notif: PatientNotif) => {
-    markRead(notif.id);
+  const handleClick = (notif: { id: string; actionPath?: string }) => {
+    markNotificationRead(notif.id);
     if (notif.actionPath) navigate(notif.actionPath);
   };
 
@@ -137,7 +56,7 @@ export default function PatientNotifications() {
         </div>
         {unread > 0 && (
           <button
-            onClick={markAllRead}
+            onClick={markAllNotificationsRead}
             className="flex items-center gap-1.5 text-pink-600 hover:text-pink-700 text-sm font-medium transition-colors"
           >
             <CheckCheck className="w-4 h-4" />
@@ -170,8 +89,8 @@ export default function PatientNotifications() {
                 ${!notif.read ? 'bg-pink-50/40' : ''}`}
             >
               {/* Icon */}
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${typeBg[notif.type]}`}>
-                {typeIcon[notif.type]}
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${typeBg[notif.type] ?? 'bg-gray-50'}`}>
+                {typeIcon[notif.type] ?? <Bell className="w-4 h-4 text-gray-400" />}
               </div>
 
               {/* Content */}

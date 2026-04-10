@@ -1,8 +1,6 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
+    image: ${API_IMAGE:?API_IMAGE is required}
     container_name: nextdream-api
     restart: unless-stopped
     env_file:
@@ -13,11 +11,7 @@ services:
       - "4000"
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
     container_name: nextdream-web
     restart: unless-stopped
     depends_on:

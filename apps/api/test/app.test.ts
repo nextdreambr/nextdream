@@ -208,10 +208,28 @@ describe('NextDream API', () => {
       });
     expect(createProposal.status).toBe(201);
 
+    const patientNotificationsAfterProposal = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+    expect(patientNotificationsAfterProposal.status).toBe(200);
+    expect(
+      patientNotificationsAfterProposal.body.some(
+        (item: { type: string }) => item.type === 'proposta',
+      ),
+    ).toBe(true);
+
     const acceptProposal = await request(app.getHttpServer())
       .post(`/proposals/${createProposal.body.id}/accept`)
       .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
     expect(acceptProposal.status).toBe(200);
+
+    const supporterNotificationsAfterAccept = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+    expect(supporterNotificationsAfterAccept.status).toBe(200);
+    expect(
+      supporterNotificationsAfterAccept.body.some((item: { type: string }) => item.type === 'aceito'),
+    ).toBe(true);
 
     const conversationId = acceptProposal.body.conversationId as string;
     expect(conversationId).toEqual(expect.any(String));
@@ -233,6 +251,16 @@ describe('NextDream API', () => {
       .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
       .send({ body: 'Olá! Obrigado por topar ajudar.' });
     expect(postPatientMessage.status).toBe(201);
+
+    const supporterNotificationsAfterMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+    expect(supporterNotificationsAfterMessage.status).toBe(200);
+    expect(
+      supporterNotificationsAfterMessage.body.some(
+        (item: { type: string }) => item.type === 'mensagem',
+      ),
+    ).toBe(true);
 
     const postSupporterMessage = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)
@@ -315,6 +343,7 @@ describe('NextDream API', () => {
       .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
     expect(adminMessages.status).toBe(200);
     expect(Array.isArray(adminMessages.body)).toBe(true);
+    expect(adminMessages.body).toHaveLength(0);
 
     const adminReports = await request(app.getHttpServer())
       .get('/admin/reports')
@@ -340,5 +369,36 @@ describe('NextDream API', () => {
       .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
     expect(adminEmailTemplates.status).toBe(200);
     expect(adminEmailTemplates.body.length).toBeGreaterThan(0);
+
+    const notificationPreferences = await request(app.getHttpServer())
+      .get('/notifications/preferences')
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+    expect(notificationPreferences.status).toBe(200);
+    expect(notificationPreferences.body.emailEnabled).toBe(false);
+
+    const updateNotificationPreferences = await request(app.getHttpServer())
+      .post('/notifications/preferences')
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .send({ emailEnabled: true });
+    expect(updateNotificationPreferences.status).toBe(200);
+    expect(updateNotificationPreferences.body.emailEnabled).toBe(true);
+
+    const notificationsMine = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+    expect(notificationsMine.status).toBe(200);
+    expect(notificationsMine.body.length).toBeGreaterThan(0);
+
+    const markRead = await request(app.getHttpServer())
+      .post(`/notifications/${notificationsMine.body[0].id}/read`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+    expect(markRead.status).toBe(200);
+    expect(markRead.body.read).toBe(true);
+
+    const markAllRead = await request(app.getHttpServer())
+      .post('/notifications/read-all')
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+    expect(markAllRead.status).toBe(200);
+    expect(markAllRead.body.ok).toBe(true);
   });
 });

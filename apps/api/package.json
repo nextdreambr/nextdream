@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start:dev": "nest start --watch",
+    "seed:local": "npm run build && node dist/scripts/seed-local.js",
     "lint": "eslint \"{src,test}/**/*.ts\" --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
@@ -20,6 +21,7 @@
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "nodemailer": "^8.0.5",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.3",
@@ -32,6 +34,7 @@
     "@nestjs/testing": "^11.0.12",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.1",
+    "@types/nodemailer": "^8.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.3",
     "sql.js": "^1.13.0",

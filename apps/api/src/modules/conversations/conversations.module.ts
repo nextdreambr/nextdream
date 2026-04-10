@@ -6,11 +6,16 @@ import { Conversation } from '../../entities/conversation.entity';
 import { Message } from '../../entities/message.entity';
 import { User } from '../../entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Conversation, Message, User, AuditLog, AdminReport]), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Conversation, Message, User, AuditLog, AdminReport]),
+    AuthModule,
+    NotificationsModule,
+  ],
   controllers: [ConversationsController],
   providers: [ConversationsService],
   exports: [ConversationsService],

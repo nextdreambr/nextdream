@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { AuthSession, setAccessTokenGetter } from '../lib/api';
+import { AppNotification, AuthSession, notificationsApi, setAccessTokenGetter } from '../lib/api';
 
 export type AppRole = 'public' | 'paciente' | 'apoiador' | 'admin';
 
@@ -11,15 +11,7 @@ export interface AppUser {
   avatar?: string;
   city?: string;
   verified: boolean;
-}
-
-interface Notification {
-  id: string;
-  type: 'proposta' | 'mensagem' | 'aceito' | 'concluido' | 'seguranca';
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
+  emailNotificationsEnabled?: boolean;
 }
 
 interface AppContextType {
@@ -28,11 +20,13 @@ interface AppContextType {
   refreshToken: string | null;
   currentUser: AppUser | null;
   isAuthenticated: boolean;
-  notifications: Notification[];
+  notifications: AppNotification[];
   unreadCount: number;
   login: (session: AuthSession) => void;
   logout: () => void;
   markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  reloadNotifications: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'nextdream.auth.session';
@@ -60,12 +54,13 @@ function toAppUser(session: AuthSession | null): AppUser | null {
     role: session.user.role,
     city: session.user.city,
     verified: session.user.verified,
+    emailNotificationsEnabled: session.user.emailNotificationsEnabled,
   };
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   const currentUser = toAppUser(session);
   const currentRole: AppRole = currentUser?.role ?? 'public';
@@ -81,11 +76,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setSession(null);
+    setNotifications([]);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    void notificationsApi.markRead(id).catch(() => {
+      // keep optimistic state
+    });
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    void notificationsApi.markAllRead().catch(() => {
+      // keep optimistic state
+    });
   }, []);
 
   useEffect(() => {
@@ -100,6 +106,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAccessTokenGetter(() => accessToken);
   }, [accessToken]);
 
+  const reloadNotifications = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const data = await notificationsApi.listMine();
+      setNotifications(data);
+    } catch {
+      // keep previous state if request fails
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      return;
+    }
+
+    void reloadNotifications();
+    const interval = window.setInterval(() => {
+      void reloadNotifications();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [isAuthenticated, reloadNotifications]);
+
   return (
     <AppContext.Provider value={{
       currentRole,
@@ -112,6 +144,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       markNotificationRead,
+      markAllNotificationsRead,
+      reloadNotifications,
     }}>
       {children}
     </AppContext.Provider>

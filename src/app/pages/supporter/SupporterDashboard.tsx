@@ -153,7 +153,7 @@ export default function SupporterDashboard() {
           <div>
             <p className="text-sm font-medium text-gray-800 mb-1">Seu impacto importa</p>
             <p className="text-gray-500 text-sm leading-relaxed">
-              Apoiadores como você já realizaram <strong>98 conexões</strong> desde que o NextDream começou. Cada sonho realizado é uma vida transformada.
+              Cada conexão concluída fortalece uma rede de apoio baseada em tempo, presença e responsabilidade.
             </p>
           </div>
         </div>

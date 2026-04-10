@@ -1,13 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Heart, Star, ArrowRight, Shield, CheckCircle, MapPin, Clock, Sparkles, Users, HandHeart } from 'lucide-react';
+import { Heart, Star, ArrowRight, Shield, MapPin, Clock, Sparkles, Users, HandHeart } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-import { publicDreams as dreams } from '../data/publicDreams';
 import { motion } from 'motion/react';
+import { dreamsApi, PublicDream as ApiPublicDream } from '../lib/api';
 
 const heroImage = "https://images.unsplash.com/photo-1646148327698-614edde70c94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYXBweSUyMGNoaWxkJTIwaG9zcGl0YWwlMjB2b2x1bnRlZXIlMjBwbGF5aW5nfGVufDF8fHx8MTc3MjgxOTc1OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
-const testimonial1Img = "https://images.unsplash.com/photo-1620790647593-b3a6916c7d60?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGRlcmx5JTIwd29tYW4lMjBob3NwaXRhbCUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MjgwMzQwOHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
-const testimonial2Img = "https://images.unsplash.com/photo-1646369506164-f8f24d4d6d81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2x1bnRlZXIlMjBob3NwaXRhbCUyMHBvcnRyYWl0JTIwc21pbGluZ3xlbnwxfHx8fDE3NzI4MDM0MTN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
-const testimonial3Img = "https://images.unsplash.com/photo-1650874222869-9459cbe7ac64?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGlsZCUyMGhvc3BpdGFsJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzcyODAzNDIxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -24,6 +22,26 @@ const staggerContainer = {
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [dreams, setDreams] = useState<ApiPublicDream[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const items = await dreamsApi.listPublic();
+        if (!isMounted) return;
+        setDreams(items);
+      } catch {
+        if (!isMounted) return;
+        setDreams([]);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="overflow-x-hidden bg-white">
@@ -80,12 +98,7 @@ export default function Landing() {
 
             <motion.div variants={fadeIn} className="flex flex-col sm:flex-row items-center justify-center gap-8 text-gray-300 text-sm font-medium">
               <div className="flex items-center gap-3">
-                <div className="flex -space-x-3">
-                  {[testimonial1Img, testimonial2Img, testimonial3Img].map((img, i) => (
-                    <img key={i} src={img} alt="User" className="w-10 h-10 rounded-full border-2 border-gray-900 object-cover" />
-                  ))}
-                </div>
-                <span><strong className="text-white">+450</strong> conectados</span>
+                <span><strong className="text-white">Comunidade ativa</strong> em todo o Brasil</span>
               </div>
               <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-gray-500" />
               <div className="flex items-center gap-2">
@@ -154,7 +167,16 @@ export default function Landing() {
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
             className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
           >
-            {dreams.slice(0, 3).map((dream) => (
+            {dreams.slice(0, 3).map((dream) => {
+              const title = dream.title;
+              const initials = (dream.patientName ?? 'ND')
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((chunk) => chunk[0]?.toUpperCase() ?? '')
+                .join('');
+
+              return (
               <motion.div key={dream.id} variants={fadeIn}>
                 <Link
                   to={`/sonhos/${dream.id}`}
@@ -162,47 +184,39 @@ export default function Landing() {
                 >
                   <div className="relative h-56 overflow-hidden">
                     <ImageWithFallback
-                      src={dream.img}
-                      alt={dream.title}
+                      src={heroImage}
+                      alt={title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
-                    <div className={`absolute inset-0 bg-gradient-to-t ${dream.accent} to-transparent opacity-80`} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-pink-700/60 to-transparent opacity-80" />
                     <div className="absolute top-4 left-4">
-                      <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${dream.tagColor} bg-opacity-90 backdrop-blur-sm shadow-sm`}>
-                        {dream.tag}
+                      <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-pink-100 text-pink-700 bg-opacity-90 backdrop-blur-sm shadow-sm">
+                        {dream.category}
                       </span>
                     </div>
-                    {dream.hasProposal && (
-                      <div className="absolute top-4 right-4">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-green-500 text-white shadow-sm">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          {dream.status}
-                        </span>
-                      </div>
-                    )}
                     <div className="absolute bottom-4 left-4 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-white border-2 border-white flex items-center justify-center shadow-md overflow-hidden">
-                        <span className="text-pink-600 text-sm font-bold">{dream.initials}</span>
+                        <span className="text-pink-600 text-sm font-bold">{initials || 'ND'}</span>
                       </div>
                       <div>
-                        <p className="text-white text-sm font-bold leading-none mb-1">{dream.name}{dream.age ? `, ${dream.age} anos` : ''}</p>
+                        <p className="text-white text-sm font-bold leading-none mb-1">{dream.patientName ?? 'Paciente'}</p>
                         <p className="text-white/90 text-xs flex items-center gap-1 font-medium">
-                          <MapPin className="w-3 h-3" />{dream.city}
+                          <MapPin className="w-3 h-3" />{dream.patientCity ?? 'Cidade não informada'}
                         </p>
                       </div>
                     </div>
                   </div>
                   <div className="p-6 flex flex-col flex-1">
                     <h3 className="text-xl font-bold text-gray-900 mb-3 leading-snug group-hover:text-pink-600 transition-colors">
-                      {dream.title}
+                      {title}
                     </h3>
                     <p className="text-gray-500 text-sm leading-relaxed flex-1 line-clamp-3 mb-6">
-                      {dream.desc}
+                      {dream.description}
                     </p>
                     <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
                       <span className="inline-flex items-center gap-1.5 text-gray-400 text-xs font-medium">
                         <Clock className="w-4 h-4" />
-                        {dream.time}
+                        {dream.format}
                       </span>
                       <button
                         onClick={(e) => {
@@ -219,21 +233,36 @@ export default function Landing() {
                   </div>
                 </Link>
               </motion.div>
-            ))}
+              );
+            })}
           </motion.div>
+          {dreams.length === 0 && (
+            <div className="bg-white border border-gray-100 rounded-3xl p-10 text-center">
+              <p className="text-gray-800 mb-2" style={{ fontWeight: 700 }}>Nenhum sonho público disponível agora.</p>
+              <p className="text-gray-500 text-sm mb-6">Novas histórias aparecem aqui assim que forem publicadas.</p>
+              <Link
+                to="/cadastro?tipo=apoiador"
+                className="inline-flex items-center gap-2 bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-xl transition-colors"
+                style={{ fontWeight: 600 }}
+              >
+                Quero ser apoiador
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ──────────────────────────────────────── */}
+      {/* ── COMMUNITY VALUES ───────────────────────────────────── */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}
             className="text-center max-w-2xl mx-auto mb-16"
           >
-            <span className="text-pink-600 font-bold tracking-wider text-sm uppercase mb-3 block">Histórias Reais</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">O impacto de um encontro</h2>
-            <p className="text-gray-500 text-lg">Leia relatos de quem já teve a vida transformada pelo poder da presença.</p>
+            <span className="text-pink-600 font-bold tracking-wider text-sm uppercase mb-3 block">Compromissos da Comunidade</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">Conexões com segurança e respeito</h2>
+            <p className="text-gray-500 text-lg">A plataforma prioriza privacidade, conduta responsável e apoio sem transações financeiras.</p>
           </motion.div>
 
           <motion.div 
@@ -241,27 +270,13 @@ export default function Landing() {
             className="grid md:grid-cols-3 gap-8"
           >
             {[
-              { img: testimonial1Img, name: 'Dona Ana, 67', role: 'Paciente', text: 'Faz 3 anos que não sentia a areia nos pés. Fui à praia com a minha apoiadora e chorei de emoção. Foi o melhor dia de todo o meu tratamento.' },
-              { img: testimonial2Img, name: 'Pedro Roberto', role: 'Apoiador', text: 'Nunca imaginei que oferecer algumas horas do meu sábado pudesse mudar tanto a vida de alguém. Voltei para casa completamente transformado.' },
-              { img: testimonial3Img, name: 'Seu Carlos, 52', role: 'Paciente', text: 'Aprendi a tocar violão durante a quimioterapia. A música me deu força. Obrigado ao meu professor voluntário por tornar isso possível.' },
-            ].map((t, i) => (
-              <motion.div key={i} variants={fadeIn} className="bg-pink-50/50 rounded-3xl p-8 border border-pink-100/50 relative">
-                <div className="absolute top-6 right-6 text-pink-200">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M14.017 21L16.411 14.909C15.823 14.864 15.26 14.659 14.78 14.316C14.3 13.974 13.923 13.507 13.689 12.966C13.455 12.424 13.374 11.83 13.454 11.246C13.535 10.663 13.774 10.113 14.145 9.654C14.515 9.196 15.003 8.847 15.556 8.643C16.108 8.44 16.703 8.39 17.276 8.498C17.849 8.607 18.378 8.87 18.805 9.259C19.231 9.648 19.538 10.149 19.692 10.706L21.311 5H18.857L16.32 10.741C15.589 10.975 14.954 11.417 14.473 12.025C13.991 12.634 13.68 13.388 13.568 14.218L11.829 21H14.017ZM6.188 21L8.583 14.909C7.995 14.864 7.432 14.659 6.951 14.316C6.471 13.974 6.094 13.507 5.86 12.966C5.626 12.424 5.545 11.83 5.625 11.246C5.706 10.663 5.945 10.113 6.316 9.654C6.687 9.196 7.174 8.847 7.727 8.643C8.28 8.44 8.874 8.39 9.447 8.498C10.021 8.607 10.55 8.87 10.976 9.259C11.402 9.648 11.709 10.149 11.863 10.706L13.482 5H11.028L8.491 10.741C7.76 10.975 7.125 11.417 6.644 12.025C6.162 12.634 5.852 13.388 5.739 14.218L4 21H6.188Z" />
-                  </svg>
-                </div>
-                <div className="flex items-center gap-4 mb-6">
-                  <ImageWithFallback src={t.img} alt={t.name} className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-sm" />
-                  <div>
-                    <p className="text-gray-900 font-bold text-lg">{t.name}</p>
-                    <p className="text-pink-600 text-sm font-medium bg-pink-100/50 inline-block px-2 py-0.5 rounded-full mt-1">{t.role}</p>
-                  </div>
-                </div>
-                <p className="text-gray-600 leading-relaxed italic">"{t.text}"</p>
-                <div className="flex gap-1 mt-6">
-                  {[1,2,3,4,5].map(s => <Star key={s} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
-                </div>
+              { title: 'Privacidade por padrão', text: 'Dados de contato não são expostos antes de uma conexão válida entre as partes.' },
+              { title: 'Sem dinheiro na plataforma', text: 'Pedidos de transferência, PIX ou qualquer valor financeiro são proibidos.' },
+              { title: 'Moderação e denúncia', text: 'Conteúdo e interações passam por revisão, com canal de denúncia e resposta operacional.' },
+            ].map((item) => (
+              <motion.div key={item.title} variants={fadeIn} className="bg-pink-50/50 rounded-3xl p-8 border border-pink-100/50">
+                <h3 className="text-gray-900 text-lg mb-3" style={{ fontWeight: 700 }}>{item.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{item.text}</p>
               </motion.div>
             ))}
           </motion.div>

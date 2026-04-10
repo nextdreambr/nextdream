@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { Dream } from '../../entities/dream.entity';
 import { Proposal } from '../../entities/proposal.entity';
 import { User } from '../../entities/user.entity';
 import { JwtPayload } from '../auth/jwt-auth.guard';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDreamDto } from './dto/create-dream.dto';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 
@@ -19,17 +21,20 @@ export class DreamsService {
   private readonly usersRepository: Repository<User>;
   private readonly proposalsRepository: Repository<Proposal>;
   private readonly conversationsRepository: Repository<Conversation>;
+  private readonly notificationsService: NotificationsService;
 
   constructor(
     @InjectRepository(Dream) dreamsRepository: Repository<Dream>,
     @InjectRepository(User) usersRepository: Repository<User>,
     @InjectRepository(Proposal) proposalsRepository: Repository<Proposal>,
     @InjectRepository(Conversation) conversationsRepository: Repository<Conversation>,
+    @Inject(NotificationsService) notificationsService: NotificationsService,
   ) {
     this.dreamsRepository = dreamsRepository;
     this.usersRepository = usersRepository;
     this.proposalsRepository = proposalsRepository;
     this.conversationsRepository = conversationsRepository;
+    this.notificationsService = notificationsService;
   }
 
   async createDream(currentUser: JwtPayload, dto: CreateDreamDto) {
@@ -110,6 +115,15 @@ export class DreamsService {
     });
 
     const saved = await this.proposalsRepository.save(proposal);
+
+    await this.notificationsService.createNotification({
+      userId: dream.patientId,
+      type: 'proposta',
+      title: 'Nova proposta recebida',
+      message: `${supporter.name} enviou uma proposta para "${dream.title}".`,
+      actionPath: '/paciente/propostas',
+    });
+
     return this.serializeProposal(saved);
   }
 
@@ -137,6 +151,22 @@ export class DreamsService {
     });
 
     const savedConversation = await this.conversationsRepository.save(conversation);
+
+    await this.notificationsService.createNotification({
+      userId: proposal.supporterId,
+      type: 'aceito',
+      title: 'Proposta aceita',
+      message: `Sua proposta para "${dream.title}" foi aceita.`,
+      actionPath: `/apoiador/chat?conversationId=${savedConversation.id}`,
+    });
+
+    await this.notificationsService.createNotification({
+      userId: dream.patientId,
+      type: 'aceito',
+      title: 'Conversa iniciada',
+      message: `Você iniciou uma conversa para "${dream.title}".`,
+      actionPath: `/paciente/chat?conversationId=${savedConversation.id}`,
+    });
 
     return {
       ...this.serializeProposal(proposal),

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdminReport } from '../../entities/admin-report.entity';
@@ -7,6 +7,7 @@ import { Conversation } from '../../entities/conversation.entity';
 import { Message } from '../../entities/message.entity';
 import { User } from '../../entities/user.entity';
 import { JwtPayload } from '../auth/jwt-auth.guard';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CloseConversationDto } from './dto/close-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 
@@ -17,6 +18,7 @@ export class ConversationsService {
   private readonly usersRepository: Repository<User>;
   private readonly auditLogsRepository: Repository<AuditLog>;
   private readonly reportsRepository: Repository<AdminReport>;
+  private readonly notificationsService: NotificationsService;
 
   constructor(
     @InjectRepository(Conversation) conversationsRepository: Repository<Conversation>,
@@ -24,12 +26,14 @@ export class ConversationsService {
     @InjectRepository(User) usersRepository: Repository<User>,
     @InjectRepository(AuditLog) auditLogsRepository: Repository<AuditLog>,
     @InjectRepository(AdminReport) reportsRepository: Repository<AdminReport>,
+    @Inject(NotificationsService) notificationsService: NotificationsService,
   ) {
     this.conversationsRepository = conversationsRepository;
     this.messagesRepository = messagesRepository;
     this.usersRepository = usersRepository;
     this.auditLogsRepository = auditLogsRepository;
     this.reportsRepository = reportsRepository;
+    this.notificationsService = notificationsService;
   }
 
   async listMine(currentUser: JwtPayload) {
@@ -79,6 +83,22 @@ export class ConversationsService {
     });
 
     const saved = await this.messagesRepository.save(message);
+
+    const receiverId = conversation.patientId === currentUser.sub
+      ? conversation.supporterId
+      : conversation.patientId;
+    const receiverPath = receiverId === conversation.patientId
+      ? `/paciente/chat?conversationId=${conversation.id}`
+      : `/apoiador/chat?conversationId=${conversation.id}`;
+
+    await this.notificationsService.createNotification({
+      userId: receiverId,
+      type: 'mensagem',
+      title: 'Nova mensagem no chat',
+      message: 'Você recebeu uma nova mensagem em uma conversa ativa.',
+      actionPath: receiverPath,
+    });
+
     return this.serializeMessage(saved);
   }
 
@@ -118,6 +138,22 @@ export class ConversationsService {
         }),
       );
     }
+
+    await this.notificationsService.createNotification({
+      userId: conversation.patientId,
+      type: 'seguranca',
+      title: 'Conversa encerrada',
+      message: 'Uma conversa foi encerrada pela moderação.',
+      actionPath: '/paciente/chat',
+    });
+
+    await this.notificationsService.createNotification({
+      userId: conversation.supporterId,
+      type: 'seguranca',
+      title: 'Conversa encerrada',
+      message: 'Uma conversa foi encerrada pela moderação.',
+      actionPath: '/apoiador/chat',
+    });
 
     return this.serializeConversation(saved);
   }

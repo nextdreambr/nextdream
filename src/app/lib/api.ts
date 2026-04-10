@@ -78,6 +78,7 @@ export interface ApiUser {
   role: ApiUserRole;
   city?: string;
   verified: boolean;
+  emailNotificationsEnabled?: boolean;
 }
 
 export interface AuthSession {
@@ -206,6 +207,20 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  actionPath?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationPreferences {
+  emailEnabled: boolean;
+}
+
 export interface AdminOverview {
   totalUsers: number;
   totalDreams: number;
@@ -299,6 +314,31 @@ export const conversationsApi = {
     return apiRequest<Conversation>(`/conversations/${conversationId}/close`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    });
+  },
+};
+
+export const notificationsApi = {
+  listMine() {
+    return apiRequest<AppNotification[]>('/notifications/mine');
+  },
+  markRead(notificationId: string) {
+    return apiRequest<AppNotification>(`/notifications/${notificationId}/read`, {
+      method: 'POST',
+    });
+  },
+  markAllRead() {
+    return apiRequest<{ ok: boolean }>('/notifications/read-all', {
+      method: 'POST',
+    });
+  },
+  getPreferences() {
+    return apiRequest<NotificationPreferences>('/notifications/preferences');
+  },
+  updatePreferences(payload: NotificationPreferences) {
+    return apiRequest<NotificationPreferences>('/notifications/preferences', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 };
