@@ -214,6 +214,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          database_url_runtime="$DATABASE_URL"
+          if [[ "$database_url_runtime" == *"sslmode=require"* && "$database_url_runtime" != *"uselibpqcompat="* ]]; then
+            separator='&'
+            if [[ "$database_url_runtime" != *'?'* ]]; then
+              separator='?'
+            fi
+            database_url_runtime="${database_url_runtime}${separator}uselibpqcompat=true"
+          fi
+
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
             "sudo mkdir -p '$APP_DIR' && sudo chown -R '$OCI_USER:$OCI_USER' '$APP_DIR'"
 
@@ -227,7 +236,7 @@ jobs:
           APP_URL=${APP_URL}
           CORS_ORIGIN=${CORS_ORIGIN}
           VITE_API_URL=${VITE_API_URL}
-          DATABASE_URL=${DATABASE_URL}
+          DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
           EOV
