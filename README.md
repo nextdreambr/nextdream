@@ -85,7 +85,24 @@ For production deployment, use `.env.production.example` as a template and keep 
   - `Dockerfile.api`
   - `docker-compose.prod.yml`
 - CI/CD:
-  - `.github/workflows/deploy-prod.yml` (deploys after successful `CI` on `main` via self-hosted runner)
+  - `.github/workflows/deploy-prod.yml` (deploys after successful `CI` on `main`, and supports manual rollback by tag)
+
+### Release flow
+
+- `CI` validates `lint`, `typecheck`, `test`, and `build`.
+- `Deploy Production` resolves a release tag (`commit SHA` by default).
+- In `deploy` mode, images are built and pushed to GHCR:
+  - `ghcr.io/<owner>/<repo>-api:<tag>`
+  - `ghcr.io/<owner>/<repo>-web:<tag>`
+- OCI host pulls images by tag and runs `docker compose -f docker-compose.prod.yml up -d`.
+- Deployed tag is recorded in `$APP_DIR/.release-tag`.
+
+### Rollback flow
+
+- Trigger `Deploy Production` manually with:
+  - `release_mode=rollback`
+  - `image_tag=<previous_tag>`
+- Workflow redeploys the selected immutable tag without rebuilding.
 
 Required GitHub Environment `production` values:
 
@@ -93,7 +110,14 @@ Required GitHub Environment `production` values:
   - `PROD_DATABASE_URL`
   - `PROD_JWT_ACCESS_SECRET`
   - `PROD_JWT_REFRESH_SECRET`
+  - `OCI_SSH_KEY`
+  - `OCI_KNOWN_HOSTS`
+  - `GHCR_USERNAME`
+  - `GHCR_TOKEN`
 - Variables:
+  - `OCI_HOST`
+  - `OCI_USER`
+  - `OCI_PORT` (default: `22`)
   - `NODE_ENV`
   - `API_PORT`
   - `APP_URL`
