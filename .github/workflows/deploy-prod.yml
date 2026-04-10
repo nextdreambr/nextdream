@@ -250,7 +250,22 @@ jobs:
           docker compose -f docker-compose.prod.yml up -d
           docker compose -f docker-compose.prod.yml ps
 
-          curl -fsS --max-time 20 --retry 8 --retry-delay 3 http://127.0.0.1/api/health >/dev/null
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 10 http://127.0.0.1/api/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [[ "$ready" -ne 1 ]]; then
+            docker compose -f docker-compose.prod.yml ps || true
+            docker compose -f docker-compose.prod.yml logs --tail 200 api || true
+            docker compose -f docker-compose.prod.yml logs --tail 200 web || true
+            exit 1
+          fi
+
           printf '%s' "$IMAGE_TAG" > "$APP_DIR/.release-tag"
           EOS
 
@@ -272,10 +287,12 @@ jobs:
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
           APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          API_IMAGE: ${{ env.IMAGE_REPO_BASE }}-api:${{ env.IMAGE_TAG }}
+          WEB_IMAGE: ${{ env.IMAGE_REPO_BASE }}-web:${{ env.IMAGE_TAG }}
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "APP_DIR='$APP_DIR' bash -s" <<'EOS'
+            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' bash -s" <<'EOS'
           set -euo pipefail
           cd "$APP_DIR" || exit 0
           docker compose -f docker-compose.prod.yml ps || true
