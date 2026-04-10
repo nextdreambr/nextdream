@@ -1,6 +1,7 @@
 name: Deploy Production
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     branches: ["main"]
@@ -9,9 +10,9 @@ on:
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: [self-hosted, Linux, oci-prod]
+    runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 25
+    timeout-minutes: 30
     concurrency:
       group: deploy-production
       cancel-in-progress: true
@@ -20,9 +21,74 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy on OCI self-hosted runner
-        shell: bash
+      - name: Validate required deployment variables
         env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          NODE_ENV: ${{ vars.NODE_ENV }}
+          API_PORT: ${{ vars.API_PORT }}
+          APP_URL: ${{ vars.APP_URL }}
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
+        run: |
+          set -euo pipefail
+          required=(
+            OCI_HOST
+            OCI_USER
+            OCI_SSH_KEY
+            NODE_ENV
+            API_PORT
+            APP_URL
+            CORS_ORIGIN
+            VITE_API_URL
+            DATABASE_URL
+            JWT_ACCESS_SECRET
+            JWT_REFRESH_SECRET
+          )
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required value: $key"
+              exit 1
+            fi
+          done
+
+      - name: Prepare SSH key
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$OCI_SSH_KEY" > ~/.ssh/oci_key
+          chmod 600 ~/.ssh/oci_key
+
+      - name: Sync code to OCI
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=accept-new "$OCI_USER@$OCI_HOST" \
+            "sudo mkdir -p '$APP_DIR' && sudo chown -R '$OCI_USER:$OCI_USER' '$APP_DIR'"
+
+          timeout 10m rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'dist' \
+            -e "ssh -i ~/.ssh/oci_key -p $OCI_PORT -o StrictHostKeyChecking=accept-new" \
+            ./ "$OCI_USER@$OCI_HOST:$APP_DIR/"
+
+      - name: Write production env and deploy
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
           APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
           NODE_ENV: ${{ vars.NODE_ENV }}
           API_PORT: ${{ vars.API_PORT }}
@@ -35,11 +101,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Syncing workspace into $APP_DIR ..."
-          mkdir -p "$APP_DIR"
-          timeout 5m rsync -a --delete --exclude '.git' --exclude 'node_modules' ./ "$APP_DIR"/
-
-          cat > "$APP_DIR/.env.production" <<EOV
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=accept-new "$OCI_USER@$OCI_HOST" \
+            "cat > '$APP_DIR/.env.production'" <<EOV
           NODE_ENV=${NODE_ENV}
           API_PORT=${API_PORT}
           APP_URL=${APP_URL}
@@ -50,25 +113,29 @@ jobs:
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
           EOV
 
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=accept-new "$OCI_USER@$OCI_HOST" \
+            "APP_DIR='$APP_DIR' bash -s" <<'EOS'
+          set -euo pipefail
           cd "$APP_DIR"
-          if docker compose version >/dev/null 2>&1; then
-            COMPOSE=(docker compose)
-          elif command -v docker-compose >/dev/null 2>&1; then
-            COMPOSE=(docker-compose)
-          else
-            echo "Docker Compose is not available on runner"
-            exit 1
-          fi
+          docker compose -f docker-compose.prod.yml up -d --build
+          docker compose -f docker-compose.prod.yml ps
+          curl -fsS --max-time 20 --retry 8 --retry-delay 3 http://127.0.0.1/api/health >/dev/null
+          EOS
 
-          echo "Building and starting containers ..."
-          timeout 20m "${COMPOSE[@]}" -f docker-compose.prod.yml up -d --build
-          echo "Compose services status:"
-          "${COMPOSE[@]}" -f docker-compose.prod.yml ps
-          sleep 5
-
-          echo "Waiting for API healthcheck ..."
-          if ! curl --fail --silent --show-error --max-time 20 --retry 5 --retry-delay 3 http://127.0.0.1/api/health >/dev/null; then
-            "${COMPOSE[@]}" -f docker-compose.prod.yml ps || true
-            "${COMPOSE[@]}" -f docker-compose.prod.yml logs --tail 120 api || true
-            exit 1
-          fi
+      - name: Dump remote diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=accept-new "$OCI_USER@$OCI_HOST" \
+            "APP_DIR='$APP_DIR' bash -s" <<'EOS'
+          set -euo pipefail
+          cd "$APP_DIR" || exit 0
+          docker compose -f docker-compose.prod.yml ps || true
+          docker compose -f docker-compose.prod.yml logs --tail 200 api || true
+          EOS
