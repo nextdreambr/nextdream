@@ -20,6 +20,7 @@ import { DreamsModule } from './modules/dreams/dreams.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SentryTunnelModule } from './observability/sentry-tunnel.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ProposalsModule,
     ConversationsModule,
     NotificationsModule,
+    SentryTunnelModule,
     AdminModule,
   ],
   providers: [
