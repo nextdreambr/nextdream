@@ -25,6 +25,12 @@ export function initApiSentry() {
     dsn,
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
     release: process.env.SENTRY_RELEASE,
+    integrations: [
+      Sentry.consoleLoggingIntegration({
+        levels: ['info', 'warn', 'error'],
+      }),
+    ],
+    enableLogs: true,
     tracesSampleRate: getTracesSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE),
     sendDefaultPii: false,
   });
