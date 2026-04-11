@@ -73,7 +73,7 @@ export function initFrontendSentry() {
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.consoleLoggingIntegration({
-        levels: ['info', 'warn', 'error'],
+        levels: ['warn', 'error'],
       }),
     ],
     enableLogs: true,
