@@ -66,10 +66,12 @@ npm run test --workspace apps/api
 
 ## Branch Policy
 
-- `main` (or `master`) is protected and should be updated via Pull Request
-- External contributors should open PRs targeting `main`
-- Only the maintainer account (`@renanmpimentel`) should have direct push/merge permissions on the default branch
-- Require `pr-review` status check on `main` branch protection
+- `main` is protected and only accepts changes via Pull Request
+- Required status checks on `main`: `verify` and `pr-review`
+- Required approvals on `main`: at least `1`
+- `CODEOWNERS` approval is required on PRs to `main`
+- Branch protection applies to admins (`enforce_admins: true`)
+- Only maintainer `@renanmpimentel` should merge PRs to `main`
 
 ## Architecture Changes
 
