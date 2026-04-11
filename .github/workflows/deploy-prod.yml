@@ -76,6 +76,7 @@ jobs:
     needs: resolve-release
     if: ${{ needs.resolve-release.outputs.release_mode == 'deploy' }}
     runs-on: ubuntu-latest
+    environment: production
     strategy:
       matrix:
         include:
@@ -96,6 +97,26 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate web observability build vars
+        if: ${{ matrix.name == 'web' }}
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
+        run: |
+          set -euo pipefail
+          required=(
+            VITE_API_URL
+            SENTRY_DSN_WEB
+            SENTRY_TRACES_SAMPLE_RATE
+          )
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required value for web build: $key"
+              exit 1
+            fi
+          done
 
       - name: Build and push ${{ matrix.name }} image
         if: ${{ matrix.name == 'api' }}
@@ -304,6 +325,147 @@ jobs:
           printf '%s' "$IMAGE_TAG" > "$APP_DIR/.release-tag"
           EOS
 
+      - name: Verify web bundle contains Sentry DSN marker
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
+        run: |
+          set -euo pipefail
+
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          dsn_no_proto="${SENTRY_DSN_WEB#*://}"
+          host_and_project="${dsn_no_proto#*@}"
+          dsn_host="${host_and_project%%/*}"
+          dsn_project="${host_and_project##*/}"
+          marker="${dsn_host}/${dsn_project}"
+          base_url="${APP_URL%/}"
+
+          curl -fsSL "$base_url" -o "$tmp_dir/index.html"
+          script_path="$(grep -oE 'assets/[^" ]+\.js' "$tmp_dir/index.html" | head -n1)"
+
+          if [[ -z "$script_path" ]]; then
+            echo "Could not locate compiled web bundle in $APP_URL"
+            exit 1
+          fi
+
+          curl -fsSL "$base_url/$script_path" -o "$tmp_dir/app.js"
+
+          if ! rg -q "$marker" "$tmp_dir/app.js"; then
+            echo "Sentry DSN marker not found in published web bundle (expected marker: $marker)"
+            exit 1
+          fi
+
+      - name: Emit API Sentry warning log smoke event
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          SMOKE_ID: deploy-smoke-${{ github.run_id }}-${{ env.IMAGE_TAG }}
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "SMOKE_ID='$SMOKE_ID' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'EOS'
+          set -euo pipefail
+
+          docker exec \
+            -e DEPLOY_SMOKE_ID="$SMOKE_ID" \
+            -e DEPLOY_RELEASE="$IMAGE_TAG" \
+            -i nextdream-api node - <<'NODE'
+          const Sentry = require('@sentry/node');
+
+          const dsn = process.env.SENTRY_DSN;
+          if (!dsn) {
+            console.error('SENTRY_DSN is not set inside nextdream-api container');
+            process.exit(1);
+          }
+
+          Sentry.init({
+            dsn,
+            environment: process.env.SENTRY_ENVIRONMENT || 'production',
+            release: process.env.DEPLOY_RELEASE,
+            tracesSampleRate: 0,
+            sendDefaultPii: false,
+          });
+
+          const smokeId = process.env.DEPLOY_SMOKE_ID || 'deploy-smoke-missing-id';
+
+          Sentry.captureMessage(`deploy smoke warning ${smokeId}`, {
+            level: 'warning',
+            tags: {
+              deploy_smoke: 'true',
+              deploy_smoke_id: smokeId,
+            },
+          });
+
+          Sentry.flush(10000)
+            .then(() => Sentry.close(2000))
+            .then(() => process.exit(0))
+            .catch((error) => {
+              console.error('Failed to flush smoke event to Sentry', error);
+              process.exit(1);
+            });
+          NODE
+          EOS
+
+      - name: Wait for API smoke event in Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT_API: ${{ vars.SENTRY_PROJECT_API }}
+          SMOKE_ID: deploy-smoke-${{ github.run_id }}-${{ env.IMAGE_TAG }}
+        run: |
+          set -euo pipefail
+
+          required=(
+            SENTRY_AUTH_TOKEN
+            SENTRY_ORG
+            SENTRY_PROJECT_API
+            SMOKE_ID
+          )
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required value: $key"
+              exit 1
+            fi
+          done
+
+          found=0
+          for attempt in $(seq 1 12); do
+            response="$(curl -sS --get \
+              -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+              --data-urlencode "query=message:\"$SMOKE_ID\"" \
+              --data-urlencode "statsPeriod=5m" \
+              --data-urlencode "per_page=5" \
+              -w "\n%{http_code}" \
+              "https://sentry.io/api/0/projects/$SENTRY_ORG/$SENTRY_PROJECT_API/events/")"
+
+            http_code="$(printf '%s\n' "$response" | tail -n1)"
+            body="$(printf '%s\n' "$response" | sed '$d')"
+
+            if [[ "$http_code" != "200" ]]; then
+              echo "Sentry API returned HTTP $http_code"
+              printf '%s\n' "$body"
+              exit 1
+            fi
+
+            count="$(printf '%s\n' "$body" | jq 'if type == "array" then length else 0 end')"
+            if [[ "$count" -gt 0 ]]; then
+              found=1
+              break
+            fi
+
+            sleep 10
+          done
+
+          if [[ "$found" -ne 1 ]]; then
+            echo "Timed out waiting for Sentry API smoke event: $SMOKE_ID"
+            exit 1
+          fi
+
       - name: Deploy summary
         run: |
           {
@@ -312,6 +474,7 @@ jobs:
             echo "- Mode: ${RELEASE_MODE}"
             echo "- Deployed tag: ${IMAGE_TAG}"
             echo "- Previous tag: ${{ steps.previous.outputs.previous_tag || 'none' }}"
+            echo "- Observability smoke: passed"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dump remote diagnostics on failure

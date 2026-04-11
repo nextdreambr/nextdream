@@ -27,7 +27,7 @@ export function initApiSentry() {
     release: process.env.SENTRY_RELEASE,
     integrations: [
       Sentry.consoleLoggingIntegration({
-        levels: ['info', 'warn', 'error'],
+        levels: ['warn', 'error'],
       }),
     ],
     enableLogs: true,
