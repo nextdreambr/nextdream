@@ -352,7 +352,7 @@ jobs:
 
           curl -fsSL "$base_url/$script_path" -o "$tmp_dir/app.js"
 
-          if ! rg -q "$marker" "$tmp_dir/app.js"; then
+          if ! grep -qF "$marker" "$tmp_dir/app.js"; then
             echo "Sentry DSN marker not found in published web bundle (expected marker: $marker)"
             exit 1
           fi
