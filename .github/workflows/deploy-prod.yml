@@ -98,6 +98,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.name }} image
+        if: ${{ matrix.name == 'api' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -105,6 +106,21 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ needs.resolve-release.outputs.repo_lc }}-${{ matrix.name }}:${{ needs.resolve-release.outputs.image_tag }}
+
+      - name: Build and push ${{ matrix.name }} image with Sentry web env
+        if: ${{ matrix.name == 'web' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ needs.resolve-release.outputs.repo_lc }}-${{ matrix.name }}:${{ needs.resolve-release.outputs.image_tag }}
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_SENTRY_DSN=${{ vars.SENTRY_DSN_WEB }}
+            VITE_SENTRY_TRACES_SAMPLE_RATE=${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
+            VITE_SENTRY_RELEASE=${{ needs.resolve-release.outputs.image_tag }}
 
   deploy:
     needs:
@@ -142,6 +158,8 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
+          SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
+          SENTRY_DSN_API: ${{ vars.SENTRY_DSN_API }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
         run: |
@@ -161,6 +179,8 @@ jobs:
             DATABASE_URL
             JWT_ACCESS_SECRET
             JWT_REFRESH_SECRET
+            SENTRY_DSN_WEB
+            SENTRY_DSN_API
           )
           for key in "${required[@]}"; do
             if [[ -z "${!key:-}" ]]; then
@@ -207,12 +227,36 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
+          SENTRY_DSN_API: ${{ vars.SENTRY_DSN_API }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
           API_IMAGE: ${{ env.IMAGE_REPO_BASE }}-api:${{ env.IMAGE_TAG }}
           WEB_IMAGE: ${{ env.IMAGE_REPO_BASE }}-web:${{ env.IMAGE_TAG }}
         run: |
           set -euo pipefail
+          required=(
+            OCI_HOST
+            OCI_USER
+            OCI_PORT
+            OCI_SSH_KEY
+            OCI_KNOWN_HOSTS
+            APP_DIR
+            NODE_ENV
+            API_PORT
+            APP_URL
+            CORS_ORIGIN
+            VITE_API_URL
+            DATABASE_URL
+            JWT_ACCESS_SECRET
+            JWT_REFRESH_SECRET
+          )
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required value: $key"
+              exit 1
+            fi
+          done
 
           database_url_runtime="$DATABASE_URL"
           if [[ "$database_url_runtime" == *"sslmode=require"* && "$database_url_runtime" != *"uselibpqcompat="* ]]; then
@@ -239,6 +283,10 @@ jobs:
           DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+          SENTRY_DSN=${SENTRY_DSN_API}
+          SENTRY_ENVIRONMENT=production
+          SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE}
+          SENTRY_RELEASE=${IMAGE_TAG}
           EOV
 
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
@@ -260,8 +308,8 @@ jobs:
           docker compose -f docker-compose.prod.yml ps
 
           ready=0
-          for attempt in $(seq 1 60); do
-            if curl -fsS --max-time 10 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 10 http://127.0.0.1/api/health >/dev/null; then
               ready=1
               break
             fi

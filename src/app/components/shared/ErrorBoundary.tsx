@@ -1,5 +1,6 @@
 import React from 'react';
 import { Heart, RefreshCw, Home } from 'lucide-react';
+import { captureFrontendException } from '@/app/lib/sentry';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -22,6 +23,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('NextDream ErrorBoundary caught:', error, info);
+    captureFrontendException(error, {
+      componentStack: info.componentStack,
+    });
   }
 
   render() {
