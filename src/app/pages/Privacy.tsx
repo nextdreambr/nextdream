@@ -51,7 +51,7 @@ const sections = [
     title: '1. Controlador de Dados',
     content: [
       'O NextDream é o controlador dos dados pessoais tratados nesta plataforma, nos termos da Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD).',
-      'Nosso Encarregado de Proteção de Dados (DPO) pode ser contactado pelo e-mail privacidade@nextdream.com.br.',
+      'Nosso Encarregado de Proteção de Dados (DPO) pode ser contactado pelo e-mail privacidade@nextdream.ong.br.',
     ],
   },
   {
@@ -143,7 +143,7 @@ export default function Privacy() {
             ))}
           </div>
           <p className="text-gray-500 text-xs mt-5 pt-4 border-t border-gray-100">
-            Para exercer qualquer desses direitos, envie solicitação para <a href="mailto:privacidade@nextdream.com.br" className="text-blue-600 hover:underline">privacidade@nextdream.com.br</a>. Respondemos em até 15 dias úteis.
+            Para exercer qualquer desses direitos, envie solicitação para <a href="mailto:privacidade@nextdream.ong.br" className="text-blue-600 hover:underline">privacidade@nextdream.ong.br</a>. Respondemos em até 15 dias úteis.
           </p>
         </div>
 
@@ -203,10 +203,10 @@ export default function Privacy() {
             <p className="text-gray-800 text-sm" style={{ fontWeight: 700 }}>Encarregado de Proteção de Dados (DPO)</p>
             <p className="text-gray-500 text-sm mt-0.5">Dúvidas, solicitações e exercício de direitos LGPD.</p>
           </div>
-          <a href="mailto:privacidade@nextdream.com.br"
+          <a href="mailto:privacidade@nextdream.ong.br"
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-5 py-2.5 rounded-xl transition-colors shrink-0"
             style={{ fontWeight: 600 }}>
-            privacidade@nextdream.com.br
+            privacidade@nextdream.ong.br
           </a>
         </div>
 

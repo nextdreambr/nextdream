@@ -269,7 +269,7 @@ export default function Contact() {
               </h3>
               <div className="space-y-4">
                 {[
-                  { icon: Mail, label: 'E-mail', value: 'contato@nextdream.com.br', href: 'mailto:contato@nextdream.com.br' },
+                  { icon: Mail, label: 'E-mail', value: 'contato@nextdream.ong.br', href: 'mailto:contato@nextdream.ong.br' },
                   { icon: Phone, label: 'WhatsApp', value: '(11) 99999-0000', href: '#' },
                   { icon: MapPin, label: 'Localização', value: 'São Paulo, SP — Brasil', href: undefined },
                 ].map(item => (
@@ -339,8 +339,8 @@ export default function Contact() {
                   <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                     Se alguém pediu dinheiro, PIX ou teve conduta abusiva dentro da plataforma, 
                     use o formulário ao lado selecionando "Denúncia de conduta" ou envie diretamente para{' '}
-                    <a href="mailto:denuncia@nextdream.com.br" className="underline" style={{ fontWeight: 600 }}>
-                      denuncia@nextdream.com.br
+                    <a href="mailto:denuncia@nextdream.ong.br" className="underline" style={{ fontWeight: 600 }}>
+                      denuncia@nextdream.ong.br
                     </a>
                   </p>
                 </div>

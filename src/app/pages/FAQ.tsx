@@ -184,7 +184,7 @@ const categories: FAQCategory[] = [
       },
       {
         q: 'Minha conta foi suspensa. O que fazer?',
-        a: 'Você receberá um e-mail explicando o motivo da suspensão e a duração. Se acredita que houve um engano, responda o e-mail ou entre em contato com nosso suporte via segurança@nextdream.com.br com o assunto "Recurso de suspensão".',
+        a: 'Você receberá um e-mail explicando o motivo da suspensão e a duração. Se acredita que houve um engano, responda o e-mail ou entre em contato com nosso suporte via seguranca@nextdream.ong.br com o assunto "Recurso de suspensão".',
       },
     ],
   },
@@ -392,7 +392,7 @@ export default function FAQ() {
               Nossa equipe está aqui para ajudar. Responderemos em até 24 horas com carinho e atenção.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="mailto:ajuda@nextdream.com.br"
+              <a href="mailto:ajuda@nextdream.ong.br"
                 className="inline-flex items-center justify-center gap-2 bg-white text-pink-700 px-8 py-4 rounded-2xl hover:bg-pink-50 transition-all font-bold text-lg shadow-lg hover:-translate-y-0.5">
                 Falar com o suporte <ArrowRight className="w-5 h-5" />
               </a>

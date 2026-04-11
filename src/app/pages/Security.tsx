@@ -290,7 +290,7 @@ export default function Security() {
               Sentiu-se desconfortável? Algo fugiu das diretrizes? Nossa equipe está disponível e leva toda situação a sério. Você não precisa tolerar nenhum comportamento inadequado.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <a href="mailto:segurança@nextdream.com.br" className="inline-flex items-center justify-center gap-2 bg-pink-600 text-white px-8 py-4 rounded-2xl hover:bg-pink-500 transition-all font-bold text-lg shadow-lg shadow-pink-900/50 hover:-translate-y-0.5">
+              <a href="mailto:seguranca@nextdream.ong.br" className="inline-flex items-center justify-center gap-2 bg-pink-600 text-white px-8 py-4 rounded-2xl hover:bg-pink-500 transition-all font-bold text-lg shadow-lg shadow-pink-900/50 hover:-translate-y-0.5">
                 Contatar moderação
               </a>
             </div>
