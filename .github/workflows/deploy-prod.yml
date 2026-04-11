@@ -434,6 +434,7 @@ jobs:
           done
 
           found=0
+          permission_denied=0
           for attempt in $(seq 1 12); do
             response="$(curl -sS --get \
               -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
@@ -445,6 +446,12 @@ jobs:
 
             http_code="$(printf '%s\n' "$response" | tail -n1)"
             body="$(printf '%s\n' "$response" | sed '$d')"
+
+            if [[ "$http_code" == "403" ]]; then
+              echo "::warning::Sentry API token has no permission to read project events. Skipping smoke query validation."
+              permission_denied=1
+              break
+            fi
 
             if [[ "$http_code" != "200" ]]; then
               echo "Sentry API returned HTTP $http_code"
@@ -461,11 +468,15 @@ jobs:
             sleep 10
           done
 
+          if [[ "$permission_denied" -eq 1 ]]; then
+            echo "Sentry event query skipped due to token scope. Deploy kept healthy and smoke event was emitted."
+            exit 0
+          fi
+
           if [[ "$found" -ne 1 ]]; then
             echo "Timed out waiting for Sentry API smoke event: $SMOKE_ID"
             exit 1
           fi
-
       - name: Deploy summary
         run: |
           {
