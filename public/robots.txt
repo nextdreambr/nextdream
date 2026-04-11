@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /apoiador
+Disallow: /paciente
+Disallow: /onboarding
+Disallow: /login
+Disallow: /cadastro
+Disallow: /esqueci-senha
+Disallow: /selecionar-perfil
+
+Sitemap: https://nextdream.ong.br/sitemap.xml
