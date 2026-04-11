@@ -32,4 +32,9 @@ jobs:
         run: npm run test
 
       - name: Build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT_WEB: ${{ vars.SENTRY_PROJECT_WEB }}
+          VITE_SENTRY_RELEASE: ${{ github.sha }}
         run: npm run build
