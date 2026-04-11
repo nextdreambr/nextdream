@@ -136,6 +136,27 @@ npm run test
 npm run build
 ```
 
+For PR security parity, also run:
+
+```bash
+npm audit --omit=dev --audit-level=high --json > audit-report.json
+node scripts/ci/check-audit-baseline.mjs .github/security/audit-baseline.json audit-report.json
+docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest dir /repo --redact --exit-code 1
+```
+
+## Automated PR Review Agent
+
+- Workflow: `.github/workflows/pr-review.yml`
+- Job name: `pr-review`
+- Blocking gates:
+  - `lint`
+  - `typecheck`
+  - `test`
+  - `gitleaks` secret scan
+  - `npm audit` baseline regression gate (prod deps, high/critical only)
+
+Set `pr-review` as a required status check in branch protection for `main`.
+
 ## Repository Conventions
 
 - Prefer small, verifiable changes (vertical slices)

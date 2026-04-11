@@ -234,7 +234,7 @@ export default function Guidelines() {
             <p className="text-gray-800 text-sm" style={{ fontWeight: 700 }}>Dúvidas sobre as diretrizes?</p>
             <p className="text-gray-500 text-sm mt-0.5">Nossa equipe de comunidade está disponível para esclarecer qualquer ponto.</p>
           </div>
-          <a href="mailto:comunidade@nextdream.com.br"
+          <a href="mailto:comunidade@nextdream.ong.br"
             className="bg-teal-600 hover:bg-teal-700 text-white text-sm px-5 py-2.5 rounded-xl transition-colors shrink-0"
             style={{ fontWeight: 600 }}>
             Falar com a equipe

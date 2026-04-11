@@ -6,7 +6,7 @@ Please do not open public issues for security vulnerabilities.
 
 Report vulnerabilities privately to:
 
-- `security@nextdream.local` (temporary contact)
+- `security@nextdream.ong.br` (temporary contact)
 
 When reporting, include:
 

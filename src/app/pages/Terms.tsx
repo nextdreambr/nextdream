@@ -77,7 +77,7 @@ const sections = [
     id: 'encerramento',
     title: '8. Encerramento de Conta',
     content: [
-      'O usuário pode solicitar o encerramento de sua conta a qualquer momento, enviando solicitação para contato@nextdream.com.br. Os dados serão anonimizados em até 30 dias, conforme a Lei Geral de Proteção de Dados (LGPD).',
+      'O usuário pode solicitar o encerramento de sua conta a qualquer momento, enviando solicitação para contato@nextdream.ong.br. Os dados serão anonimizados em até 30 dias, conforme a Lei Geral de Proteção de Dados (LGPD).',
       'O NextDream pode suspender ou encerrar contas que violem estes Termos, as Diretrizes da Comunidade ou a Política de Privacidade, sem aviso prévio em casos de violações graves.',
       'O encerramento da conta não afeta obrigações já contraídas pelo usuário durante o período de vigência.',
     ],
@@ -180,10 +180,10 @@ export default function Terms() {
             <p className="text-gray-800 text-sm" style={{ fontWeight: 700 }}>Dúvidas sobre estes termos?</p>
             <p className="text-gray-500 text-sm mt-0.5">Entre em contato com nossa equipe jurídica.</p>
           </div>
-          <a href="mailto:juridico@nextdream.com.br"
+          <a href="mailto:juridico@nextdream.ong.br"
             className="bg-pink-600 hover:bg-pink-700 text-white text-sm px-5 py-2.5 rounded-xl transition-colors shrink-0"
             style={{ fontWeight: 600 }}>
-            juridico@nextdream.com.br
+            juridico@nextdream.ong.br
           </a>
         </div>
 

@@ -1,0 +1,113 @@
+name: PR Review Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-review:
+    name: pr-review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: npm run test
+
+      - name: Secret scan (gitleaks)
+        id: gitleaks
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            dir /repo --redact --exit-code 1
+
+      - name: Audit dependencies (prod)
+        id: audit
+        continue-on-error: true
+        run: |
+          npm audit --omit=dev --audit-level=high --json > audit-report.json || true
+          node scripts/ci/check-audit-baseline.mjs .github/security/audit-baseline.json audit-report.json
+
+      - name: PR review summary
+        if: always()
+        run: |
+          {
+            echo "## PR Review Agent Summary"
+            echo
+            echo "- lint: ${{ steps.lint.outcome }}"
+            echo "- typecheck: ${{ steps.typecheck.outcome }}"
+            echo "- test: ${{ steps.test.outcome }}"
+            echo "- secret-scan: ${{ steps.gitleaks.outcome }}"
+            echo "- audit-baseline: ${{ steps.audit.outcome }}"
+            echo
+            echo "Blocking policy: fail on any non-success in gates above."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce blocking gates
+        if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          GITLEAKS_OUTCOME: ${{ steps.gitleaks.outcome }}
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          set -euo pipefail
+
+          failed=0
+
+          if [[ "$LINT_OUTCOME" != "success" ]]; then
+            echo "Gate failed: lint (outcome=$LINT_OUTCOME)"
+            failed=1
+          fi
+          if [[ "$TYPECHECK_OUTCOME" != "success" ]]; then
+            echo "Gate failed: typecheck (outcome=$TYPECHECK_OUTCOME)"
+            failed=1
+          fi
+          if [[ "$TEST_OUTCOME" != "success" ]]; then
+            echo "Gate failed: test (outcome=$TEST_OUTCOME)"
+            failed=1
+          fi
+          if [[ "$GITLEAKS_OUTCOME" != "success" ]]; then
+            echo "Gate failed: gitleaks (outcome=$GITLEAKS_OUTCOME)"
+            failed=1
+          fi
+          if [[ "$AUDIT_OUTCOME" != "success" ]]; then
+            echo "Gate failed: audit (outcome=$AUDIT_OUTCOME)"
+            failed=1
+          fi
+
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
+          fi
