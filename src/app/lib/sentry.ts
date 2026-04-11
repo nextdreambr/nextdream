@@ -70,7 +70,13 @@ export function initFrontendSentry() {
     dsn,
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
-    integrations: [Sentry.browserTracingIntegration()],
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.consoleLoggingIntegration({
+        levels: ['info', 'warn', 'error'],
+      }),
+    ],
+    enableLogs: true,
     tracesSampleRate: getTracesSampleRate(
       import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE,
     ),
