@@ -62,12 +62,14 @@ npm run test --workspace apps/api
 - Include tests for behavior changes
 - Update docs when behavior or contracts change
 - Confirm no secrets are included
+- Ensure `pr-review` workflow passes (quality + security gates)
 
 ## Branch Policy
 
 - `main` (or `master`) is protected and should be updated via Pull Request
 - External contributors should open PRs targeting `main`
 - Only the maintainer account (`@renanmpimentel`) should have direct push/merge permissions on the default branch
+- Require `pr-review` status check on `main` branch protection
 
 ## Architecture Changes
 
