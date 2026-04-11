@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -64,6 +65,34 @@ export class DreamsService {
     return dreams.map((dream) => this.serializeDream(dream));
   }
 
+  async getDreamForUser(currentUser: JwtPayload, dreamId: string) {
+    const dream = await this.dreamsRepository.findOneBy({ id: dreamId });
+    if (!dream) {
+      throw new NotFoundException('Dream not found');
+    }
+
+    if (currentUser.role === 'admin') {
+      return this.serializeDream(dream);
+    }
+
+    if (currentUser.role === 'paciente' && dream.patientId === currentUser.sub) {
+      return this.serializeDream(dream);
+    }
+
+    if (currentUser.role === 'apoiador') {
+      const hasProposal = await this.proposalsRepository.findOneBy({
+        dreamId: dream.id,
+        supporterId: currentUser.sub,
+      });
+
+      if (dream.status === 'publicado' || hasProposal) {
+        return this.serializeDream(dream);
+      }
+    }
+
+    throw new ForbiddenException('You are not allowed to view this dream');
+  }
+
   async listMyDreams(currentUser: JwtPayload) {
     if (currentUser.role !== 'paciente') {
       throw new ForbiddenException('Only patients can list their dreams');
@@ -103,6 +132,17 @@ export class DreamsService {
     const dream = await this.dreamsRepository.findOneBy({ id: dreamId });
     if (!dream) {
       throw new NotFoundException('Dream not found');
+    }
+    if (dream.status !== 'publicado') {
+      throw new ConflictException('Este sonho não está disponível para novas propostas.');
+    }
+
+    const existingProposal = await this.proposalsRepository.findOneBy({
+      dreamId: dream.id,
+      supporterId: supporter.id,
+    });
+    if (existingProposal) {
+      throw new ConflictException('Você já enviou uma proposta para este sonho.');
     }
 
     const proposal = this.proposalsRepository.create({

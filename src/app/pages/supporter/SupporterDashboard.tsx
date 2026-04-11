@@ -5,12 +5,14 @@ import { DreamCard } from '../../components/shared/DreamCard';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router';
 import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
+import { buildProposalMapByDream } from '../../lib/proposals';
 
 export default function SupporterDashboard() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
   const [suggestedDreams, setSuggestedDreams] = useState<PublicDream[]>([]);
   const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [proposalByDream, setProposalByDream] = useState<Map<string, Proposal>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -27,6 +29,7 @@ export default function SupporterDashboard() {
         if (!mounted) return;
         setSuggestedDreams(dreams.filter((d) => d.status === 'publicado').slice(0, 3));
         setMyProposals(proposals);
+        setProposalByDream(buildProposalMapByDream(proposals));
       } catch (err) {
         if (err instanceof ApiError) setError(err.message);
         else setError('Não foi possível carregar seu dashboard.');
@@ -96,6 +99,7 @@ export default function SupporterDashboard() {
               dream={{
                 ...dream,
                 tags: [dream.category, dream.format, dream.urgency],
+                proposalStatus: proposalByDream.get(dream.id)?.status,
               }}
               onClick={() => navigate(`/apoiador/sonhos/${dream.id}`)}
             />
@@ -117,7 +121,19 @@ export default function SupporterDashboard() {
           </div>
           <div className="divide-y divide-gray-50">
             {myProposals.slice(0, 3).map(prop => (
-              <div key={prop.id} className="px-5 py-4 flex items-center gap-3">
+              <div
+                key={prop.id}
+                onClick={() => navigate(`/apoiador/sonhos/${prop.dreamId}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(`/apoiador/sonhos/${prop.dreamId}`);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className="w-full px-5 py-4 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+              >
                 <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center text-lg shrink-0">
                   {prop.dreamTitle?.includes('praia') ? '🌅' : prop.dreamTitle?.includes('violão') ? '🎵' : '✨'}
                 </div>
@@ -128,7 +144,11 @@ export default function SupporterDashboard() {
                   </p>
                 </div>
                 {prop.status === 'aceita' && (
-                  <Link to="/apoiador/chat" className="flex items-center gap-1 text-xs text-teal-600 bg-teal-50 px-2.5 py-1.5 rounded-xl">
+                  <Link
+                    to="/apoiador/chat"
+                    onClick={(event) => event.stopPropagation()}
+                    className="flex items-center gap-1 text-xs text-teal-600 bg-teal-50 px-2.5 py-1.5 rounded-xl"
+                  >
                     <MessageCircle className="w-3 h-3" /> Chat
                   </Link>
                 )}

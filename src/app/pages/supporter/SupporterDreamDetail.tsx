@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, MapPin, Video, MapPinned, Clock, Send, AlertTriangle, Heart } from 'lucide-react';
-import { DreamStatusBadge, UrgencyBadge } from '../../components/shared/StatusBadge';
-import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
+import { ArrowLeft, MapPin, Video, MapPinned, Clock, Send, AlertTriangle, Heart, MessageCircle } from 'lucide-react';
+import { DreamStatusBadge, ProposalStatusBadge, UrgencyBadge } from '../../components/shared/StatusBadge';
+import { ApiError, Proposal, PublicDream, dreamsApi, proposalsApi } from '../../lib/api';
+import { buildProposalMapByDream } from '../../lib/proposals';
 
 const templates = [
   { label: '💻 Video', text: 'Posso te ajudar por videochamada! Tenho disponibilidade nos fins de semana e seria uma honra conhecer sua história.' },
@@ -17,15 +18,16 @@ export default function SupporterDreamDetail() {
   const [loadingDream, setLoadingDream] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [showProposal, setShowProposal] = useState(false);
+  const [existingProposal, setExistingProposal] = useState<Proposal | null>(null);
   const [message, setMessage] = useState('');
   const [offering, setOffering] = useState('');
   const [availability, setAvailability] = useState('');
   const [duration, setDuration] = useState('');
   const [conductAccepted, setConductAccepted] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
   const [warning, setWarning] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const BLOCKED = ['pix', 'r$', 'dinheiro', 'pagamento', 'doação'];
 
@@ -43,13 +45,13 @@ export default function SupporterDreamDetail() {
       setLoadError('');
 
       try {
-        const dreams = await dreamsApi.listPublic();
-        const current = dreams.find((item) => item.id === id);
-        if (!current) {
-          setLoadError('Sonho não encontrado ou indisponível.');
-          return;
-        }
-        if (mounted) setDream(current);
+        const [current, myProposals] = await Promise.all([
+          dreamsApi.getById(id),
+          proposalsApi.listMine(),
+        ]);
+        if (!mounted) return;
+        setDream(current);
+        setExistingProposal(buildProposalMapByDream(myProposals).get(id) ?? null);
       } catch (err) {
         if (err instanceof ApiError) {
           setLoadError(err.message);
@@ -88,10 +90,20 @@ export default function SupporterDreamDetail() {
         availability: availability.trim(),
         duration: duration.trim(),
       });
-      setSent(true);
+      const proposals = await proposalsApi.listMine();
+      const proposal = buildProposalMapByDream(proposals).get(id) ?? null;
+      setExistingProposal(proposal);
+      setShowProposal(false);
+      setSuccessMessage('Proposta enviada com sucesso.');
     } catch (err) {
       if (err instanceof ApiError) {
         setSubmitError(err.message);
+        if (err.status === 409) {
+          const proposals = await proposalsApi.listMine();
+          const proposal = buildProposalMapByDream(proposals).get(id) ?? null;
+          setExistingProposal(proposal);
+          setShowProposal(false);
+        }
       } else {
         setSubmitError('Não foi possível enviar a proposta agora.');
       }
@@ -119,38 +131,6 @@ export default function SupporterDreamDetail() {
           >
             Voltar para explorar
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (sent) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center py-20 px-8">
-          <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Heart className="w-10 h-10 text-teal-600 fill-teal-200" />
-          </div>
-          <h2 className="text-gray-800 mb-3" style={{ fontWeight: 700 }}>Proposta enviada! 💚</h2>
-          <p className="text-gray-500 leading-relaxed mb-6">
-            Sua proposta foi enviada com carinho para <strong>{dream.patientName}</strong>. Aguarde enquanto ela analisa — você será notificado quando houver resposta.
-          </p>
-          <div className="bg-teal-50 rounded-2xl p-5 text-left mb-6">
-            <p className="text-sm font-medium text-teal-800 mb-3">O que acontece agora:</p>
-            <div className="space-y-2">
-              {['✉️ O paciente receberá sua proposta', '⏳ Aguarde a análise (costuma ser rápida)', '✅ Se aceito, um chat privado será aberto', '💬 Vocês combinam todos os detalhes no chat'].map((step, i) => (
-                <p key={i} className="text-sm text-teal-700">{step}</p>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-3 justify-center">
-            <button onClick={() => navigate('/apoiador/propostas')} className="border border-gray-200 px-6 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm">
-              Ver minhas propostas
-            </button>
-            <button onClick={() => navigate('/apoiador/explorar')} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-xl font-medium text-sm">
-              Explorar mais sonhos
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -211,8 +191,63 @@ export default function SupporterDreamDetail() {
         </div>
       </div>
 
-      {/* Proposal form */}
-      {!showProposal ? (
+      {successMessage && (
+        <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4 text-sm text-teal-700">
+          {successMessage}
+        </div>
+      )}
+
+      {existingProposal ? (
+        <div className="bg-white rounded-2xl border border-teal-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-teal-100 bg-teal-50 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-teal-800">Sua proposta</h2>
+              <p className="text-teal-600 text-sm">Você já enviou uma proposta para este sonho.</p>
+            </div>
+            <ProposalStatusBadge status={existingProposal.status} />
+          </div>
+
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-600 leading-relaxed">{existingProposal.message}</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">O que você oferece</p>
+                <p className="text-sm text-gray-700">{existingProposal.offering || 'Não informado'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">Disponibilidade</p>
+                <p className="text-sm text-gray-700">{existingProposal.availability || 'Não informada'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">Duração</p>
+                <p className="text-sm text-gray-700">{existingProposal.duration || 'Não informada'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">Enviada em</p>
+                <p className="text-sm text-gray-700">{new Date(existingProposal.createdAt).toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate('/apoiador/propostas')}
+                className="border border-gray-200 px-5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 text-sm"
+              >
+                Ver minhas propostas
+              </button>
+              {existingProposal.status === 'aceita' && (
+                <button
+                  onClick={() => navigate('/apoiador/chat')}
+                  className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-5 py-3 rounded-xl text-sm font-medium"
+                >
+                  <MessageCircle className="w-4 h-4" /> Abrir conversa
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : !showProposal ? (
         <button
           onClick={() => setShowProposal(true)}
           className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-2xl font-semibold text-base transition-colors shadow-md shadow-teal-100"

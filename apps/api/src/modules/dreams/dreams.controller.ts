@@ -31,6 +31,15 @@ export class DreamsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get(':dreamId')
+  getDream(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('dreamId') dreamId: string,
+  ) {
+    return this.dreamsService.getDreamForUser(currentUser, dreamId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(':dreamId/proposals')
   createProposal(
     @CurrentUser() currentUser: JwtPayload,

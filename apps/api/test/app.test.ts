@@ -108,6 +108,18 @@ describe('NextDream API', () => {
     expect(createProposal.status).toBe(201);
     expect(createProposal.body.status).toBe('enviada');
 
+    const duplicateProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .send({
+        message: 'Tentando enviar uma segunda proposta.',
+        offering: 'Companhia',
+        availability: 'Domingo',
+        duration: '1 hora',
+      });
+
+    expect(duplicateProposal.status).toBe(409);
+
     const supporterMine = await request(app.getHttpServer())
       .get('/proposals/mine')
       .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
@@ -147,6 +159,217 @@ describe('NextDream API', () => {
     expect(acceptProposal.status).toBe(200);
     expect(acceptProposal.body.status).toBe('aceita');
     expect(acceptProposal.body.conversationId).toEqual(expect.any(String));
+
+    const supporterDreamDetail = await request(app.getHttpServer())
+      .get(`/dreams/${createDream.body.id}`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+
+    expect(supporterDreamDetail.status).toBe(200);
+    expect(supporterDreamDetail.body.id).toBe(createDream.body.id);
+  });
+
+  it('returns the duplicate proposal message on repeated supporter submission', async () => {
+    const password = 'Secret123!';
+
+    const patientRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Paciente Duplicado',
+        email: 'patient-duplicate@example.com',
+        password,
+        role: 'paciente',
+        city: 'Santos, SP',
+      });
+    expect(patientRegister.status).toBe(201);
+
+    const supporterRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiadora Duplicada',
+        email: 'supporter-duplicate@example.com',
+        password,
+        role: 'apoiador',
+        city: 'Santos, SP',
+      });
+    expect(supporterRegister.status).toBe(201);
+
+    const createDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .send({
+        title: 'Aprender violao',
+        description: 'Quero tocar minhas musicas favoritas.',
+        category: 'Arte e Música',
+        format: 'remoto',
+        urgency: 'media',
+        privacy: 'publico',
+      });
+    expect(createDream.status).toBe(201);
+
+    const createProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .send({
+        message: 'Posso ajudar com aulas online.',
+        offering: 'Aulas de violao',
+        availability: 'Noites de semana',
+        duration: '1 hora',
+      });
+    expect(createProposal.status).toBe(201);
+
+    const duplicateProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .send({
+        message: 'Tentando repetir a proposta.',
+        offering: 'Aulas de violao',
+        availability: 'Sabado',
+        duration: '2 horas',
+      });
+
+    expect(duplicateProposal.status).toBe(409);
+    expect(duplicateProposal.body.message).toBe('Você já enviou uma proposta para este sonho.');
+  });
+
+  it('forbids a supporter without proposal from viewing a dream that is no longer published', async () => {
+    const password = 'Secret123!';
+
+    const patientRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Paciente Restrito',
+        email: 'patient-restricted@example.com',
+        password,
+        role: 'paciente',
+        city: 'Curitiba, PR',
+      });
+    expect(patientRegister.status).toBe(201);
+
+    const supporterRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiadora Autorizada',
+        email: 'supporter-authorized@example.com',
+        password,
+        role: 'apoiador',
+        city: 'Curitiba, PR',
+      });
+    expect(supporterRegister.status).toBe(201);
+
+    const outsiderRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiadora Sem Proposta',
+        email: 'supporter-outsider@example.com',
+        password,
+        role: 'apoiador',
+        city: 'Curitiba, PR',
+      });
+    expect(outsiderRegister.status).toBe(201);
+
+    const createDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .send({
+        title: 'Passear no jardim botanico',
+        description: 'Quero visitar um lugar tranquilo e bonito.',
+        category: 'Passeio',
+        format: 'presencial',
+        urgency: 'baixa',
+        privacy: 'publico',
+      });
+    expect(createDream.status).toBe(201);
+
+    const createProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .send({
+        message: 'Posso acompanhar voce nesse passeio.',
+        offering: 'Companhia',
+        availability: 'Fim de tarde',
+        duration: '2 horas',
+      });
+    expect(createProposal.status).toBe(201);
+
+    const acceptProposal = await request(app.getHttpServer())
+      .post(`/proposals/${createProposal.body.id}/accept`)
+      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+    expect(acceptProposal.status).toBe(200);
+
+    const outsiderDreamDetail = await request(app.getHttpServer())
+      .get(`/dreams/${createDream.body.id}`)
+      .set('Authorization', `Bearer ${outsiderRegister.body.accessToken}`);
+
+    expect(outsiderDreamDetail.status).toBe(403);
+    expect(outsiderDreamDetail.body.message).toBe('You are not allowed to view this dream');
+  });
+
+  it('forbids a different patient from listing proposals for a dream they do not own', async () => {
+    const password = 'Secret123!';
+
+    const ownerRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Paciente Dona',
+        email: 'patient-owner@example.com',
+        password,
+        role: 'paciente',
+        city: 'Maringá, PR',
+      });
+    expect(ownerRegister.status).toBe(201);
+
+    const otherPatientRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Paciente Visitante',
+        email: 'patient-other@example.com',
+        password,
+        role: 'paciente',
+        city: 'Londrina, PR',
+      });
+    expect(otherPatientRegister.status).toBe(201);
+
+    const supporterRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiador Proposta',
+        email: 'supporter-proposal-list@example.com',
+        password,
+        role: 'apoiador',
+        city: 'Maringá, PR',
+      });
+    expect(supporterRegister.status).toBe(201);
+
+    const createDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${ownerRegister.body.accessToken}`)
+      .send({
+        title: 'Tomar cafe em boa companhia',
+        description: 'Quero uma conversa leve em um cafe acolhedor.',
+        category: 'Conversa',
+        format: 'presencial',
+        urgency: 'media',
+        privacy: 'publico',
+      });
+    expect(createDream.status).toBe(201);
+
+    const createProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .send({
+        message: 'Posso estar com voce nesse encontro.',
+        offering: 'Companhia',
+        availability: 'Manha',
+        duration: '1 hora',
+      });
+    expect(createProposal.status).toBe(201);
+
+    const foreignPatientProposals = await request(app.getHttpServer())
+      .get(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${otherPatientRegister.body.accessToken}`);
+
+    expect(foreignPatientProposals.status).toBe(403);
+    expect(foreignPatientProposals.body.message).toBe('Only the dream owner can view proposals');
   });
 
   it('supports conversations messaging and admin moderation endpoints', async () => {
