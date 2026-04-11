@@ -1,0 +1,10 @@
+{
+  "high_or_critical_packages": [
+    "@nestjs/config",
+    "@nestjs/core",
+    "@nestjs/platform-express",
+    "lodash",
+    "path-to-regexp"
+  ],
+  "notes": "Baseline captured to prevent new high/critical audit regressions in PRs."
+}
