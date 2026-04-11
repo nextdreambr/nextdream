@@ -31,7 +31,7 @@ individual is representing the project.
 ## Enforcement
 
 To report unacceptable behavior, contact the maintainers at
-`security@nextdream.local` until a public project email is defined.
+`security@nextdream.ong.br` until a public project email is defined.
 
 All reports will be reviewed and investigated promptly and fairly.
 

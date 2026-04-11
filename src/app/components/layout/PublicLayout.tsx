@@ -88,7 +88,7 @@ export function PublicLayout() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/contato" className="hover:text-white transition-colors">Fale conosco</Link></li>
                 <li><Link to="/parcerias" className="hover:text-white transition-colors">Parcerias</Link></li>
-                <li><a href="mailto:contato@nextdream.com.br" className="hover:text-white transition-colors">contato@nextdream.com.br</a></li>
+                <li><a href="mailto:contato@nextdream.ong.br" className="hover:text-white transition-colors">contato@nextdream.ong.br</a></li>
               </ul>
             </div>
           </div>
