@@ -70,6 +70,7 @@ export function initFrontendSentry() {
     dsn,
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
+    integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: getTracesSampleRate(
       import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE,
     ),
