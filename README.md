@@ -160,6 +160,21 @@ docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest dir /repo --redact -
 
 Set `pr-review` as a required status check in branch protection for `main`.
 
+## Branch Governance & Review Policy
+
+- `main` is protected and can only be updated through Pull Request
+- Required checks on `main`: `verify` and `pr-review`
+- Required PR review on `main`: minimum `1` approval
+- CODEOWNERS approval is required for PRs targeting `main`
+- Branch protection is enforced for admins (`enforce_admins: true`)
+- Only maintainer `@renanmpimentel` should perform merges to `main`
+
+## AI-Assisted PR Review (Free)
+
+- Tool configured: `CodeRabbit` (free tier for public repositories)
+- Repo config file: `.coderabbit.yaml`
+- Install/enable the CodeRabbit GitHub App on this repository to receive automatic review comments on every PR
+
 ## Repository Conventions
 
 - Prefer small, verifiable changes (vertical slices)
