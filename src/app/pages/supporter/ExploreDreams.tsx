@@ -4,12 +4,14 @@ import { DreamCard } from '../../components/shared/DreamCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { useNavigate } from 'react-router';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
-import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
+import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
+import { buildProposalMapByDream } from '../../lib/proposals';
 
 export default function ExploreDreams() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [dreams, setDreams] = useState<PublicDream[]>([]);
+  const [proposalByDream, setProposalByDream] = useState<Map<string, Proposal>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -28,8 +30,13 @@ export default function ExploreDreams() {
       setLoading(true);
       setError('');
       try {
-        const data = await dreamsApi.listPublic();
-        if (mounted) setDreams(data);
+        const [dreamData, proposalData] = await Promise.all([
+          dreamsApi.listPublic(),
+          proposalsApi.listMine(),
+        ]);
+        if (!mounted) return;
+        setDreams(dreamData);
+        setProposalByDream(buildProposalMapByDream(proposalData));
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message);
@@ -217,6 +224,7 @@ export default function ExploreDreams() {
                 ...dream,
                 tags: [dream.category, dream.format, dream.urgency],
                 proposalsCount: 0,
+                proposalStatus: proposalByDream.get(dream.id)?.status,
               }}
               onClick={() => navigate(`/apoiador/sonhos/${dream.id}`)}
               variant="supporter"

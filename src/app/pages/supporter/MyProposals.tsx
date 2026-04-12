@@ -74,9 +74,19 @@ export default function MyProposals() {
       ) : (
         <div className="space-y-3">
           {myProposals.map(proposal => (
-            <div key={proposal.id}
+            <div
+              key={proposal.id}
+              onClick={() => navigate(`/apoiador/sonhos/${proposal.dreamId}`)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/apoiador/sonhos/${proposal.dreamId}`);
+                }
+              }}
+              role="button"
+              tabIndex={0}
               className={`bg-white rounded-2xl border p-5 transition-all hover:shadow-sm
-                ${proposal.status === 'aceita' ? 'border-green-200' : proposal.status === 'recusada' ? 'border-gray-200 opacity-70' : 'border-gray-100'}`}>
+                ${proposal.status === 'aceita' ? 'border-green-200' : proposal.status === 'recusada' ? 'border-gray-200 opacity-70' : 'border-gray-100'} text-left w-full cursor-pointer`}>
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-xl shrink-0">
@@ -101,7 +111,11 @@ export default function MyProposals() {
 
               {proposal.status === 'aceita' && (
                 <div className="mt-3 pt-3 border-t border-green-100">
-                  <button onClick={() => navigate('/apoiador/chat')}
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      navigate('/apoiador/chat');
+                    }}
                     className="flex items-center gap-2 text-teal-700 bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
                     <MessageCircle className="w-4 h-4" /> Abrir conversa
                   </button>
