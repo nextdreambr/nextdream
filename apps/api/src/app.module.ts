@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { resolve } from 'node:path';
 import { AdminContactMessage } from './entities/admin-contact-message.entity';
 import { AdminReport } from './entities/admin-report.entity';
 import { AuditLog } from './entities/audit-log.entity';
@@ -24,9 +25,15 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
 
 @Module({
   imports: [
+    // Resolve env files from monorepo root even when API runs via npm workspace.
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: [
+        resolve(__dirname, '../../../.env.local'),
+        resolve(__dirname, '../../../.env'),
+        '.env.local',
+        '.env',
+      ],
     }),
     TypeOrmModule.forRootAsync({
       useFactory: () => {
