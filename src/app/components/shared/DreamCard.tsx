@@ -1,5 +1,5 @@
 import { MapPin, Users, Video, MapPinned, ChevronRight } from 'lucide-react';
-import { DreamStatusBadge, UrgencyBadge } from './StatusBadge';
+import { DreamStatusBadge, ProposalStatusBadge, UrgencyBadge } from './StatusBadge';
 
 const categoryEmoji: Record<string, string> = {
   'Experiência ao ar livre': '🌅',
@@ -28,6 +28,7 @@ interface DreamCardProps {
     patientCity?: string;
     tags?: string[];
     proposalsCount?: number;
+    proposalStatus?: 'enviada' | 'em-analise' | 'aceita' | 'recusada' | 'expirada';
   };
   onClick?: () => void;
   variant?: 'supporter' | 'patient';
@@ -86,6 +87,7 @@ export function DreamCard({ dream, onClick, showStatus = false }: DreamCardProps
         </div>
 
         <div className="flex items-center gap-1.5">
+          {dream.proposalStatus && <ProposalStatusBadge status={dream.proposalStatus} />}
           {dream.urgency === 'alta' && <UrgencyBadge urgency={dream.urgency} />}
           {showStatus && <DreamStatusBadge status={dream.status} />}
         </div>

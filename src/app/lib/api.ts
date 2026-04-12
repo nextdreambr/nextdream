@@ -155,6 +155,9 @@ export const dreamsApi = {
   listPublic() {
     return apiRequest<PublicDream[]>('/dreams/public');
   },
+  getById(dreamId: string) {
+    return apiRequest<PublicDream>(`/dreams/${dreamId}`);
+  },
   listMine() {
     return apiRequest<PublicDream[]>('/dreams/mine');
   },
