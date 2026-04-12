@@ -68,6 +68,7 @@ export function initFrontendSentry() {
 
   Sentry.init({
     dsn,
+    tunnel: import.meta.env.PROD ? '/api/sentry-tunnel' : undefined,
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
     integrations: [

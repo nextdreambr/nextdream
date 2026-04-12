@@ -123,6 +123,9 @@ Required GitHub Environment `production` values:
   - `APP_URL`
   - `CORS_ORIGIN`
   - `VITE_API_URL`
+  - `SENTRY_DSN_WEB`
+  - `SENTRY_DSN_API`
+  - `SENTRY_TRACES_SAMPLE_RATE`
   - `APP_DIR` (recommended: `/opt/nextdream`)
 
 ## Quality Gates
