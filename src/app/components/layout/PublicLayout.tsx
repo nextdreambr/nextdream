@@ -94,6 +94,14 @@ export function PublicLayout() {
           </div>
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs">© 2026 NextDream. Feito com ❤️ para quem precisa de presença.</p>
+            <a
+              href="https://github.com/nextdreambr/nextdream"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-xs text-gray-400 hover:text-white underline-offset-2 hover:underline transition-colors"
+            >
+              Projeto open source no GitHub
+            </a>
             <div className="bg-pink-900/40 border border-pink-800 text-pink-300 px-4 py-2 rounded-xl text-xs">
               🚫 Sem dinheiro, PIX ou doações. Só conexões humanas.
             </div>
