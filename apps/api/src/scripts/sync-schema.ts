@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { AdminContactMessage } from '../entities/admin-contact-message.entity';
+import { AdminInvite } from '../entities/admin-invite.entity';
 import { AdminReport } from '../entities/admin-report.entity';
 import { AuditLog } from '../entities/audit-log.entity';
 import { Conversation } from '../entities/conversation.entity';
@@ -27,6 +28,7 @@ async function run() {
       Message,
       Notification,
       AdminContactMessage,
+      AdminInvite,
       AdminReport,
       AuditLog,
     ],

@@ -7,6 +7,7 @@ import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.pn
 const navItems = [
   { path: '/admin',               label: 'Visão Geral',      icon: BarChart2,      exact: true },
   { path: '/admin/usuarios',      label: 'Usuários',         icon: Users },
+  { path: '/admin/admins',        label: 'Admins',           icon: Shield },
   { path: '/admin/sonhos',        label: 'Sonhos',           icon: Star },
   { path: '/admin/propostas',     label: 'Propostas',        icon: Send },
   { path: '/admin/mensagens',     label: 'Mensagens',        icon: Mail },

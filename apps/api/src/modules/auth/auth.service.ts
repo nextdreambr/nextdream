@@ -9,8 +9,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
+import { AdminInvite } from '../../entities/admin-invite.entity';
 import { User } from '../../entities/user.entity';
 import { getRequiredEnv } from '../../config/env';
+import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { MailService } from '../mail/mail.service';
@@ -18,15 +20,18 @@ import { MailService } from '../mail/mail.service';
 @Injectable()
 export class AuthService {
   private readonly usersRepository: Repository<User>;
+  private readonly adminInvitesRepository: Repository<AdminInvite>;
   private readonly jwtService: JwtService;
   private readonly mailService: MailService;
 
   constructor(
     @InjectRepository(User) usersRepository: Repository<User>,
+    @InjectRepository(AdminInvite) adminInvitesRepository: Repository<AdminInvite>,
     @Inject(JwtService) jwtService: JwtService,
     @Inject(MailService) mailService: MailService,
   ) {
     this.usersRepository = usersRepository;
+    this.adminInvitesRepository = adminInvitesRepository;
     this.jwtService = jwtService;
     this.mailService = mailService;
   }
@@ -76,6 +81,48 @@ export class AuthService {
     }
 
     return this.buildAuthResponse(user);
+  }
+
+  async acceptAdminInvite(dto: AcceptAdminInviteDto) {
+    const normalizedEmail = dto.email.toLowerCase();
+    const invite = await this.adminInvitesRepository.findOne({ where: { email: normalizedEmail } });
+    if (!invite) {
+      throw new BadRequestException('Invalid or expired invite');
+    }
+    if (invite.usedAt || invite.expiresAt <= new Date()) {
+      throw new BadRequestException('Invite is no longer valid');
+    }
+
+    const tokenMatches = await bcrypt.compare(dto.token, invite.tokenHash);
+    if (!tokenMatches) {
+      throw new UnauthorizedException('Invalid invite token');
+    }
+
+    const existing = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    const user = this.usersRepository.create({
+      name: dto.name,
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(dto.password, 10),
+      role: 'admin',
+      verified: true,
+      suspended: false,
+    });
+    const saved = await this.usersRepository.save(user);
+
+    invite.usedAt = new Date();
+    await this.adminInvitesRepository.save(invite);
+
+    await this.mailService.sendWelcomeEmail({
+      to: saved.email,
+      name: saved.name,
+      role: saved.role,
+    });
+
+    return this.buildAuthResponse(saved);
   }
 
   private async buildAuthResponse(user: User) {

@@ -1,11 +1,13 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminService } from './admin.service';
 import { CloseChatDto } from './dto/close-chat.dto';
+import { InviteAdminDto } from './dto/invite-admin.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
+import { UpdateAdminDto } from './dto/update-admin.dto';
 import { UpdateDreamStatusDto } from './dto/update-dream-status.dto';
 import { UpdateProposalStatusDto } from './dto/update-proposal-status.dto';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
@@ -28,6 +30,27 @@ export class AdminController {
   @Get('users')
   listUsers() {
     return this.adminService.listUsers();
+  }
+
+  @Get('admins')
+  listAdmins() {
+    return this.adminService.listAdmins();
+  }
+
+  @Patch('admins/:userId')
+  @HttpCode(200)
+  updateAdmin(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('userId') userId: string,
+    @Body() dto: UpdateAdminDto,
+  ) {
+    return this.adminService.updateAdmin(currentUser, userId, dto);
+  }
+
+  @Post('admins/invite')
+  @HttpCode(200)
+  inviteAdmin(@CurrentUser() currentUser: JwtPayload, @Body() dto: InviteAdminDto) {
+    return this.adminService.inviteAdmin(currentUser, dto);
   }
 
   @Post('users/:userId/suspend')

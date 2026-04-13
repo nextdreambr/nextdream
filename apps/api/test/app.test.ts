@@ -7,11 +7,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
+import { AdminInvite } from '../src/entities/admin-invite.entity';
 import { User } from '../src/entities/user.entity';
 
 describe('NextDream API', () => {
   let app: INestApplication;
   let usersRepository: Repository<User>;
+  let adminInvitesRepository: Repository<AdminInvite>;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -22,6 +24,7 @@ describe('NextDream API', () => {
 
     app = moduleRef.createNestApplication();
     usersRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
+    adminInvitesRepository = moduleRef.get<Repository<AdminInvite>>(getRepositoryToken(AdminInvite));
     await app.init();
   });
 
@@ -549,6 +552,96 @@ describe('NextDream API', () => {
       .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminUsers.status).toBe(200);
     expect(adminUsers.body.length).toBeGreaterThan(0);
+    expect(adminUsers.body.every((item: { role: string }) => item.role !== 'admin')).toBe(true);
+
+    const adminAdmins = await request(app.getHttpServer())
+      .get('/admin/admins')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+    expect(adminAdmins.status).toBe(200);
+    expect(adminAdmins.body.some((item: { email: string }) => item.email === 'admin@example.com')).toBe(true);
+
+    const selfDeactivate = await request(app.getHttpServer())
+      .patch(`/admin/admins/${adminLogin.body.user.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ isActive: false });
+    expect(selfDeactivate.status).toBe(400);
+
+    const createSecondAdmin = await usersRepository.save(
+      usersRepository.create({
+        name: 'Admin Two',
+        email: 'admin2@example.com',
+        passwordHash: await bcrypt.hash(password, 10),
+        role: 'admin',
+        verified: true,
+        suspended: false,
+      }),
+    );
+
+    const updateOtherAdminWithoutPassword = await request(app.getHttpServer())
+      .patch(`/admin/admins/${createSecondAdmin.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({
+        name: 'Admin Two Updated Again',
+      });
+    expect(updateOtherAdminWithoutPassword.status).toBe(400);
+
+    const updateSecondAdmin = await request(app.getHttpServer())
+      .patch(`/admin/admins/${createSecondAdmin.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({
+        name: 'Admin Two Updated',
+        email: 'admin2-updated@example.com',
+        role: 'apoiador',
+        isActive: true,
+        currentPassword: password,
+      });
+    expect(updateSecondAdmin.status).toBe(200);
+    expect(updateSecondAdmin.body.role).toBe('apoiador');
+
+    const updateAdminPassword = await request(app.getHttpServer())
+      .patch(`/admin/admins/${adminLogin.body.user.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ newPassword: 'NewSecret123!', currentPassword: password });
+    expect(updateAdminPassword.status).toBe(200);
+
+    const reloginWithNewPassword = await request(app.getHttpServer()).post('/auth/login').send({
+      email: 'admin@example.com',
+      password: 'NewSecret123!',
+    });
+    expect(reloginWithNewPassword.status).toBe(200);
+
+    const inviteAdminExistingUser = await request(app.getHttpServer())
+      .post('/admin/admins/invite')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ email: 'supporter2@example.com' });
+    expect(inviteAdminExistingUser.status).toBe(400);
+
+    const inviteAdmin = await request(app.getHttpServer())
+      .post('/admin/admins/invite')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ email: 'admin-invite@example.com' });
+    expect(inviteAdmin.status).toBe(200);
+
+    const knownToken = 'InviteToken123!';
+    await adminInvitesRepository.save(
+      adminInvitesRepository.create({
+        email: 'manual-invite@example.com',
+        tokenHash: await bcrypt.hash(knownToken, 10),
+        invitedByUserId: adminLogin.body.user.id,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      }),
+    );
+
+    const acceptManualInvite = await request(app.getHttpServer())
+      .post('/auth/admin-invites/accept')
+      .send({
+        email: 'manual-invite@example.com',
+        token: knownToken,
+        name: 'Manual Invite',
+        password: 'InviteSecret123!',
+      });
+    expect(acceptManualInvite.status).toBe(200);
+    expect(acceptManualInvite.body.user.role).toBe('admin');
 
     const suspendUser = await request(app.getHttpServer())
       .post(`/admin/users/${supporterRegister.body.user.id}/suspend`)

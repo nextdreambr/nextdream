@@ -149,6 +149,12 @@ export const authApi = {
       body: JSON.stringify(payload),
     });
   },
+  acceptAdminInvite(payload: { email: string; token: string; name: string; password: string }) {
+    return apiRequest<AuthSession>('/auth/admin-invites/accept', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };
 
 export const dreamsApi = {
@@ -243,6 +249,12 @@ export interface AdminUser {
   suspensionReason?: string;
   suspendedAt?: string;
   createdAt: string;
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string;
+  expiresAt: string;
 }
 
 export interface AdminChat {
@@ -353,10 +365,35 @@ export const adminApi = {
   listUsers() {
     return apiRequest<AdminUser[]>('/admin/users');
   },
+  listAdmins() {
+    return apiRequest<AdminUser[]>('/admin/admins');
+  },
   suspendUser(userId: string, reason: string) {
     return apiRequest<{ id: string; suspended: boolean; suspensionReason?: string }>(`/admin/users/${userId}/suspend`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    });
+  },
+  updateAdmin(
+    userId: string,
+    payload: {
+      name?: string;
+      email?: string;
+      role?: ApiUserRole;
+      isActive?: boolean;
+      currentPassword?: string;
+      newPassword?: string;
+    },
+  ) {
+    return apiRequest<AdminUser>(`/admin/admins/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+  inviteAdmin(email: string) {
+    return apiRequest<AdminInvite>('/admin/admins/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   },
   listDreams() {

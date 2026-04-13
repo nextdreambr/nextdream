@@ -37,7 +37,7 @@ export default function AdminUsers() {
     <div className="space-y-4">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Usuários</h1>
-        <p className="text-sm text-gray-500">Gestão operacional de contas.</p>
+        <p className="text-sm text-gray-500">Gestão operacional de apoiadores e pacientes.</p>
       </div>
 
       <div className="bg-white border border-pink-100 rounded-2xl overflow-auto">

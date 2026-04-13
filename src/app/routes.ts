@@ -21,6 +21,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ProfileSelect from './pages/auth/ProfileSelect';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import AcceptAdminInvite from './pages/auth/AcceptAdminInvite';
 import NotFound from './pages/NotFound';
 import PublicDreamDetail from './pages/PublicDreamDetail';
 import Contact from './pages/Contact';
@@ -53,6 +54,7 @@ import SupporterNotifications from './pages/supporter/SupporterNotifications';
 
 // Admin pages
 import AdminOverview from './pages/admin/AdminOverview';
+import AdminAdmins from './pages/admin/AdminAdmins';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminDreams from './pages/admin/AdminDreams';
 import AdminProposals from './pages/admin/AdminProposals';
@@ -83,6 +85,7 @@ export const router = createBrowserRouter([
           { path: 'cadastro', Component: Register },
           { path: 'selecionar-perfil', Component: ProfileSelect },
           { path: 'esqueci-senha', Component: ForgotPassword },
+          { path: 'aceitar-convite-admin', Component: AcceptAdminInvite },
           { path: 'sonhos/:id', Component: PublicDreamDetail },
           { path: 'contato', Component: Contact },
           { path: 'parcerias', Component: Partnerships },
@@ -135,6 +138,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: AdminOverview },
           { path: 'usuarios', Component: AdminUsers },
+          { path: 'admins', Component: AdminAdmins },
           { path: 'sonhos', Component: AdminDreams },
           { path: 'propostas', Component: AdminProposals },
           { path: 'mensagens', Component: AdminMessages },
