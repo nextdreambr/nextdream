@@ -189,6 +189,24 @@ jobs:
           GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
+          validate_boolean_env() {
+            local key="$1"
+            local value="$2"
+            local normalized
+            normalized="$(echo "$value" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+
+            case "$normalized" in
+              true|1|yes|false|0|no)
+                return 0
+                ;;
+              *)
+                echo "Invalid $key value: expected one of [true, 1, yes, false, 0, no]"
+                exit 1
+                ;;
+            esac
+          }
+
           required=(
             OCI_HOST
             OCI_USER
@@ -216,11 +234,21 @@ jobs:
             fi
           done
 
-          normalized_trust_proxy="$(echo "$TRUST_PROXY" | tr '[:upper:]' '[:lower:]')"
-          if [[ "$normalized_trust_proxy" != "true" && "$normalized_trust_proxy" != "false" ]]; then
-            echo "Invalid TRUST_PROXY value: expected true or false"
-            exit 1
-          fi
+          normalized_trust_proxy="$(echo "$TRUST_PROXY" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          case "$normalized_trust_proxy" in
+            true|1|yes)
+              normalized_trust_proxy="true"
+              ;;
+            false|0|no)
+              normalized_trust_proxy="false"
+              ;;
+            *)
+              echo "Invalid TRUST_PROXY value: expected true or false"
+              exit 1
+              ;;
+          esac
+
+          validate_boolean_env "AUTH_COOKIE_SECURE" "$AUTH_COOKIE_SECURE"
 
           normalized_proxy_trusted_ips="$(echo "${PROXY_TRUSTED_IPS:-}" | tr -d '[:space:]')"
           if [[ "$normalized_trust_proxy" == "true" && -z "$normalized_proxy_trusted_ips" ]]; then
@@ -280,6 +308,16 @@ jobs:
           WEB_IMAGE: ${{ env.IMAGE_REPO_BASE }}-web:${{ env.IMAGE_TAG }}
         run: |
           set -euo pipefail
+
+          normalized_auth_cookie_secure="$(echo "$AUTH_COOKIE_SECURE" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          case "$normalized_auth_cookie_secure" in
+            true|1|yes|false|0|no)
+              ;;
+            *)
+              echo "Invalid AUTH_COOKIE_SECURE value: expected one of [true, 1, yes, false, 0, no]"
+              exit 1
+              ;;
+          esac
 
           database_url_runtime="$DATABASE_URL"
           if [[ "$database_url_runtime" == *"sslmode=require"* && "$database_url_runtime" != *"uselibpqcompat="* ]]; then

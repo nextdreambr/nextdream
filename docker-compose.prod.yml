@@ -24,4 +24,4 @@ networks:
     name: nextdream-prod
     ipam:
       config:
-        - subnet: 172.30.0.0/24
+        - subnet: ${DOCKER_SUBNET:-172.30.0.0/24}
