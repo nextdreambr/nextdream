@@ -17,7 +17,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.disable('x-powered-by');
-  if (getBooleanEnv('TRUST_PROXY', true)) {
+  if (getBooleanEnv('TRUST_PROXY', false)) {
     app.set('trust proxy', 1);
   }
 
