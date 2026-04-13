@@ -176,6 +176,10 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
           CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
+          PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
+          AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
@@ -197,6 +201,9 @@ jobs:
             APP_URL
             CORS_ORIGIN
             VITE_API_URL
+            TRUST_PROXY
+            AUTH_COOKIE_DOMAIN
+            AUTH_COOKIE_SECURE
             DATABASE_URL
             JWT_ACCESS_SECRET
             JWT_REFRESH_SECRET
@@ -209,6 +216,17 @@ jobs:
               exit 1
             fi
           done
+
+          normalized_trust_proxy="$(echo "$TRUST_PROXY" | tr '[:upper:]' '[:lower:]')"
+          if [[ "$normalized_trust_proxy" != "true" && "$normalized_trust_proxy" != "false" ]]; then
+            echo "Invalid TRUST_PROXY value: expected true or false"
+            exit 1
+          fi
+
+          if [[ "$normalized_trust_proxy" == "true" && -z "${PROXY_TRUSTED_IPS:-}" ]]; then
+            echo "Missing required value: PROXY_TRUSTED_IPS (required when TRUST_PROXY=true)"
+            exit 1
+          fi
 
       - name: Prepare SSH configuration
         env:
@@ -245,6 +263,10 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
           CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
+          PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
+          AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
@@ -281,6 +303,10 @@ jobs:
           APP_URL=${APP_URL}
           CORS_ORIGIN=${CORS_ORIGIN}
           VITE_API_URL=${VITE_API_URL}
+          TRUST_PROXY=${TRUST_PROXY}
+          PROXY_TRUSTED_IPS=${PROXY_TRUSTED_IPS}
+          AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN}
+          AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
           DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
