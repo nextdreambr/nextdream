@@ -7,6 +7,31 @@ export class MailService {
   private transporter: Transporter | null = null;
   private disabledLogged = false;
 
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private sanitizeUrl(value?: string) {
+    if (!value) {
+      return undefined;
+    }
+
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return undefined;
+      }
+      return encodeURI(parsed.toString());
+    } catch {
+      return undefined;
+    }
+  }
+
   private renderEmailTemplate(params: {
     preheader: string;
     title: string;
@@ -17,23 +42,32 @@ export class MailService {
     ctaUrl?: string;
     footer?: string;
   }) {
-    const footer = params.footer ?? 'Equipe NextDream';
-    const bodyHtml = params.bodyLines.map((line) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('');
+    const footerRaw = params.footer ?? 'Equipe NextDream';
+    const safePreheader = this.escapeHtml(params.preheader);
+    const safeTitle = this.escapeHtml(params.title);
+    const safeGreeting = this.escapeHtml(params.greeting);
+    const safeIntro = this.escapeHtml(params.intro);
+    const safeFooter = this.escapeHtml(footerRaw);
+    const safeBodyLines = params.bodyLines.map((line) => this.escapeHtml(line));
+    const safeCtaLabel = params.ctaLabel ? this.escapeHtml(params.ctaLabel) : undefined;
+    const safeCtaUrl = this.sanitizeUrl(params.ctaUrl);
+
+    const bodyHtml = safeBodyLines.map((line) => `<p style="margin:0 0 12px 0;">${line}</p>`).join('');
     const ctaHtml =
-      params.ctaLabel && params.ctaUrl
-        ? `<div style="margin:16px 0 20px;"><a href="${params.ctaUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">${params.ctaLabel}</a></div>`
+      safeCtaLabel && safeCtaUrl
+        ? `<div style="margin:16px 0 20px;"><a href="${safeCtaUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">${safeCtaLabel}</a></div>`
         : '';
 
     const html = [
       '<!doctype html>',
       '<html lang="pt-BR">',
       '<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;color:#111827;">',
-      `<span style="display:none;visibility:hidden;opacity:0;height:0;width:0;">${params.preheader}</span>`,
+      `<span style="display:none;visibility:hidden;opacity:0;height:0;width:0;">${safePreheader}</span>`,
       '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 0;">',
       '<tr><td align="center">',
       '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">',
       '<tr><td style="padding:20px 24px;background:#111827;color:#ffffff;font-size:18px;font-weight:700;">NextDream</td></tr>',
-      `<tr><td style="padding:24px;"><h1 style="margin:0 0 12px 0;font-size:22px;">${params.title}</h1><p style="margin:0 0 12px 0;">${params.greeting}</p><p style="margin:0 0 16px 0;">${params.intro}</p>${bodyHtml}${ctaHtml}<p style="margin:12px 0 0 0;">${footer}</p></td></tr>`,
+      `<tr><td style="padding:24px;"><h1 style="margin:0 0 12px 0;font-size:22px;">${safeTitle}</h1><p style="margin:0 0 12px 0;">${safeGreeting}</p><p style="margin:0 0 16px 0;">${safeIntro}</p>${bodyHtml}${ctaHtml}<p style="margin:12px 0 0 0;">${safeFooter}</p></td></tr>`,
       '</table>',
       '</td></tr>',
       '</table>',
@@ -42,17 +76,17 @@ export class MailService {
     ].join('');
 
     const text = [
-      params.title,
+      safeTitle,
       '',
-      params.greeting,
+      safeGreeting,
       '',
-      params.intro,
+      safeIntro,
       '',
-      ...params.bodyLines,
+      ...safeBodyLines,
       '',
-      params.ctaLabel && params.ctaUrl ? `${params.ctaLabel}: ${params.ctaUrl}` : '',
+      safeCtaLabel && safeCtaUrl ? `${safeCtaLabel}: ${safeCtaUrl}` : '',
       '',
-      footer,
+      safeFooter,
     ]
       .filter(Boolean)
       .join('\n');
@@ -168,7 +202,7 @@ export class MailService {
   async sendAdminInviteEmail(params: { to: string; inviteUrl: string; expiresInHours: number }) {
     const transporter = this.getTransporter();
     if (!transporter) {
-      return;
+      throw new Error('SMTP transporter is unavailable for admin invite email');
     }
 
     const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
@@ -195,11 +229,11 @@ export class MailService {
         html: template.html,
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
       this.logger.warn(
-        `Failed to send admin invite email to ${params.to}: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
+        `Failed to send admin invite email to ${params.to}: ${message}`,
       );
+      throw new Error(`Failed to send admin invite email to ${params.to}: ${message}`);
     }
   }
 }

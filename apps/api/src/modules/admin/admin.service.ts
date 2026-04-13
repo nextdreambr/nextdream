@@ -232,11 +232,16 @@ export class AdminService {
       normalizedEmail,
     )}&token=${encodeURIComponent(rawToken)}`;
 
-    await this.mailService.sendAdminInviteEmail({
-      to: normalizedEmail,
-      inviteUrl,
-      expiresInHours,
-    });
+    try {
+      await this.mailService.sendAdminInviteEmail({
+        to: normalizedEmail,
+        inviteUrl,
+        expiresInHours,
+      });
+    } catch (error) {
+      await this.adminInvitesRepository.delete({ id: saved.id });
+      throw error;
+    }
 
     await this.logAction(currentUser, {
       action: 'Convite de admin enviado',
