@@ -11,6 +11,10 @@ function getTracesSampleRate(raw: string | undefined): number {
   return parsed;
 }
 
+function shouldEmitStartupTestLog(raw: string | undefined): boolean {
+  return raw === '1' || raw?.toLowerCase() === 'true';
+}
+
 export function initApiSentry() {
   if (initialized) {
     return;
@@ -27,7 +31,7 @@ export function initApiSentry() {
     release: process.env.SENTRY_RELEASE,
     integrations: [
       Sentry.consoleLoggingIntegration({
-        levels: ['warn', 'error'],
+        levels: ['log', 'warn', 'error'],
       }),
     ],
     enableLogs: true,
@@ -36,6 +40,13 @@ export function initApiSentry() {
   });
 
   initialized = true;
+
+  if (shouldEmitStartupTestLog(process.env.SENTRY_EMIT_STARTUP_TEST_LOG)) {
+    Sentry.logger.info('API startup test log', {
+      action: 'test_log',
+      source: 'api_boot',
+    });
+  }
 }
 
 export function captureApiException(
