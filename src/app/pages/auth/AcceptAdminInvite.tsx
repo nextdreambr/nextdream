@@ -48,39 +48,55 @@ export default function AcceptAdminInvite() {
           <p className="text-sm text-gray-600 mt-1">Conclua seu cadastro para acessar o painel.</p>
         </div>
 
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="Email"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-          required
-        />
-        <input
-          type="text"
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-          placeholder="Token do convite"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-          required
-        />
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Seu nome"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-          required
-        />
-        <input
-          type="password"
-          value={password}
-          minLength={8}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Senha"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-          required
-        />
+        <div className="space-y-1">
+          <label htmlFor="email" className="text-sm text-gray-700">Email</label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email"
+            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="token" className="text-sm text-gray-700">Token do convite</label>
+          <input
+            id="token"
+            type="text"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            placeholder="Token do convite"
+            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="name" className="text-sm text-gray-700">Seu nome</label>
+          <input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Seu nome"
+            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="password" className="text-sm text-gray-700">Senha</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            minLength={8}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Senha"
+            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            required
+          />
+        </div>
 
         <button
           type="submit"
