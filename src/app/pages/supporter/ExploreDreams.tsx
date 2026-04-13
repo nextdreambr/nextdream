@@ -7,6 +7,29 @@ import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
 import { buildProposalMapByDream } from '../../lib/proposals';
 
+const formatLabels = {
+  remoto: '💻 Online',
+  presencial: '📍 Presencial',
+  ambos: '🤝 Ambos',
+} as const;
+
+const urgencyLabels = {
+  alta: '🔴 Alta',
+  media: '🟡 Média',
+  baixa: '🟢 Baixa',
+} as const;
+
+function matchesFormat(
+  selectedFormat: '' | 'remoto' | 'presencial' | 'ambos',
+  dreamFormat: PublicDream['format'],
+) {
+  if (!selectedFormat || selectedFormat === 'ambos') {
+    return true;
+  }
+
+  return dreamFormat === selectedFormat || dreamFormat === 'ambos';
+}
+
 export default function ExploreDreams() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -16,11 +39,9 @@ export default function ExploreDreams() {
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
-    category: '',
+    categories: [] as string[],
     format: '',
     urgency: '',
-    verifiedOnly: false,
-    shortDuration: false,
   });
 
   useEffect(() => {
@@ -59,14 +80,14 @@ export default function ExploreDreams() {
 
   const filtered = publishedDreams.filter(d => {
     if (query && !d.title.toLowerCase().includes(query.toLowerCase()) && !d.description.toLowerCase().includes(query.toLowerCase())) return false;
-    if (filters.category && d.category !== filters.category) return false;
-    if (filters.format && d.format !== filters.format && d.format !== 'ambos') return false;
+    if (filters.categories.length > 0 && !filters.categories.includes(d.category)) return false;
+    if (!matchesFormat(filters.format as '' | 'remoto' | 'presencial' | 'ambos', d.format)) return false;
     if (filters.urgency && d.urgency !== filters.urgency) return false;
     return true;
   });
 
-  const clearFilters = () => setFilters({ category: '', format: '', urgency: '', verifiedOnly: false, shortDuration: false });
-  const hasFilters = filters.category || filters.format || filters.urgency || filters.verifiedOnly;
+  const clearFilters = () => setFilters({ categories: [], format: '', urgency: '' });
+  const hasFilters = filters.categories.length > 0 || filters.format || filters.urgency;
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
@@ -115,10 +136,20 @@ export default function ExploreDreams() {
           <div>
             <p className="text-xs text-gray-500 mb-2">Categoria</p>
             <div className="flex flex-wrap gap-2">
-              {DREAM_CATEGORIES.slice(0, 8).map(cat => (
-                <button key={cat} onClick={() => setFilters(f => ({ ...f, category: f.category === cat ? '' : cat }))}
+              {DREAM_CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() =>
+                    setFilters(current => ({
+                      ...current,
+                      categories: current.categories.includes(cat)
+                        ? current.categories.filter((value) => value !== cat)
+                        : [...current.categories, cat],
+                    }))
+                  }
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
-                    ${filters.category === cat ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}>
+                    ${filters.categories.includes(cat) ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
+                >
                   {cat}
                 </button>
               ))}
@@ -133,9 +164,12 @@ export default function ExploreDreams() {
                 { val: 'presencial', label: '📍 Presencial', icon: MapPin },
                 { val: 'ambos', label: '🤝 Ambos', icon: Users },
               ].map(f => (
-                <button key={f.val} onClick={() => setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }))}
+                <button
+                  key={f.val}
+                  onClick={() => setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }))}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
-                    ${filters.format === f.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}>
+                    ${filters.format === f.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
+                >
                   {f.label}
                 </button>
               ))}
@@ -150,26 +184,16 @@ export default function ExploreDreams() {
                 { val: 'media', label: '🟡 Média' },
                 { val: 'baixa', label: '🟢 Baixa' },
               ].map(u => (
-                <button key={u.val} onClick={() => setFilters(f => ({ ...f, urgency: f.urgency === u.val ? '' : u.val }))}
+                <button
+                  key={u.val}
+                  onClick={() => setFilters(f => ({ ...f, urgency: f.urgency === u.val ? '' : u.val }))}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
-                    ${filters.urgency === u.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}>
+                    ${filters.urgency === u.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
+                >
                   {u.label}
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-700">Apenas verificados</p>
-              <p className="text-xs text-gray-400">Mostrar apenas pacientes verificados</p>
-            </div>
-            <button
-              onClick={() => setFilters(f => ({ ...f, verifiedOnly: !f.verifiedOnly }))}
-              className={`w-10 h-5.5 rounded-full transition-colors ${filters.verifiedOnly ? 'bg-teal-600' : 'bg-gray-300'}`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${filters.verifiedOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </button>
           </div>
         </div>
       )}
@@ -177,21 +201,23 @@ export default function ExploreDreams() {
       {/* Active filter chips */}
       {hasFilters && (
         <div className="flex flex-wrap gap-2">
-          {filters.category && (
-            <span className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
-              {filters.category}
-              <button onClick={() => setFilters(f => ({ ...f, category: '' }))}><X className="w-3 h-3" /></button>
+          {filters.categories.map((category) => (
+            <span key={category} className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
+              {category}
+              <button onClick={() => setFilters(current => ({ ...current, categories: current.categories.filter((value) => value !== category) }))}>
+                <X className="w-3 h-3" />
+              </button>
             </span>
-          )}
+          ))}
           {filters.format && (
             <span className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
-              {filters.format}
+              {formatLabels[filters.format as keyof typeof formatLabels]}
               <button onClick={() => setFilters(f => ({ ...f, format: '' }))}><X className="w-3 h-3" /></button>
             </span>
           )}
           {filters.urgency && (
             <span className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
-              Urgência: {filters.urgency}
+              Urgência: {urgencyLabels[filters.urgency as keyof typeof urgencyLabels]}
               <button onClick={() => setFilters(f => ({ ...f, urgency: '' }))}><X className="w-3 h-3" /></button>
             </span>
           )}
