@@ -202,7 +202,6 @@ jobs:
             CORS_ORIGIN
             VITE_API_URL
             TRUST_PROXY
-            AUTH_COOKIE_DOMAIN
             AUTH_COOKIE_SECURE
             DATABASE_URL
             JWT_ACCESS_SECRET
@@ -305,7 +304,6 @@ jobs:
           VITE_API_URL=${VITE_API_URL}
           TRUST_PROXY=${TRUST_PROXY}
           PROXY_TRUSTED_IPS=${PROXY_TRUSTED_IPS}
-          AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN}
           AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
           DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
@@ -316,6 +314,11 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE}
           SENTRY_RELEASE=${IMAGE_TAG}
           EOV
+
+          if [[ -n "${AUTH_COOKIE_DOMAIN:-}" ]]; then
+            ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+              "printf '\nAUTH_COOKIE_DOMAIN=%s\n' '$AUTH_COOKIE_DOMAIN' >> '$APP_DIR/.env.production'"
+          fi
 
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
             "chmod 600 '$APP_DIR/.env.production'"
