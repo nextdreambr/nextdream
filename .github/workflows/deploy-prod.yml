@@ -222,7 +222,8 @@ jobs:
             exit 1
           fi
 
-          if [[ "$normalized_trust_proxy" == "true" && -z "${PROXY_TRUSTED_IPS:-}" ]]; then
+          normalized_proxy_trusted_ips="$(echo "${PROXY_TRUSTED_IPS:-}" | tr -d '[:space:]')"
+          if [[ "$normalized_trust_proxy" == "true" && -z "$normalized_proxy_trusted_ips" ]]; then
             echo "Missing required value: PROXY_TRUSTED_IPS (required when TRUST_PROXY=true)"
             exit 1
           fi
