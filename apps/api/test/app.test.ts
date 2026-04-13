@@ -6,6 +6,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { AdminInvite } from '../src/entities/admin-invite.entity';
 import { User } from '../src/entities/user.entity';
@@ -23,6 +24,7 @@ describe('NextDream API', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.use(cookieParser());
     usersRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
     adminInvitesRepository = moduleRef.get<Repository<AdminInvite>>(getRepositoryToken(AdminInvite));
     await app.init();
@@ -238,6 +240,33 @@ describe('NextDream API', () => {
 
     expect(duplicateProposal.status).toBe(409);
     expect(duplicateProposal.body.message).toBe('Você já enviou uma proposta para este sonho.');
+  });
+
+  it('accepts HttpOnly access token cookie as auth fallback', async () => {
+    const password = 'Secret123!';
+
+    const register = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Paciente Cookie',
+        email: 'patient-cookie@example.com',
+        password,
+        role: 'paciente',
+        city: 'Santos, SP',
+      });
+
+    expect(register.status).toBe(201);
+    expect(register.headers['set-cookie']).toEqual(
+      expect.arrayContaining([expect.stringContaining('nd_access_token=')]),
+    );
+
+    const cookies = register.headers['set-cookie'];
+    const mine = await request(app.getHttpServer())
+      .get('/dreams/mine')
+      .set('Cookie', cookies);
+
+    expect(mine.status).toBe(200);
+    expect(Array.isArray(mine.body)).toBe(true);
   });
 
   it('forbids a supporter without proposal from viewing a dream that is no longer published', async () => {
