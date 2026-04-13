@@ -11,6 +11,20 @@ import { AppModule } from '../src/app.module';
 import { AdminInvite } from '../src/entities/admin-invite.entity';
 import { User } from '../src/entities/user.entity';
 
+function getAccessTokenFromSetCookie(setCookieHeader: string | string[] | undefined): string {
+  const cookies = Array.isArray(setCookieHeader)
+    ? setCookieHeader
+    : setCookieHeader
+      ? [setCookieHeader]
+      : [];
+  const accessCookie = cookies.find((cookie) => cookie.startsWith('nd_access_token='));
+  if (!accessCookie) {
+    throw new Error('Missing nd_access_token cookie');
+  }
+
+  return accessCookie.split(';', 1)[0].replace('nd_access_token=', '');
+}
+
 describe('NextDream API', () => {
   let app: INestApplication;
   let usersRepository: Repository<User>;
@@ -63,7 +77,9 @@ describe('NextDream API', () => {
 
     expect(patientRegister.status).toBe(201);
     expect(patientRegister.body.user.role).toBe('paciente');
-    expect(patientRegister.body.accessToken).toEqual(expect.any(String));
+    expect(patientRegister.body).not.toHaveProperty('accessToken');
+    expect(patientRegister.body).not.toHaveProperty('refreshToken');
+    expect(getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])).toEqual(expect.any(String));
 
     const supporterRegister = await request(app.getHttpServer())
       .post('/auth/register')
@@ -86,10 +102,12 @@ describe('NextDream API', () => {
 
     expect(login.status).toBe(200);
     expect(login.body.user.email).toBe(patientEmail);
+    expect(login.body).not.toHaveProperty('accessToken');
+    expect(login.body).not.toHaveProperty('refreshToken');
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`)
       .send({
         title: 'Ver o nascer do sol na praia',
         description: 'Quero sentir a areia nos pés novamente.',
@@ -108,7 +126,7 @@ describe('NextDream API', () => {
 
     const createProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Posso ajudar com transporte e companhia.',
         offering: 'Companhia e transporte',
@@ -121,7 +139,7 @@ describe('NextDream API', () => {
 
     const duplicateProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Tentando enviar uma segunda proposta.',
         offering: 'Companhia',
@@ -133,7 +151,7 @@ describe('NextDream API', () => {
 
     const supporterMine = await request(app.getHttpServer())
       .get('/proposals/mine')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
 
     expect(supporterMine.status).toBe(200);
     expect(supporterMine.body).toHaveLength(1);
@@ -141,7 +159,7 @@ describe('NextDream API', () => {
 
     const patientReceived = await request(app.getHttpServer())
       .get('/proposals/received')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
 
     expect(patientReceived.status).toBe(200);
     expect(patientReceived.body).toHaveLength(1);
@@ -149,7 +167,7 @@ describe('NextDream API', () => {
 
     const patientDreams = await request(app.getHttpServer())
       .get('/dreams/mine')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
 
     expect(patientDreams.status).toBe(200);
     expect(patientDreams.body).toHaveLength(1);
@@ -157,7 +175,7 @@ describe('NextDream API', () => {
 
     const dreamProposals = await request(app.getHttpServer())
       .get(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
 
     expect(dreamProposals.status).toBe(200);
     expect(dreamProposals.body).toHaveLength(1);
@@ -165,7 +183,7 @@ describe('NextDream API', () => {
 
     const acceptProposal = await request(app.getHttpServer())
       .post(`/proposals/${createProposal.body.id}/accept`)
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
 
     expect(acceptProposal.status).toBe(200);
     expect(acceptProposal.body.status).toBe('aceita');
@@ -173,7 +191,7 @@ describe('NextDream API', () => {
 
     const supporterDreamDetail = await request(app.getHttpServer())
       .get(`/dreams/${createDream.body.id}`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
 
     expect(supporterDreamDetail.status).toBe(200);
     expect(supporterDreamDetail.body.id).toBe(createDream.body.id);
@@ -206,7 +224,7 @@ describe('NextDream API', () => {
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`)
       .send({
         title: 'Aprender violao',
         description: 'Quero tocar minhas musicas favoritas.',
@@ -219,7 +237,7 @@ describe('NextDream API', () => {
 
     const createProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Posso ajudar com aulas online.',
         offering: 'Aulas de violao',
@@ -230,7 +248,7 @@ describe('NextDream API', () => {
 
     const duplicateProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Tentando repetir a proposta.',
         offering: 'Aulas de violao',
@@ -335,7 +353,7 @@ describe('NextDream API', () => {
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`)
       .send({
         title: 'Passear no jardim botanico',
         description: 'Quero visitar um lugar tranquilo e bonito.',
@@ -348,7 +366,7 @@ describe('NextDream API', () => {
 
     const createProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Posso acompanhar voce nesse passeio.',
         offering: 'Companhia',
@@ -359,12 +377,12 @@ describe('NextDream API', () => {
 
     const acceptProposal = await request(app.getHttpServer())
       .post(`/proposals/${createProposal.body.id}/accept`)
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
     expect(acceptProposal.status).toBe(200);
 
     const outsiderDreamDetail = await request(app.getHttpServer())
       .get(`/dreams/${createDream.body.id}`)
-      .set('Authorization', `Bearer ${outsiderRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(outsiderRegister.headers["set-cookie"])}`);
 
     expect(outsiderDreamDetail.status).toBe(403);
     expect(outsiderDreamDetail.body.message).toBe('You are not allowed to view this dream');
@@ -408,7 +426,7 @@ describe('NextDream API', () => {
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')
-      .set('Authorization', `Bearer ${ownerRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(ownerRegister.headers["set-cookie"])}`)
       .send({
         title: 'Tomar cafe em boa companhia',
         description: 'Quero uma conversa leve em um cafe acolhedor.',
@@ -421,7 +439,7 @@ describe('NextDream API', () => {
 
     const createProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Posso estar com voce nesse encontro.',
         offering: 'Companhia',
@@ -432,7 +450,7 @@ describe('NextDream API', () => {
 
     const foreignPatientProposals = await request(app.getHttpServer())
       .get(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${otherPatientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(otherPatientRegister.headers["set-cookie"])}`);
 
     expect(foreignPatientProposals.status).toBe(403);
     expect(foreignPatientProposals.body.message).toBe('Only the dream owner can view proposals');
@@ -497,7 +515,7 @@ describe('NextDream API', () => {
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`)
       .send({
         title: 'Passeio ao parque',
         description: 'Quero caminhar no parque com companhia.',
@@ -510,7 +528,7 @@ describe('NextDream API', () => {
 
     const createProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({
         message: 'Posso acompanhar no sábado pela manhã.',
         offering: 'Companhia',
@@ -521,7 +539,7 @@ describe('NextDream API', () => {
 
     const patientNotificationsAfterProposal = await request(app.getHttpServer())
       .get('/notifications/mine')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
     expect(patientNotificationsAfterProposal.status).toBe(200);
     expect(
       patientNotificationsAfterProposal.body.some(
@@ -531,12 +549,12 @@ describe('NextDream API', () => {
 
     const acceptProposal = await request(app.getHttpServer())
       .post(`/proposals/${createProposal.body.id}/accept`)
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
     expect(acceptProposal.status).toBe(200);
 
     const supporterNotificationsAfterAccept = await request(app.getHttpServer())
       .get('/notifications/mine')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(supporterNotificationsAfterAccept.status).toBe(200);
     expect(
       supporterNotificationsAfterAccept.body.some((item: { type: string }) => item.type === 'aceito'),
@@ -547,25 +565,25 @@ describe('NextDream API', () => {
 
     const patientConversations = await request(app.getHttpServer())
       .get('/conversations/mine')
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
     expect(patientConversations.status).toBe(200);
     expect(patientConversations.body.some((item: { id: string }) => item.id === conversationId)).toBe(true);
 
     const supporterConversations = await request(app.getHttpServer())
       .get('/conversations/mine')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(supporterConversations.status).toBe(200);
     expect(supporterConversations.body.some((item: { id: string }) => item.id === conversationId)).toBe(true);
 
     const postPatientMessage = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`)
       .send({ body: 'Olá! Obrigado por topar ajudar.' });
     expect(postPatientMessage.status).toBe(201);
 
     const supporterNotificationsAfterMessage = await request(app.getHttpServer())
       .get('/notifications/mine')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(supporterNotificationsAfterMessage.status).toBe(200);
     expect(
       supporterNotificationsAfterMessage.body.some(
@@ -575,51 +593,51 @@ describe('NextDream API', () => {
 
     const postSupporterMessage = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({ body: 'Combinado, estarei lá no horário.' });
     expect(postSupporterMessage.status).toBe(201);
 
     const listMessages = await request(app.getHttpServer())
       .get(`/conversations/${conversationId}/messages`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(listMessages.status).toBe(200);
     expect(listMessages.body).toHaveLength(2);
 
     const closeConversation = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/close`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ reason: 'Encerrado para teste de moderação.' });
     expect(closeConversation.status).toBe(200);
     expect(closeConversation.body.status).toBe('encerrada');
 
     const postAfterClose = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)
-      .set('Authorization', `Bearer ${patientRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`)
       .send({ body: 'Mensagem após encerramento.' });
     expect(postAfterClose.status).toBe(403);
 
     const adminOverview = await request(app.getHttpServer())
       .get('/admin/overview')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminOverview.status).toBe(200);
     expect(adminOverview.body.totalUsers).toBeGreaterThan(0);
 
     const adminUsers = await request(app.getHttpServer())
       .get('/admin/users')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminUsers.status).toBe(200);
     expect(adminUsers.body.length).toBeGreaterThan(0);
     expect(adminUsers.body.every((item: { role: string }) => item.role !== 'admin')).toBe(true);
 
     const adminAdmins = await request(app.getHttpServer())
       .get('/admin/admins')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminAdmins.status).toBe(200);
     expect(adminAdmins.body.some((item: { email: string }) => item.email === 'admin@example.com')).toBe(true);
 
     const selfDeactivate = await request(app.getHttpServer())
       .patch(`/admin/admins/${adminLogin.body.user.id}`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ isActive: false });
     expect(selfDeactivate.status).toBe(400);
 
@@ -636,7 +654,7 @@ describe('NextDream API', () => {
 
     const updateOtherAdminWithoutPassword = await request(app.getHttpServer())
       .patch(`/admin/admins/${createSecondAdmin.id}`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({
         name: 'Admin Two Updated Again',
       });
@@ -644,7 +662,7 @@ describe('NextDream API', () => {
 
     const updateSecondAdmin = await request(app.getHttpServer())
       .patch(`/admin/admins/${createSecondAdmin.id}`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({
         name: 'Admin Two Updated',
         email: 'admin2-updated@example.com',
@@ -657,7 +675,7 @@ describe('NextDream API', () => {
 
     const updateAdminPassword = await request(app.getHttpServer())
       .patch(`/admin/admins/${adminLogin.body.user.id}`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ newPassword: 'NewSecret123!', currentPassword: password });
     expect(updateAdminPassword.status).toBe(200);
 
@@ -669,13 +687,13 @@ describe('NextDream API', () => {
 
     const inviteAdminExistingUser = await request(app.getHttpServer())
       .post('/admin/admins/invite')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ email: 'supporter2@example.com' });
     expect(inviteAdminExistingUser.status).toBe(400);
 
     const inviteAdmin = await request(app.getHttpServer())
       .post('/admin/admins/invite')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ email: 'admin-invite@example.com' });
     expect(inviteAdmin.status).toBe(500);
 
@@ -702,103 +720,103 @@ describe('NextDream API', () => {
 
     const suspendUser = await request(app.getHttpServer())
       .post(`/admin/users/${supporterRegister.body.user.id}/suspend`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ reason: 'Teste de suspensão' });
     expect(suspendUser.status).toBe(200);
     expect(suspendUser.body.suspended).toBe(true);
 
     const adminDreams = await request(app.getHttpServer())
       .get('/admin/dreams')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminDreams.status).toBe(200);
     expect(adminDreams.body.length).toBeGreaterThan(0);
 
     const updateDreamStatus = await request(app.getHttpServer())
       .post(`/admin/dreams/${createDream.body.id}/status`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ status: 'pausado', reason: 'Teste de moderação de sonho' });
     expect(updateDreamStatus.status).toBe(200);
     expect(updateDreamStatus.body.status).toBe('pausado');
 
     const adminProposals = await request(app.getHttpServer())
       .get('/admin/proposals')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminProposals.status).toBe(200);
     expect(adminProposals.body.length).toBeGreaterThan(0);
 
     const updateProposalStatus = await request(app.getHttpServer())
       .post(`/admin/proposals/${createProposal.body.id}/status`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ status: 'em-analise', reason: 'Teste de moderação de proposta' });
     expect(updateProposalStatus.status).toBe(200);
     expect(updateProposalStatus.body.status).toBe('em-analise');
 
     const adminChats = await request(app.getHttpServer())
       .get('/admin/chats')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminChats.status).toBe(200);
     expect(adminChats.body.length).toBeGreaterThan(0);
 
     const adminMessages = await request(app.getHttpServer())
       .get('/admin/messages')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminMessages.status).toBe(200);
     expect(Array.isArray(adminMessages.body)).toBe(true);
     expect(adminMessages.body).toHaveLength(0);
 
     const adminReports = await request(app.getHttpServer())
       .get('/admin/reports')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminReports.status).toBe(200);
     expect(adminReports.body.length).toBeGreaterThan(0);
 
     const updateReportStatus = await request(app.getHttpServer())
       .post(`/admin/reports/${adminReports.body[0].id}/status`)
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ status: 'resolvido', resolution: 'Resolvido no teste' });
     expect(updateReportStatus.status).toBe(200);
     expect(updateReportStatus.body.status).toBe('resolvido');
 
     const adminAudit = await request(app.getHttpServer())
       .get('/admin/audit')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminAudit.status).toBe(200);
     expect(adminAudit.body.length).toBeGreaterThan(0);
 
     const adminEmailTemplates = await request(app.getHttpServer())
       .get('/admin/email-templates')
-      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminEmailTemplates.status).toBe(200);
     expect(adminEmailTemplates.body.length).toBeGreaterThan(0);
 
     const notificationPreferences = await request(app.getHttpServer())
       .get('/notifications/preferences')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(notificationPreferences.status).toBe(200);
     expect(notificationPreferences.body.emailEnabled).toBe(false);
 
     const updateNotificationPreferences = await request(app.getHttpServer())
       .post('/notifications/preferences')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
       .send({ emailEnabled: true });
     expect(updateNotificationPreferences.status).toBe(200);
     expect(updateNotificationPreferences.body.emailEnabled).toBe(true);
 
     const notificationsMine = await request(app.getHttpServer())
       .get('/notifications/mine')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(notificationsMine.status).toBe(200);
     expect(notificationsMine.body.length).toBeGreaterThan(0);
 
     const markRead = await request(app.getHttpServer())
       .post(`/notifications/${notificationsMine.body[0].id}/read`)
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(markRead.status).toBe(200);
     expect(markRead.body.read).toBe(true);
 
     const markAllRead = await request(app.getHttpServer())
       .post('/notifications/read-all')
-      .set('Authorization', `Bearer ${supporterRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(markAllRead.status).toBe(200);
     expect(markAllRead.body.ok).toBe(true);
   });
