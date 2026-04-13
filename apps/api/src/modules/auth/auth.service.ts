@@ -17,6 +17,22 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { MailService } from '../mail/mail.service';
 
+export interface AuthUserPayload {
+  id: string;
+  name: string;
+  email: string;
+  role: 'paciente' | 'apoiador' | 'admin';
+  city?: string;
+  verified: boolean;
+  emailNotificationsEnabled?: boolean;
+}
+
+export interface AuthSessionPayload {
+  accessToken: string;
+  refreshToken: string;
+  user: AuthUserPayload;
+}
+
 @Injectable()
 export class AuthService {
   private readonly usersRepository: Repository<User>;
@@ -36,7 +52,7 @@ export class AuthService {
     this.mailService = mailService;
   }
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto): Promise<AuthSessionPayload> {
     if ((dto as { role: string }).role === 'admin') {
       throw new BadRequestException('Public registration cannot create admin users');
     }
@@ -66,7 +82,7 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto): Promise<AuthSessionPayload> {
     const user = await this.usersRepository.findOne({
       where: { email: dto.email.toLowerCase() },
     });
@@ -83,7 +99,7 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async acceptAdminInvite(dto: AcceptAdminInviteDto) {
+  async acceptAdminInvite(dto: AcceptAdminInviteDto): Promise<AuthSessionPayload> {
     const normalizedEmail = dto.email.toLowerCase();
     const invite = await this.adminInvitesRepository.findOne({ where: { email: normalizedEmail } });
     if (!invite) {
@@ -125,7 +141,7 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
-  private async buildAuthResponse(user: User) {
+  private async buildAuthResponse(user: User): Promise<AuthSessionPayload> {
     const payload = {
       sub: user.id,
       email: user.email,

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getRequiredEnv } from '../../config/env';
+import { getAccessTokenFromCookies } from './auth-cookies';
 
 export interface JwtPayload {
   sub: string;
@@ -25,12 +26,15 @@ export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
+    const bearerToken = authHeader?.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : null;
+    const cookieToken = getAccessTokenFromCookies(request.cookies);
+    const token = bearerToken || cookieToken;
 
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing bearer token');
+    if (!token) {
+      throw new UnauthorizedException('Missing authentication token');
     }
-
-    const token = authHeader.slice('Bearer '.length);
 
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
