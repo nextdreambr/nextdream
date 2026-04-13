@@ -1,8 +1,11 @@
 import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
+import { Response } from 'express';
+import { Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { setAuthCookies } from './auth-cookies';
 
 @Controller('auth')
 export class AuthController {
@@ -13,19 +16,25 @@ export class AuthController {
   }
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
+    const auth = await this.authService.register(dto);
+    setAuthCookies(response, auth);
+    return auth;
   }
 
   @Post('login')
   @HttpCode(200)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
+    const auth = await this.authService.login(dto);
+    setAuthCookies(response, auth);
+    return auth;
   }
 
   @Post('admin-invites/accept')
   @HttpCode(200)
-  acceptAdminInvite(@Body() dto: AcceptAdminInviteDto) {
-    return this.authService.acceptAdminInvite(dto);
+  async acceptAdminInvite(@Body() dto: AcceptAdminInviteDto, @Res({ passthrough: true }) response: Response) {
+    const auth = await this.authService.acceptAdminInvite(dto);
+    setAuthCookies(response, auth);
+    return auth;
   }
 }

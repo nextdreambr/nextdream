@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { resolve } from 'node:path';
 import { AdminContactMessage } from './entities/admin-contact-message.entity';
 import { AdminInvite } from './entities/admin-invite.entity';
@@ -14,7 +15,7 @@ import { User } from './entities/user.entity';
 import { Dream } from './entities/dream.entity';
 import { Proposal } from './entities/proposal.entity';
 import { Conversation } from './entities/conversation.entity';
-import { getRequiredEnv } from './config/env';
+import { getRateLimitConfig, getRequiredEnv } from './config/env';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
@@ -69,6 +70,9 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
         };
       },
     }),
+    ThrottlerModule.forRoot([
+      getRateLimitConfig(),
+    ]),
     HealthModule,
     AuthModule,
     DreamsModule,
@@ -79,6 +83,10 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
     AdminModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
