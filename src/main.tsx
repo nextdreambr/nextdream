@@ -5,6 +5,8 @@ import { initFrontendSentry } from './app/lib/sentry.ts';
 import './styles/index.css';
 
 initFrontendSentry();
-initGoogleAnalytics(import.meta.env.VITE_GA_MEASUREMENT_ID || 'G-P7HEP47P2M');
+if (import.meta.env.VITE_GA_MEASUREMENT_ID) {
+  initGoogleAnalytics(import.meta.env.VITE_GA_MEASUREMENT_ID);
+}
 
 createRoot(document.getElementById('root')!).render(<App />);
