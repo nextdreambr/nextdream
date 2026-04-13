@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -31,6 +32,10 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
+    if ((dto as { role: string }).role === 'admin') {
+      throw new BadRequestException('Public registration cannot create admin users');
+    }
+
     const existing = await this.usersRepository.findOne({
       where: { email: dto.email.toLowerCase() },
     });
