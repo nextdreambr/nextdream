@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { getBooleanEnv, getCorsOrigins } from './config/env';
+import { getBooleanEnv, getCorsOrigins, getTrustedProxyIps } from './config/env';
 import { initApiSentry } from './observability/sentry';
 import { SentryExceptionFilter } from './observability/sentry-exception.filter';
 import { SentryLogger } from './observability/sentry.logger';
@@ -18,7 +18,14 @@ async function bootstrap() {
 
   app.disable('x-powered-by');
   if (getBooleanEnv('TRUST_PROXY', false)) {
-    app.set('trust proxy', 1);
+    const trustedProxyIps = getTrustedProxyIps();
+    if (trustedProxyIps.length === 0) {
+      throw new Error(
+        'Invalid proxy configuration: TRUST_PROXY=true requires PROXY_TRUSTED_IPS with trusted proxy IPs/CIDRs.',
+      );
+    }
+
+    app.set('trust proxy', trustedProxyIps);
   }
 
   app.use(cookieParser());

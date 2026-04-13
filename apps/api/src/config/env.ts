@@ -53,3 +53,15 @@ export function getBooleanEnv(name: string, defaultValue = false): boolean {
   const normalized = raw.trim().toLowerCase();
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
+
+export function getTrustedProxyIps(): string[] {
+  const raw = process.env.PROXY_TRUSTED_IPS;
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}

@@ -27,3 +27,7 @@ This repository is currently pre-1.0. Security fixes are applied to `main`.
 - Set strong values for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`.
 - Configure `DATABASE_URL` and `CORS_ORIGIN` explicitly for each environment.
 - Keep `NODE_ENV=production` in production so schema auto-sync is disabled.
+- If `TRUST_PROXY=true`, expose the API only behind a trusted reverse proxy.
+- In container deployments, prefer internal exposure (`expose`) for API services and avoid publishing API ports directly (`ports`) unless protected by network controls.
+- Configure `PROXY_TRUSTED_IPS` explicitly when `TRUST_PROXY=true`; startup now fails fast without it.
+- Risk note: enabling trust proxy without trusted upstream restrictions allows spoofed `X-Forwarded-*` headers (client IP/proto/host forgery), which can break rate-limit and security assumptions.
