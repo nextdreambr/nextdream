@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { setAuthCookies } from './auth-cookies';
+import { clearAuthCookies, setAuthCookies } from './auth-cookies';
 
 @Controller('auth')
 export class AuthController {
@@ -36,5 +36,11 @@ export class AuthController {
     const auth = await this.authService.acceptAdminInvite(dto);
     setAuthCookies(response, auth);
     return auth;
+  }
+
+  @Post('logout')
+  @HttpCode(204)
+  logout(@Res({ passthrough: true }) response: Response) {
+    clearAuthCookies(response);
   }
 }

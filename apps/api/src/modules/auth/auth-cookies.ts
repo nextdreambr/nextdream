@@ -9,28 +9,38 @@ export interface AuthTokens {
 const ACCESS_COOKIE = 'nd_access_token';
 const REFRESH_COOKIE = 'nd_refresh_token';
 
-export function setAuthCookies(response: Response, tokens: AuthTokens) {
+function getCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production';
   const domain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
   const secure = getBooleanEnv('AUTH_COOKIE_SECURE', isProduction);
 
-  response.cookie(ACCESS_COOKIE, tokens.accessToken, {
-    httpOnly: true,
+  return {
+    httpOnly: true as const,
     secure,
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     path: '/',
     domain,
+  };
+}
+
+export function setAuthCookies(response: Response, tokens: AuthTokens) {
+  const options = getCookieOptions();
+
+  response.cookie(ACCESS_COOKIE, tokens.accessToken, {
+    ...options,
     maxAge: 60 * 60 * 1000,
   });
 
   response.cookie(REFRESH_COOKIE, tokens.refreshToken, {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    domain,
+    ...options,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
+}
+
+export function clearAuthCookies(response: Response) {
+  const options = getCookieOptions();
+  response.clearCookie(ACCESS_COOKIE, options);
+  response.clearCookie(REFRESH_COOKIE, options);
 }
 
 export function getAccessTokenFromCookies(cookies: Record<string, unknown> | undefined) {

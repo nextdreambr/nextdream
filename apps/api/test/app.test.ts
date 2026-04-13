@@ -269,6 +269,34 @@ describe('NextDream API', () => {
     expect(Array.isArray(mine.body)).toBe(true);
   });
 
+  it('clears auth cookies on logout', async () => {
+    const password = 'Secret123!';
+
+    const register = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Paciente Logout',
+        email: 'patient-logout@example.com',
+        password,
+        role: 'paciente',
+        city: 'Santos, SP',
+      });
+
+    expect(register.status).toBe(201);
+
+    const logout = await request(app.getHttpServer())
+      .post('/auth/logout')
+      .set('Cookie', register.headers['set-cookie']);
+
+    expect(logout.status).toBe(204);
+    expect(logout.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('nd_access_token=;'),
+        expect.stringContaining('nd_refresh_token=;'),
+      ]),
+    );
+  });
+
   it('forbids a supporter without proposal from viewing a dream that is no longer published', async () => {
     const password = 'Secret123!';
 
