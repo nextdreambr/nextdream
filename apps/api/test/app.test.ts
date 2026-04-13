@@ -1,12 +1,19 @@
 import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import bcrypt from 'bcryptjs';
+import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
+import { AdminInvite } from '../src/entities/admin-invite.entity';
+import { User } from '../src/entities/user.entity';
 
 describe('NextDream API', () => {
   let app: INestApplication;
+  let usersRepository: Repository<User>;
+  let adminInvitesRepository: Repository<AdminInvite>;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -16,6 +23,8 @@ describe('NextDream API', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    usersRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
+    adminInvitesRepository = moduleRef.get<Repository<AdminInvite>>(getRepositoryToken(AdminInvite));
     await app.init();
   });
 
@@ -372,6 +381,19 @@ describe('NextDream API', () => {
     expect(foreignPatientProposals.body.message).toBe('Only the dream owner can view proposals');
   });
 
+  it('rejects public registration with admin role', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Admin Attempt',
+        email: 'admin-attempt@example.com',
+        password: 'Secret123!',
+        role: 'admin',
+      });
+
+    expect(response.status).toBe(400);
+  });
+
   it('supports conversations messaging and admin moderation endpoints', async () => {
     const password = 'Secret123!';
 
@@ -397,15 +419,24 @@ describe('NextDream API', () => {
       });
     expect(supporterRegister.status).toBe(201);
 
-    const adminRegister = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
+    await usersRepository.save(
+      usersRepository.create({
         name: 'Admin User',
         email: 'admin@example.com',
-        password,
+        passwordHash: await bcrypt.hash(password, 10),
         role: 'admin',
+        verified: true,
+        suspended: false,
+      }),
+    );
+
+    const adminLogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'admin@example.com',
+        password,
       });
-    expect(adminRegister.status).toBe(201);
+    expect(adminLogin.status).toBe(200);
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')
@@ -499,7 +530,7 @@ describe('NextDream API', () => {
 
     const closeConversation = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/close`)
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
       .send({ reason: 'Encerrado para teste de moderação.' });
     expect(closeConversation.status).toBe(200);
     expect(closeConversation.body.status).toBe('encerrada');
@@ -512,84 +543,174 @@ describe('NextDream API', () => {
 
     const adminOverview = await request(app.getHttpServer())
       .get('/admin/overview')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminOverview.status).toBe(200);
     expect(adminOverview.body.totalUsers).toBeGreaterThan(0);
 
     const adminUsers = await request(app.getHttpServer())
       .get('/admin/users')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminUsers.status).toBe(200);
     expect(adminUsers.body.length).toBeGreaterThan(0);
+    expect(adminUsers.body.every((item: { role: string }) => item.role !== 'admin')).toBe(true);
+
+    const adminAdmins = await request(app.getHttpServer())
+      .get('/admin/admins')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
+    expect(adminAdmins.status).toBe(200);
+    expect(adminAdmins.body.some((item: { email: string }) => item.email === 'admin@example.com')).toBe(true);
+
+    const selfDeactivate = await request(app.getHttpServer())
+      .patch(`/admin/admins/${adminLogin.body.user.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ isActive: false });
+    expect(selfDeactivate.status).toBe(400);
+
+    const createSecondAdmin = await usersRepository.save(
+      usersRepository.create({
+        name: 'Admin Two',
+        email: 'admin2@example.com',
+        passwordHash: await bcrypt.hash(password, 10),
+        role: 'admin',
+        verified: true,
+        suspended: false,
+      }),
+    );
+
+    const updateOtherAdminWithoutPassword = await request(app.getHttpServer())
+      .patch(`/admin/admins/${createSecondAdmin.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({
+        name: 'Admin Two Updated Again',
+      });
+    expect(updateOtherAdminWithoutPassword.status).toBe(400);
+
+    const updateSecondAdmin = await request(app.getHttpServer())
+      .patch(`/admin/admins/${createSecondAdmin.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({
+        name: 'Admin Two Updated',
+        email: 'admin2-updated@example.com',
+        role: 'apoiador',
+        isActive: true,
+        currentPassword: password,
+      });
+    expect(updateSecondAdmin.status).toBe(200);
+    expect(updateSecondAdmin.body.role).toBe('apoiador');
+
+    const updateAdminPassword = await request(app.getHttpServer())
+      .patch(`/admin/admins/${adminLogin.body.user.id}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ newPassword: 'NewSecret123!', currentPassword: password });
+    expect(updateAdminPassword.status).toBe(200);
+
+    const reloginWithNewPassword = await request(app.getHttpServer()).post('/auth/login').send({
+      email: 'admin@example.com',
+      password: 'NewSecret123!',
+    });
+    expect(reloginWithNewPassword.status).toBe(200);
+
+    const inviteAdminExistingUser = await request(app.getHttpServer())
+      .post('/admin/admins/invite')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ email: 'supporter2@example.com' });
+    expect(inviteAdminExistingUser.status).toBe(400);
+
+    const inviteAdmin = await request(app.getHttpServer())
+      .post('/admin/admins/invite')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({ email: 'admin-invite@example.com' });
+    expect(inviteAdmin.status).toBe(500);
+
+    const knownToken = 'InviteToken123!';
+    await adminInvitesRepository.save(
+      adminInvitesRepository.create({
+        email: 'manual-invite@example.com',
+        tokenHash: await bcrypt.hash(knownToken, 10),
+        invitedByUserId: adminLogin.body.user.id,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      }),
+    );
+
+    const acceptManualInvite = await request(app.getHttpServer())
+      .post('/auth/admin-invites/accept')
+      .send({
+        email: 'manual-invite@example.com',
+        token: knownToken,
+        name: 'Manual Invite',
+        password: 'InviteSecret123!',
+      });
+    expect(acceptManualInvite.status).toBe(200);
+    expect(acceptManualInvite.body.user.role).toBe('admin');
 
     const suspendUser = await request(app.getHttpServer())
       .post(`/admin/users/${supporterRegister.body.user.id}/suspend`)
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
       .send({ reason: 'Teste de suspensão' });
     expect(suspendUser.status).toBe(200);
     expect(suspendUser.body.suspended).toBe(true);
 
     const adminDreams = await request(app.getHttpServer())
       .get('/admin/dreams')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminDreams.status).toBe(200);
     expect(adminDreams.body.length).toBeGreaterThan(0);
 
     const updateDreamStatus = await request(app.getHttpServer())
       .post(`/admin/dreams/${createDream.body.id}/status`)
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
       .send({ status: 'pausado', reason: 'Teste de moderação de sonho' });
     expect(updateDreamStatus.status).toBe(200);
     expect(updateDreamStatus.body.status).toBe('pausado');
 
     const adminProposals = await request(app.getHttpServer())
       .get('/admin/proposals')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminProposals.status).toBe(200);
     expect(adminProposals.body.length).toBeGreaterThan(0);
 
     const updateProposalStatus = await request(app.getHttpServer())
       .post(`/admin/proposals/${createProposal.body.id}/status`)
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
       .send({ status: 'em-analise', reason: 'Teste de moderação de proposta' });
     expect(updateProposalStatus.status).toBe(200);
     expect(updateProposalStatus.body.status).toBe('em-analise');
 
     const adminChats = await request(app.getHttpServer())
       .get('/admin/chats')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminChats.status).toBe(200);
     expect(adminChats.body.length).toBeGreaterThan(0);
 
     const adminMessages = await request(app.getHttpServer())
       .get('/admin/messages')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminMessages.status).toBe(200);
     expect(Array.isArray(adminMessages.body)).toBe(true);
     expect(adminMessages.body).toHaveLength(0);
 
     const adminReports = await request(app.getHttpServer())
       .get('/admin/reports')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminReports.status).toBe(200);
     expect(adminReports.body.length).toBeGreaterThan(0);
 
     const updateReportStatus = await request(app.getHttpServer())
       .post(`/admin/reports/${adminReports.body[0].id}/status`)
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`)
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
       .send({ status: 'resolvido', resolution: 'Resolvido no teste' });
     expect(updateReportStatus.status).toBe(200);
     expect(updateReportStatus.body.status).toBe('resolvido');
 
     const adminAudit = await request(app.getHttpServer())
       .get('/admin/audit')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminAudit.status).toBe(200);
     expect(adminAudit.body.length).toBeGreaterThan(0);
 
     const adminEmailTemplates = await request(app.getHttpServer())
       .get('/admin/email-templates')
-      .set('Authorization', `Bearer ${adminRegister.body.accessToken}`);
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`);
     expect(adminEmailTemplates.status).toBe(200);
     expect(adminEmailTemplates.body.length).toBeGreaterThan(0);
 

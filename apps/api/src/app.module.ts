@@ -4,6 +4,7 @@ import { APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { resolve } from 'node:path';
 import { AdminContactMessage } from './entities/admin-contact-message.entity';
+import { AdminInvite } from './entities/admin-invite.entity';
 import { AdminReport } from './entities/admin-report.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Message } from './entities/message.entity';
@@ -46,6 +47,7 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
             Message,
             Notification,
             AdminContactMessage,
+            AdminInvite,
             AdminReport,
             AuditLog,
           ],

@@ -1,7 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
+import { Not, Repository } from 'typeorm';
 import { AdminContactMessage } from '../../entities/admin-contact-message.entity';
+import { AdminInvite } from '../../entities/admin-invite.entity';
 import { AdminReport } from '../../entities/admin-report.entity';
 import { AuditLog } from '../../entities/audit-log.entity';
 import { Conversation } from '../../entities/conversation.entity';
@@ -10,8 +20,11 @@ import { Message } from '../../entities/message.entity';
 import { Proposal } from '../../entities/proposal.entity';
 import { User } from '../../entities/user.entity';
 import { JwtPayload } from '../auth/jwt-auth.guard';
+import { MailService } from '../mail/mail.service';
 import { CloseChatDto } from './dto/close-chat.dto';
+import { InviteAdminDto } from './dto/invite-admin.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
+import { UpdateAdminDto } from './dto/update-admin.dto';
 import { UpdateDreamStatusDto } from './dto/update-dream-status.dto';
 import { UpdateProposalStatusDto } from './dto/update-proposal-status.dto';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
@@ -24,8 +37,10 @@ export class AdminService {
   private readonly conversationsRepository: Repository<Conversation>;
   private readonly messagesRepository: Repository<Message>;
   private readonly contactMessagesRepository: Repository<AdminContactMessage>;
+  private readonly adminInvitesRepository: Repository<AdminInvite>;
   private readonly reportsRepository: Repository<AdminReport>;
   private readonly auditLogsRepository: Repository<AuditLog>;
+  private readonly mailService: MailService;
 
   constructor(
     @InjectRepository(User) usersRepository: Repository<User>,
@@ -34,8 +49,10 @@ export class AdminService {
     @InjectRepository(Conversation) conversationsRepository: Repository<Conversation>,
     @InjectRepository(Message) messagesRepository: Repository<Message>,
     @InjectRepository(AdminContactMessage) contactMessagesRepository: Repository<AdminContactMessage>,
+    @InjectRepository(AdminInvite) adminInvitesRepository: Repository<AdminInvite>,
     @InjectRepository(AdminReport) reportsRepository: Repository<AdminReport>,
     @InjectRepository(AuditLog) auditLogsRepository: Repository<AuditLog>,
+    @Inject(MailService) mailService: MailService,
   ) {
     this.usersRepository = usersRepository;
     this.dreamsRepository = dreamsRepository;
@@ -43,8 +60,10 @@ export class AdminService {
     this.conversationsRepository = conversationsRepository;
     this.messagesRepository = messagesRepository;
     this.contactMessagesRepository = contactMessagesRepository;
+    this.adminInvitesRepository = adminInvitesRepository;
     this.reportsRepository = reportsRepository;
     this.auditLogsRepository = auditLogsRepository;
+    this.mailService = mailService;
   }
 
   async overview() {
@@ -66,7 +85,10 @@ export class AdminService {
   }
 
   async listUsers() {
-    const users = await this.usersRepository.find({ order: { createdAt: 'DESC' } });
+    const users = await this.usersRepository.find({
+      where: { role: Not('admin') },
+      order: { createdAt: 'DESC' },
+    });
     return users.map((user) => ({
       id: user.id,
       name: user.name,
@@ -79,6 +101,164 @@ export class AdminService {
       suspendedAt: user.suspendedAt,
       createdAt: user.createdAt,
     }));
+  }
+
+  async listAdmins() {
+    const admins = await this.usersRepository.find({
+      where: { role: 'admin' },
+      order: { createdAt: 'DESC' },
+    });
+    return admins.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      city: user.city,
+      verified: user.verified,
+      suspended: user.suspended,
+      suspensionReason: user.suspensionReason,
+      suspendedAt: user.suspendedAt,
+      createdAt: user.createdAt,
+    }));
+  }
+
+  async updateAdmin(currentUser: JwtPayload, userId: string, dto: UpdateAdminDto) {
+    const adminUser = await this.usersRepository.findOneBy({ id: userId });
+    if (!adminUser || adminUser.role !== 'admin') {
+      throw new NotFoundException('Admin user not found');
+    }
+
+    const requiresCurrentPassword = currentUser.sub !== adminUser.id || dto.newPassword !== undefined;
+    if (requiresCurrentPassword) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Current password is required for this operation');
+      }
+
+      const operator = await this.usersRepository.findOneBy({ id: currentUser.sub });
+      if (!operator) {
+        throw new NotFoundException('Current admin not found');
+      }
+
+      const matches = await bcrypt.compare(dto.currentPassword, operator.passwordHash);
+      if (!matches) {
+        throw new UnauthorizedException('Current password is invalid');
+      }
+    }
+
+    const nextRole = dto.role ?? adminUser.role;
+    const nextSuspended = dto.isActive === undefined ? adminUser.suspended : !dto.isActive;
+    const selfChangeCritical = currentUser.sub === adminUser.id && (nextRole !== 'admin' || nextSuspended);
+    if (selfChangeCritical) {
+      throw new BadRequestException('You cannot deactivate or change your own admin role');
+    }
+
+    if ((nextRole !== 'admin' || nextSuspended) && (await this.wouldLeaveNoActiveAdmins(adminUser.id))) {
+      throw new BadRequestException('Cannot remove or deactivate the last active admin');
+    }
+
+    if (dto.email) {
+      const normalizedEmail = dto.email.toLowerCase();
+      const existing = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
+      if (existing && existing.id !== adminUser.id) {
+        throw new ConflictException('Email already registered');
+      }
+      adminUser.email = normalizedEmail;
+    }
+
+    if (dto.name !== undefined) {
+      adminUser.name = dto.name;
+    }
+    if (dto.role !== undefined) {
+      adminUser.role = dto.role;
+    }
+    if (dto.isActive !== undefined) {
+      adminUser.suspended = !dto.isActive;
+      adminUser.suspendedAt = dto.isActive ? undefined : new Date();
+      adminUser.suspensionReason = dto.isActive ? undefined : 'Suspensão operacional via painel admin.';
+    }
+    if (dto.newPassword !== undefined) {
+      adminUser.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    }
+
+    const saved = await this.usersRepository.save(adminUser);
+    await this.logAction(currentUser, {
+      action: 'Admin atualizado',
+      target: `${saved.name} (${saved.id})`,
+      type: 'admin',
+      severity: 'alta',
+      outcome: 'ok',
+      details: dto.newPassword ? 'Dados e senha de admin atualizados via painel' : 'Dados de admin atualizados via painel',
+      refPath: '/admin/admins',
+      refId: saved.id,
+    });
+
+    return {
+      id: saved.id,
+      name: saved.name,
+      email: saved.email,
+      role: saved.role,
+      verified: saved.verified,
+      suspended: saved.suspended,
+      suspendedAt: saved.suspendedAt,
+      createdAt: saved.createdAt,
+    };
+  }
+
+  async inviteAdmin(currentUser: JwtPayload, dto: InviteAdminDto) {
+    const normalizedEmail = dto.email.toLowerCase();
+    const existing = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
+    if (existing) {
+      if (existing.role === 'admin') {
+        throw new ConflictException('Email already registered as admin');
+      }
+      throw new BadRequestException('Email already registered as paciente/apoiador');
+    }
+
+    await this.adminInvitesRepository.delete({ email: normalizedEmail });
+
+    const rawToken = randomBytes(32).toString('hex');
+    const expiresInHours = 48;
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+    const invite = this.adminInvitesRepository.create({
+      email: normalizedEmail,
+      tokenHash: await bcrypt.hash(rawToken, 10),
+      invitedByUserId: currentUser.sub,
+      expiresAt,
+    });
+    const saved = await this.adminInvitesRepository.save(invite);
+
+    const baseUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
+    const inviteUrl = `${baseUrl}/aceitar-convite-admin?email=${encodeURIComponent(
+      normalizedEmail,
+    )}&token=${encodeURIComponent(rawToken)}`;
+
+    try {
+      await this.mailService.sendAdminInviteEmail({
+        to: normalizedEmail,
+        inviteUrl,
+        expiresInHours,
+      });
+    } catch (error) {
+      await this.adminInvitesRepository.delete({ id: saved.id });
+      throw error;
+    }
+
+    await this.logAction(currentUser, {
+      action: 'Convite de admin enviado',
+      target: normalizedEmail,
+      type: 'admin',
+      severity: 'media',
+      outcome: 'ok',
+      details: `Convite com validade até ${expiresAt.toISOString()}`,
+      refPath: '/admin/admins',
+      refId: saved.id,
+    });
+
+    return {
+      id: saved.id,
+      email: saved.email,
+      expiresAt: saved.expiresAt,
+    };
   }
 
   async suspendUser(currentUser: JwtPayload, userId: string, dto: SuspendUserDto) {
@@ -351,6 +531,13 @@ export class AdminService {
         recipient: 'Apoiador',
       },
       {
+        id: 'admin-invite',
+        category: 'Administração',
+        name: 'Convite de Admin',
+        subject: 'Convite de administrador - NextDream',
+        recipient: 'Administrador',
+      },
+      {
         id: 'dream-new-proposal',
         category: 'Paciente — Sonhos',
         name: 'Nova Proposta Recebida',
@@ -388,5 +575,16 @@ export class AdminService {
     });
 
     await this.auditLogsRepository.save(log);
+  }
+
+  private async wouldLeaveNoActiveAdmins(candidateId: string) {
+    const count = await this.usersRepository.count({
+      where: {
+        role: 'admin',
+        suspended: false,
+        id: Not(candidateId),
+      },
+    });
+    return count === 0;
   }
 }
