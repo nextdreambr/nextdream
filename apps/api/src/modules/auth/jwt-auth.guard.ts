@@ -26,11 +26,11 @@ export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
-    const bearerToken = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice('Bearer '.length)
+    const bearerToken = authHeader?.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
       : null;
     const cookieToken = getAccessTokenFromCookies(request.cookies);
-    const token = bearerToken ?? cookieToken;
+    const token = bearerToken || cookieToken;
 
     if (!token) {
       throw new UnauthorizedException('Missing authentication token');
