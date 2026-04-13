@@ -17,7 +17,7 @@ services:
     depends_on:
       - api
     ports:
-      - "127.0.0.1:8080:80"
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:8080:80"
 
 networks:
   default:

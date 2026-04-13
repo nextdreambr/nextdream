@@ -127,6 +127,7 @@ Required GitHub Environment `production` values:
   - `SENTRY_DSN_API`
   - `SENTRY_TRACES_SAMPLE_RATE`
   - `APP_DIR` (recommended: `/opt/nextdream`)
+  - `WEB_BIND_ADDRESS` (optional, default: `127.0.0.1`; use `0.0.0.0` if no reverse proxy is terminating traffic on the host)
 
 ## Quality Gates
 
