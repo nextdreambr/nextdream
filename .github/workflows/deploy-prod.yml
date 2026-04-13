@@ -104,12 +104,14 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
           SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID }}
         run: |
           set -euo pipefail
           required=(
             VITE_API_URL
             SENTRY_DSN_WEB
             SENTRY_TRACES_SAMPLE_RATE
+            VITE_GA_MEASUREMENT_ID
           )
           for key in "${required[@]}"; do
             if [[ -z "${!key:-}" ]]; then
@@ -142,6 +144,7 @@ jobs:
             VITE_SENTRY_DSN=${{ vars.SENTRY_DSN_WEB }}
             VITE_SENTRY_TRACES_SAMPLE_RATE=${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
             VITE_SENTRY_RELEASE=${{ needs.resolve-release.outputs.image_tag }}
+            VITE_GA_MEASUREMENT_ID=${{ vars.VITE_GA_MEASUREMENT_ID }}
 
   deploy:
     needs:
