@@ -38,6 +38,33 @@ run_schema_sync() {
     node apps/api/dist/scripts/sync-schema.js
 }
 
+wait_for_container_health() {
+  local container_name="$1"
+  local max_attempts="${2:-30}"
+  local sleep_seconds="${3:-2}"
+  local health_status=""
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container_name" 2>/dev/null || true)"
+
+    case "$health_status" in
+      healthy)
+        return 0
+        ;;
+      unhealthy|no-healthcheck)
+        echo "Container ${container_name} health status is ${health_status}"
+        return 1
+        ;;
+      *)
+        sleep "$sleep_seconds"
+        ;;
+    esac
+  done
+
+  echo "Timed out waiting for container ${container_name} to become healthy"
+  return 1
+}
+
 check_free_disk() {
   local available_mb
   local minimum_mb
@@ -78,18 +105,9 @@ verify_running_image() {
 }
 
 run_internal_smoke_checks() {
-  local ready=0
   local status_code
 
-  for attempt in $(seq 1 30); do
-    if curl -fsS --max-time 10 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
-      ready=1
-      break
-    fi
-    sleep 5
-  done
-
-  if [[ "$ready" -ne 1 ]]; then
+  if ! curl -fsS --max-time 10 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
     echo "Internal health check failed at http://127.0.0.1:8080/api/health"
     return 1
   fi
@@ -170,6 +188,9 @@ main() {
 
   compose up -d --force-recreate --remove-orphans
   compose ps
+
+  wait_for_container_health nextdream-api
+  wait_for_container_health nextdream-web
 
   verify_running_image nextdream-api "$API_IMAGE"
   verify_running_image nextdream-web "$WEB_IMAGE"

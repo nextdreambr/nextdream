@@ -1,10 +1,4 @@
 {
-  "high_or_critical_packages": [
-    "@nestjs/config",
-    "@nestjs/core",
-    "@nestjs/platform-express",
-    "lodash",
-    "path-to-regexp"
-  ],
-  "notes": "Baseline captured to prevent new high/critical audit regressions in PRs."
+  "high_or_critical_packages": [],
+  "notes": "Baseline reduced after production dependency remediation. Keep this file empty unless a reviewed exception is explicitly documented."
 }

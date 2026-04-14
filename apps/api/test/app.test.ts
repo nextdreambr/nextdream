@@ -30,13 +30,21 @@ describe('NextDream API', () => {
   let adminInvitesRepository: Repository<AdminInvite>;
   let appModule: (typeof import('../src/app.module'))['AppModule'];
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalAppUrl = process.env.APP_URL;
+  const originalCorsOrigin = process.env.CORS_ORIGIN;
   const originalLoginThrottleLimit = process.env.LOGIN_THROTTLE_LIMIT;
   const originalLoginThrottleTtlMs = process.env.LOGIN_THROTTLE_TTL_MS;
+  const originalSentryTunnelThrottleLimit = process.env.SENTRY_TUNNEL_THROTTLE_LIMIT;
+  const originalSentryTunnelThrottleTtlMs = process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
+    process.env.APP_URL = 'http://localhost:5173';
+    process.env.CORS_ORIGIN = 'http://localhost:5173';
     process.env.LOGIN_THROTTLE_LIMIT = '5';
     process.env.LOGIN_THROTTLE_TTL_MS = '60000';
+    process.env.SENTRY_TUNNEL_THROTTLE_LIMIT = '2';
+    process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS = '60000';
     ({ AppModule: appModule } = await import('../src/app.module'));
 
     const moduleRef = await Test.createTestingModule({
@@ -50,6 +58,17 @@ describe('NextDream API', () => {
     await app.init();
   });
 
+  async function createIsolatedApp() {
+    const moduleRef = await Test.createTestingModule({
+      imports: [appModule],
+    }).compile();
+
+    const isolatedApp = moduleRef.createNestApplication();
+    isolatedApp.use(cookieParser());
+    await isolatedApp.init();
+    return isolatedApp;
+  }
+
   afterAll(async () => {
     if (app) {
       await app.close();
@@ -59,6 +78,18 @@ describe('NextDream API', () => {
       delete process.env.NODE_ENV;
     } else {
       process.env.NODE_ENV = originalNodeEnv;
+    }
+
+    if (originalAppUrl === undefined) {
+      delete process.env.APP_URL;
+    } else {
+      process.env.APP_URL = originalAppUrl;
+    }
+
+    if (originalCorsOrigin === undefined) {
+      delete process.env.CORS_ORIGIN;
+    } else {
+      process.env.CORS_ORIGIN = originalCorsOrigin;
     }
 
     if (originalLoginThrottleLimit === undefined) {
@@ -71,6 +102,18 @@ describe('NextDream API', () => {
       delete process.env.LOGIN_THROTTLE_TTL_MS;
     } else {
       process.env.LOGIN_THROTTLE_TTL_MS = originalLoginThrottleTtlMs;
+    }
+
+    if (originalSentryTunnelThrottleLimit === undefined) {
+      delete process.env.SENTRY_TUNNEL_THROTTLE_LIMIT;
+    } else {
+      process.env.SENTRY_TUNNEL_THROTTLE_LIMIT = originalSentryTunnelThrottleLimit;
+    }
+
+    if (originalSentryTunnelThrottleTtlMs === undefined) {
+      delete process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS;
+    } else {
+      process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS = originalSentryTunnelThrottleTtlMs;
     }
   });
 
@@ -367,6 +410,93 @@ describe('NextDream API', () => {
         expect(response.status).toBe(401);
       }
       expect(attempts[5].status).toBe(429);
+    } finally {
+      if (rateLimitedApp) {
+        await rateLimitedApp.close();
+      }
+    }
+  });
+
+  it('rejects sentry tunnel requests from untrusted origins', async () => {
+    let isolatedApp: INestApplication | undefined;
+
+    try {
+      isolatedApp = await createIsolatedApp();
+
+      const response = await request(isolatedApp.getHttpServer())
+        .post('/sentry-tunnel')
+        .set('Content-Type', 'application/x-sentry-envelope')
+        .set('Origin', 'https://evil.example')
+        .send('{"dsn":"https://public@example.ingest.sentry.io/123"}\n{}');
+
+      expect(response.status).toBe(403);
+    } finally {
+      if (isolatedApp) {
+        await isolatedApp.close();
+      }
+    }
+  });
+
+  it('rejects sentry tunnel requests without origin when an allowlist is configured', async () => {
+    let isolatedApp: INestApplication | undefined;
+
+    try {
+      isolatedApp = await createIsolatedApp();
+
+      const response = await request(isolatedApp.getHttpServer())
+        .post('/sentry-tunnel')
+        .set('Content-Type', 'application/x-sentry-envelope')
+        .send('{"dsn":"https://public@example.ingest.sentry.io/123"}\n{}');
+
+      expect(response.status).toBe(403);
+    } finally {
+      if (isolatedApp) {
+        await isolatedApp.close();
+      }
+    }
+  });
+
+  it('rejects unsupported sentry tunnel content types', async () => {
+    let isolatedApp: INestApplication | undefined;
+
+    try {
+      isolatedApp = await createIsolatedApp();
+
+      const response = await request(isolatedApp.getHttpServer())
+        .post('/sentry-tunnel')
+        .set('Origin', 'http://localhost:5173')
+        .set('Content-Type', 'text/plain')
+        .send('not-an-envelope');
+
+      expect(response.status).toBe(415);
+    } finally {
+      if (isolatedApp) {
+        await isolatedApp.close();
+      }
+    }
+  });
+
+  it('rate limits repeated sentry tunnel abuse attempts', async () => {
+    let rateLimitedApp: INestApplication | undefined;
+
+    try {
+      rateLimitedApp = await createIsolatedApp();
+
+      const attempts = [];
+
+      for (let index = 0; index < 3; index += 1) {
+        attempts.push(
+          await request(rateLimitedApp.getHttpServer())
+            .post('/sentry-tunnel')
+            .set('Origin', 'http://localhost:5173')
+            .set('Content-Type', 'text/plain')
+            .send('not-an-envelope'),
+        );
+      }
+
+      expect(attempts[0].status).toBe(415);
+      expect(attempts[1].status).toBe(415);
+      expect(attempts[2].status).toBe(429);
     } finally {
       if (rateLimitedApp) {
         await rateLimitedApp.close();

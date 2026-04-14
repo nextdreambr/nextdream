@@ -27,6 +27,18 @@ export function getCorsOrigins(): string[] {
     .filter((origin) => origin.length > 0);
 }
 
+function toOrigin(raw: string | undefined): string | null {
+  if (!raw || raw.trim().length === 0) {
+    return null;
+  }
+
+  try {
+    return new URL(raw.trim()).origin;
+  } catch {
+    return null;
+  }
+}
+
 function getPositiveNumberEnv(raw: string | undefined, fallback: number): number {
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? value : fallback;
@@ -51,6 +63,54 @@ export function getLoginRateLimitConfig() {
     ttl: getPositiveNumberEnv(process.env.LOGIN_THROTTLE_TTL_MS, 60_000),
     limit: getPositiveNumberEnv(process.env.LOGIN_THROTTLE_LIMIT, 5),
   };
+}
+
+export function getSentryTunnelRateLimitConfig() {
+  return {
+    ttl: getPositiveNumberEnv(process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS, 60_000),
+    limit: getPositiveNumberEnv(process.env.SENTRY_TUNNEL_THROTTLE_LIMIT, 20),
+  };
+}
+
+export function getAllowedSentryTunnelOrigins(): string[] {
+  const origins = new Set<string>();
+  const hasAppUrl = Boolean(process.env.APP_URL?.trim());
+  const hasCorsOrigin = Boolean(process.env.CORS_ORIGIN?.trim());
+
+  if (!hasAppUrl && !hasCorsOrigin) {
+    return [];
+  }
+
+  if (hasAppUrl) {
+    const appOrigin = toOrigin(process.env.APP_URL);
+    if (appOrigin) {
+      origins.add(appOrigin);
+    }
+  }
+
+  if (hasCorsOrigin) {
+    for (const origin of getCorsOrigins()) {
+      const normalizedOrigin = toOrigin(origin);
+      if (normalizedOrigin) {
+        origins.add(normalizedOrigin);
+      }
+    }
+  }
+
+  if (origins.size === 0) {
+    const providedEnvVars = [
+      hasAppUrl ? `APP_URL=${process.env.APP_URL}` : null,
+      hasCorsOrigin ? `CORS_ORIGIN=${process.env.CORS_ORIGIN}` : null,
+    ]
+      .filter((value): value is string => value !== null)
+      .join(', ');
+
+    throw new Error(
+      `Invalid Sentry tunnel origin configuration: no valid origins were derived from ${providedEnvVars}.`,
+    );
+  }
+
+  return Array.from(origins);
 }
 
 export function getBooleanEnv(name: string, defaultValue = false): boolean {
