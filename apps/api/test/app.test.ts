@@ -29,9 +29,14 @@ describe('NextDream API', () => {
   let usersRepository: Repository<User>;
   let adminInvitesRepository: Repository<AdminInvite>;
   let appModule: (typeof import('../src/app.module'))['AppModule'];
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalLoginThrottleLimit = process.env.LOGIN_THROTTLE_LIMIT;
+  const originalLoginThrottleTtlMs = process.env.LOGIN_THROTTLE_TTL_MS;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
+    process.env.LOGIN_THROTTLE_LIMIT = '5';
+    process.env.LOGIN_THROTTLE_TTL_MS = '60000';
     ({ AppModule: appModule } = await import('../src/app.module'));
 
     const moduleRef = await Test.createTestingModule({
@@ -48,6 +53,24 @@ describe('NextDream API', () => {
   afterAll(async () => {
     if (app) {
       await app.close();
+    }
+
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+
+    if (originalLoginThrottleLimit === undefined) {
+      delete process.env.LOGIN_THROTTLE_LIMIT;
+    } else {
+      process.env.LOGIN_THROTTLE_LIMIT = originalLoginThrottleLimit;
+    }
+
+    if (originalLoginThrottleTtlMs === undefined) {
+      delete process.env.LOGIN_THROTTLE_TTL_MS;
+    } else {
+      process.env.LOGIN_THROTTLE_TTL_MS = originalLoginThrottleTtlMs;
     }
   });
 
