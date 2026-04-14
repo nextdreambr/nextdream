@@ -27,6 +27,11 @@ export function getCorsOrigins(): string[] {
     .filter((origin) => origin.length > 0);
 }
 
+function getPositiveNumberEnv(raw: string | undefined, fallback: number): number {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 export function getRateLimitConfig() {
   if (process.env.NODE_ENV === 'test') {
     return {
@@ -35,12 +40,16 @@ export function getRateLimitConfig() {
     };
   }
 
-  const ttl = Number(process.env.THROTTLE_TTL_MS ?? '60000');
-  const limit = Number(process.env.THROTTLE_LIMIT ?? '120');
-
   return {
-    ttl: Number.isFinite(ttl) && ttl > 0 ? ttl : 60_000,
-    limit: Number.isFinite(limit) && limit > 0 ? limit : 120,
+    ttl: getPositiveNumberEnv(process.env.THROTTLE_TTL_MS, 60_000),
+    limit: getPositiveNumberEnv(process.env.THROTTLE_LIMIT, 120),
+  };
+}
+
+export function getLoginRateLimitConfig() {
+  return {
+    ttl: getPositiveNumberEnv(process.env.LOGIN_THROTTLE_TTL_MS, 60_000),
+    limit: getPositiveNumberEnv(process.env.LOGIN_THROTTLE_LIMIT, 5),
   };
 }
 

@@ -7,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import cookieParser from 'cookie-parser';
-import { AppModule } from '../src/app.module';
 import { AdminInvite } from '../src/entities/admin-invite.entity';
 import { User } from '../src/entities/user.entity';
 
@@ -29,12 +28,14 @@ describe('NextDream API', () => {
   let app: INestApplication;
   let usersRepository: Repository<User>;
   let adminInvitesRepository: Repository<AdminInvite>;
+  let appModule: (typeof import('../src/app.module'))['AppModule'];
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
+    ({ AppModule: appModule } = await import('../src/app.module'));
 
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [appModule],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -313,6 +314,41 @@ describe('NextDream API', () => {
         expect.stringContaining('nd_refresh_token=;'),
       ]),
     );
+  });
+
+  it('rate limits repeated login attempts', async () => {
+    let rateLimitedApp: INestApplication | undefined;
+
+    try {
+      const moduleRef = await Test.createTestingModule({
+        imports: [appModule],
+      }).compile();
+
+      rateLimitedApp = moduleRef.createNestApplication();
+      rateLimitedApp.use(cookieParser());
+      await rateLimitedApp.init();
+
+      const attempts = [];
+      for (let index = 0; index < 6; index += 1) {
+        attempts.push(
+          await request(rateLimitedApp.getHttpServer())
+            .post('/auth/login')
+            .send({
+              email: 'missing-user@example.com',
+              password: 'Secret123!',
+            }),
+        );
+      }
+
+      for (const response of attempts.slice(0, 5)) {
+        expect(response.status).toBe(401);
+      }
+      expect(attempts[5].status).toBe(429);
+    } finally {
+      if (rateLimitedApp) {
+        await rateLimitedApp.close();
+      }
+    }
   });
 
   it('forbids a supporter without proposal from viewing a dream that is no longer published', async () => {

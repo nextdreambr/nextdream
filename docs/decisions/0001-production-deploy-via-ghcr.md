@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+> Extended by ADR 0002 for digest pinning, rollback state persistence, and deploy hardening.
+
 ## Context
 The previous production deploy strategy used remote source sync and image builds directly on the OCI host.
 This made releases slower, reduced traceability, and made rollback harder to execute safely.

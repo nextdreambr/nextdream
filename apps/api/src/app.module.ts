@@ -71,7 +71,10 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
       },
     }),
     ThrottlerModule.forRoot([
-      getRateLimitConfig(),
+      {
+        name: 'default',
+        ...getRateLimitConfig(),
+      },
     ]),
     HealthModule,
     AuthModule,

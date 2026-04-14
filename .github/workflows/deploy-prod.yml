@@ -22,7 +22,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 jobs:
   resolve-release:
@@ -77,6 +77,9 @@ jobs:
     if: ${{ needs.resolve-release.outputs.release_mode == 'deploy' }}
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         include:
@@ -153,6 +156,9 @@ jobs:
     if: ${{ always() && needs.resolve-release.result == 'success' && (needs.build-images.result == 'success' || needs.build-images.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      packages: read
     timeout-minutes: 30
     concurrency:
       group: deploy-production
@@ -165,6 +171,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR for deploy image resolution
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Validate required deployment variables
         env:
@@ -193,6 +209,7 @@ jobs:
           SENTRY_DSN_API: ${{ vars.SENTRY_DSN_API }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
+          MIN_FREE_DISK_MB: ${{ vars.MIN_FREE_DISK_MB || '2048' }}
         run: |
           set -euo pipefail
 
@@ -274,6 +291,34 @@ jobs:
           printf '%s\n' "$OCI_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
+      - name: Resolve immutable image references
+        id: image_refs
+        run: |
+          set -euo pipefail
+
+          resolve_image() {
+            local tag_ref="$1"
+            local digest=""
+
+            for attempt in $(seq 1 5); do
+              digest="$(docker buildx imagetools inspect "$tag_ref" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')"
+              if [[ -n "$digest" && "$digest" != "null" ]]; then
+                printf '%s@%s' "${tag_ref%%:*}" "$digest"
+                return 0
+              fi
+              sleep 5
+            done
+
+            echo "Unable to resolve digest for $tag_ref"
+            exit 1
+          }
+
+          api_tag_ref="${IMAGE_REPO_BASE}-api:${IMAGE_TAG}"
+          web_tag_ref="${IMAGE_REPO_BASE}-web:${IMAGE_TAG}"
+
+          echo "api_image=$(resolve_image "$api_tag_ref")" >> "$GITHUB_OUTPUT"
+          echo "web_image=$(resolve_image "$web_tag_ref")" >> "$GITHUB_OUTPUT"
+
       - name: Read previous deployed tag
         id: previous
         env:
@@ -286,14 +331,34 @@ jobs:
           previous_tag="$(ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" "cat '$APP_DIR/.release-tag' 2>/dev/null || true")"
           echo "previous_tag=${previous_tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy selected tag
+      - name: Read previous deployed state
+        id: previous_state
         env:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
           APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+        run: |
+          set -euo pipefail
+
+          previous_state="$(ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" "cat '$APP_DIR/.release-state.json' 2>/dev/null || true")"
+          if [[ -n "$previous_state" ]] && jq -e . >/dev/null 2>&1 <<<"$previous_state"; then
+            echo "previous_tag=$(jq -r '.imageTag // empty' <<<"$previous_state")" >> "$GITHUB_OUTPUT"
+            echo "previous_api_image=$(jq -r '.apiImage // empty' <<<"$previous_state")" >> "$GITHUB_OUTPUT"
+            echo "previous_web_image=$(jq -r '.webImage // empty' <<<"$previous_state")" >> "$GITHUB_OUTPUT"
+          else
+            echo "previous_tag=" >> "$GITHUB_OUTPUT"
+            echo "previous_api_image=" >> "$GITHUB_OUTPUT"
+            echo "previous_web_image=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare deployment bundle
+        id: deploy_bundle
+        env:
           NODE_ENV: ${{ vars.NODE_ENV }}
           API_PORT: ${{ vars.API_PORT }}
+          API_BIND_ADDRESS: ${{ vars.API_BIND_ADDRESS || '127.0.0.1' }}
+          WEB_BIND_ADDRESS: ${{ vars.WEB_BIND_ADDRESS || '127.0.0.1' }}
           APP_URL: ${{ vars.APP_URL }}
           CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
@@ -304,30 +369,23 @@ jobs:
           WEB_PROXY_IP: ${{ vars.WEB_PROXY_IP || '172.30.0.2' }}
           AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
           AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
+          LOGIN_THROTTLE_TTL_MS: ${{ vars.LOGIN_THROTTLE_TTL_MS || '60000' }}
+          LOGIN_THROTTLE_LIMIT: ${{ vars.LOGIN_THROTTLE_LIMIT || '5' }}
+          THROTTLE_TTL_MS: ${{ vars.THROTTLE_TTL_MS || '60000' }}
+          THROTTLE_LIMIT: ${{ vars.THROTTLE_LIMIT || '120' }}
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
           SENTRY_DSN_API: ${{ vars.SENTRY_DSN_API }}
           SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
           SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
+          MIN_FREE_DISK_MB: ${{ vars.MIN_FREE_DISK_MB || '2048' }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
-          API_BIND_ADDRESS: ${{ vars.API_BIND_ADDRESS || '127.0.0.1' }}
-          WEB_BIND_ADDRESS: ${{ vars.WEB_BIND_ADDRESS || '127.0.0.1' }}
-          API_IMAGE: ${{ env.IMAGE_REPO_BASE }}-api:${{ env.IMAGE_TAG }}
-          WEB_IMAGE: ${{ env.IMAGE_REPO_BASE }}-web:${{ env.IMAGE_TAG }}
+          API_IMAGE: ${{ steps.image_refs.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.image_refs.outputs.web_image }}
         run: |
           set -euo pipefail
-
-          normalized_auth_cookie_secure="$(echo "$AUTH_COOKIE_SECURE" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-          case "$normalized_auth_cookie_secure" in
-            true|1|yes|false|0|no)
-              ;;
-            *)
-              echo "Invalid AUTH_COOKIE_SECURE value: expected one of [true, 1, yes, false, 0, no]"
-              exit 1
-              ;;
-          esac
 
           database_url_runtime="$DATABASE_URL"
           if [[ "$database_url_runtime" == *"sslmode=require"* && "$database_url_runtime" != *"uselibpqcompat="* ]]; then
@@ -338,14 +396,10 @@ jobs:
             database_url_runtime="${database_url_runtime}${separator}uselibpqcompat=true"
           fi
 
-          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "sudo mkdir -p '$APP_DIR' && sudo chown -R '$OCI_USER:$OCI_USER' '$APP_DIR'"
+          bundle_dir="$(mktemp -d)"
+          chmod 700 "$bundle_dir"
 
-          scp -i ~/.ssh/oci_key -P "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
-            docker-compose.prod.yml "$OCI_USER@$OCI_HOST:$APP_DIR/docker-compose.prod.yml"
-
-          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "cat > '$APP_DIR/.env.production'" <<EOV
+          cat > "$bundle_dir/.env.production" <<EOF
           NODE_ENV=${NODE_ENV}
           API_PORT=${API_PORT}
           API_BIND_ADDRESS=${API_BIND_ADDRESS}
@@ -359,6 +413,10 @@ jobs:
           API_CONTAINER_IP=${API_CONTAINER_IP}
           WEB_PROXY_IP=${WEB_PROXY_IP}
           AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
+          THROTTLE_TTL_MS=${THROTTLE_TTL_MS}
+          THROTTLE_LIMIT=${THROTTLE_LIMIT}
+          LOGIN_THROTTLE_TTL_MS=${LOGIN_THROTTLE_TTL_MS}
+          LOGIN_THROTTLE_LIMIT=${LOGIN_THROTTLE_LIMIT}
           DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
@@ -367,71 +425,63 @@ jobs:
           SENTRY_ENVIRONMENT=production
           SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE}
           SENTRY_RELEASE=${IMAGE_TAG}
-          EOV
+          EOF
 
           if [[ -n "${AUTH_COOKIE_DOMAIN:-}" ]]; then
-            ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-              "printf '\nAUTH_COOKIE_DOMAIN=%s\n' '$AUTH_COOKIE_DOMAIN' >> '$APP_DIR/.env.production'"
+            printf '\nAUTH_COOKIE_DOMAIN=%s\n' "$AUTH_COOKIE_DOMAIN" >> "$bundle_dir/.env.production"
           fi
 
-          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "chmod 600 '$APP_DIR/.env.production'"
+          cat > "$bundle_dir/.deploy-runtime.env" <<EOF
+          DEPLOY_ACTION=deploy
+          API_IMAGE=${API_IMAGE}
+          WEB_IMAGE=${WEB_IMAGE}
+          IMAGE_TAG=${IMAGE_TAG}
+          GHCR_USERNAME=${GHCR_USERNAME}
+          GHCR_TOKEN=${GHCR_TOKEN}
+          MIN_FREE_DISK_MB=${MIN_FREE_DISK_MB}
+          EOF
 
-          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' API_BIND_ADDRESS='$API_BIND_ADDRESS' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' DOCKER_SUBNET='$DOCKER_SUBNET' API_CONTAINER_IP='$API_CONTAINER_IP' WEB_PROXY_IP='$WEB_PROXY_IP' bash -s" <<'EOS'
+          chmod 600 "$bundle_dir/.env.production" "$bundle_dir/.deploy-runtime.env"
+          cp docker-compose.prod.yml scripts/deploy-prod-remote.sh "$bundle_dir/"
+          echo "bundle_dir=$bundle_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy selected tag
+        id: deploy_selected_tag
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          BUNDLE_DIR: ${{ steps.deploy_bundle.outputs.bundle_dir }}
+        run: |
           set -euo pipefail
-          cd "$APP_DIR"
 
-          if [[ ! -f docker-compose.prod.yml ]]; then
-            echo "docker-compose.prod.yml not found in $APP_DIR"
-            exit 1
-          fi
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "sudo mkdir -p '$APP_DIR' && sudo chown -R '$OCI_USER:$OCI_USER' '$APP_DIR'"
 
-          df -h /
-          docker system df || true
-          docker container prune -f || true
-          docker image prune -af || true
-          docker builder prune -af || true
-          docker system df || true
+          scp -i ~/.ssh/oci_key -P "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$BUNDLE_DIR/docker-compose.prod.yml" \
+            "$BUNDLE_DIR/.env.production" \
+            "$BUNDLE_DIR/.deploy-runtime.env" \
+            "$BUNDLE_DIR/deploy-prod-remote.sh" \
+            "$OCI_USER@$OCI_HOST:$APP_DIR/"
 
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-          docker compose --env-file .env.production -f docker-compose.prod.yml pull
-          docker compose --env-file .env.production -f docker-compose.prod.yml run --rm -T api node apps/api/dist/scripts/sync-schema.js </dev/null
-          docker compose --env-file .env.production -f docker-compose.prod.yml down --remove-orphans || true
-          docker network rm nextdream-prod >/dev/null 2>&1 || true
-          docker compose --env-file .env.production -f docker-compose.prod.yml up -d --force-recreate
-          docker compose --env-file .env.production -f docker-compose.prod.yml ps
-
-          ready=0
-          for attempt in $(seq 1 30); do
-            if curl -fsS --max-time 10 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
-              ready=1
-              break
-            fi
-            sleep 5
-          done
-
-          if [[ "$ready" -ne 1 ]]; then
-            docker compose --env-file .env.production -f docker-compose.prod.yml ps || true
-            docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 api || true
-            docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 web || true
-            docker inspect nextdream-api --format '{{json .NetworkSettings.Networks}}' || true
-            docker inspect nextdream-web --format '{{json .NetworkSettings.Networks}}' || true
-            curl -sS --max-time 10 http://127.0.0.1:4000/health || true
-            curl -sS --max-time 10 http://127.0.0.1:8080/api/health || true
-            exit 1
-          fi
-
-          printf '%s' "$IMAGE_TAG" > "$APP_DIR/.release-tag"
-          EOS
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "chmod 700 '$APP_DIR/deploy-prod-remote.sh' && APP_DIR='$APP_DIR' '$APP_DIR/deploy-prod-remote.sh'"
 
       - name: Verify public API endpoints
+        id: verify_public_endpoints
         env:
           APP_URL: ${{ vars.APP_URL }}
         run: |
           set -euo pipefail
 
           base_url="${APP_URL%/}"
+
+          if ! curl -fsS --max-time 10 "$base_url/" >/dev/null 2>&1; then
+            echo "Public web check failed at $base_url/"
+            exit 1
+          fi
 
           health_ready=0
           for attempt in $(seq 1 20); do
@@ -459,6 +509,7 @@ jobs:
           fi
 
       - name: Verify web bundle contains Sentry DSN marker
+        id: verify_web_bundle
         env:
           APP_URL: ${{ vars.APP_URL }}
           SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
@@ -489,6 +540,45 @@ jobs:
             echo "Sentry DSN marker not found in published web bundle (expected marker: $marker)"
             exit 1
           fi
+
+      - name: Auto rollback to previous release on deploy verification failure
+        if: ${{ failure() && steps.previous_state.outputs.previous_api_image != '' && steps.previous_state.outputs.previous_web_image != '' && (steps.deploy_selected_tag.outcome == 'failure' || steps.verify_public_endpoints.outcome == 'failure' || steps.verify_web_bundle.outcome == 'failure') }}
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          PREVIOUS_API_IMAGE: ${{ steps.previous_state.outputs.previous_api_image }}
+          PREVIOUS_WEB_IMAGE: ${{ steps.previous_state.outputs.previous_web_image }}
+          PREVIOUS_TAG: ${{ steps.previous_state.outputs.previous_tag || steps.previous.outputs.previous_tag }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+          MIN_FREE_DISK_MB: ${{ vars.MIN_FREE_DISK_MB || '2048' }}
+        run: |
+          set -euo pipefail
+
+          rollback_dir="$(mktemp -d)"
+          chmod 700 "$rollback_dir"
+          cat > "$rollback_dir/.deploy-runtime.env" <<EOF
+          DEPLOY_ACTION=rollback
+          API_IMAGE=${PREVIOUS_API_IMAGE}
+          WEB_IMAGE=${PREVIOUS_WEB_IMAGE}
+          IMAGE_TAG=${PREVIOUS_TAG}
+          GHCR_USERNAME=${GHCR_USERNAME}
+          GHCR_TOKEN=${GHCR_TOKEN}
+          MIN_FREE_DISK_MB=${MIN_FREE_DISK_MB}
+          EOF
+          chmod 600 "$rollback_dir/.deploy-runtime.env"
+          cp docker-compose.prod.yml scripts/deploy-prod-remote.sh "$rollback_dir/"
+
+          scp -i ~/.ssh/oci_key -P "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$rollback_dir/docker-compose.prod.yml" \
+            "$rollback_dir/.deploy-runtime.env" \
+            "$rollback_dir/deploy-prod-remote.sh" \
+            "$OCI_USER@$OCI_HOST:$APP_DIR/"
+
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "chmod 700 '$APP_DIR/deploy-prod-remote.sh' && APP_DIR='$APP_DIR' '$APP_DIR/deploy-prod-remote.sh'"
 
       - name: Emit API Sentry warning log smoke event
         env:
@@ -617,7 +707,9 @@ jobs:
             echo ""
             echo "- Mode: ${RELEASE_MODE}"
             echo "- Deployed tag: ${IMAGE_TAG}"
-            echo "- Previous tag: ${{ steps.previous.outputs.previous_tag || 'none' }}"
+            echo "- API image: ${{ steps.image_refs.outputs.api_image }}"
+            echo "- Web image: ${{ steps.image_refs.outputs.web_image }}"
+            echo "- Previous tag: ${{ steps.previous_state.outputs.previous_tag || steps.previous.outputs.previous_tag || 'none' }}"
             echo "- Observability smoke: passed"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -642,5 +734,6 @@ jobs:
           docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 web || true
           docker inspect nextdream-api --format '{{json .Config.Image}} {{json .NetworkSettings.Networks}}' || true
           docker inspect nextdream-web --format '{{json .Config.Image}} {{json .NetworkSettings.Networks}}' || true
+          cat "$APP_DIR/.release-state.json" 2>/dev/null || true
           cat "$APP_DIR/.release-tag" 2>/dev/null || true
           EOS
