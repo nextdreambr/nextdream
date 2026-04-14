@@ -181,6 +181,8 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           TRUST_PROXY: ${{ vars.TRUST_PROXY }}
           PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          DOCKER_SUBNET: ${{ vars.DOCKER_SUBNET || '172.30.0.0/24' }}
+          WEB_PROXY_IP: ${{ vars.WEB_PROXY_IP || '172.30.0.2' }}
           AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
           AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -296,6 +298,8 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           TRUST_PROXY: ${{ vars.TRUST_PROXY }}
           PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          DOCKER_SUBNET: ${{ vars.DOCKER_SUBNET || '172.30.0.0/24' }}
+          WEB_PROXY_IP: ${{ vars.WEB_PROXY_IP || '172.30.0.2' }}
           AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
           AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -343,11 +347,14 @@ jobs:
           NODE_ENV=${NODE_ENV}
           API_PORT=${API_PORT}
           API_BIND_ADDRESS=${API_BIND_ADDRESS}
+          WEB_BIND_ADDRESS=${WEB_BIND_ADDRESS}
           APP_URL=${APP_URL}
           CORS_ORIGIN=${CORS_ORIGIN}
           VITE_API_URL=${VITE_API_URL}
           TRUST_PROXY=${TRUST_PROXY}
           PROXY_TRUSTED_IPS=${PROXY_TRUSTED_IPS}
+          DOCKER_SUBNET=${DOCKER_SUBNET}
+          WEB_PROXY_IP=${WEB_PROXY_IP}
           AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
           DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
@@ -368,7 +375,7 @@ jobs:
             "chmod 600 '$APP_DIR/.env.production'"
 
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' API_BIND_ADDRESS='$API_BIND_ADDRESS' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' bash -s" <<'EOS'
+            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' API_BIND_ADDRESS='$API_BIND_ADDRESS' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' DOCKER_SUBNET='$DOCKER_SUBNET' WEB_PROXY_IP='$WEB_PROXY_IP' bash -s" <<'EOS'
           set -euo pipefail
           cd "$APP_DIR"
 
@@ -378,11 +385,12 @@ jobs:
           fi
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-          docker compose -f docker-compose.prod.yml pull
-          docker compose -f docker-compose.prod.yml run --rm api node apps/api/dist/scripts/sync-schema.js
-          docker compose -f docker-compose.prod.yml down --remove-orphans
-          docker compose -f docker-compose.prod.yml up -d --force-recreate
-          docker compose -f docker-compose.prod.yml ps
+          docker compose --env-file .env.production -f docker-compose.prod.yml pull
+          docker compose --env-file .env.production -f docker-compose.prod.yml run --rm api node apps/api/dist/scripts/sync-schema.js
+          docker compose --env-file .env.production -f docker-compose.prod.yml down --remove-orphans || true
+          docker network rm nextdream-prod >/dev/null 2>&1 || true
+          docker compose --env-file .env.production -f docker-compose.prod.yml up -d --force-recreate
+          docker compose --env-file .env.production -f docker-compose.prod.yml ps
 
           ready=0
           for attempt in $(seq 1 30); do
@@ -394,9 +402,13 @@ jobs:
           done
 
           if [[ "$ready" -ne 1 ]]; then
-            docker compose -f docker-compose.prod.yml ps || true
-            docker compose -f docker-compose.prod.yml logs --tail 200 api || true
-            docker compose -f docker-compose.prod.yml logs --tail 200 web || true
+            docker compose --env-file .env.production -f docker-compose.prod.yml ps || true
+            docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 api || true
+            docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 web || true
+            docker inspect nextdream-api --format '{{json .NetworkSettings.Networks}}' || true
+            docker inspect nextdream-web --format '{{json .NetworkSettings.Networks}}' || true
+            curl -sS --max-time 10 http://127.0.0.1:4000/health || true
+            curl -sS --max-time 10 http://127.0.0.1:8080/api/health || true
             exit 1
           fi
 
@@ -615,8 +627,10 @@ jobs:
             "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' bash -s" <<'EOS'
           set -euo pipefail
           cd "$APP_DIR" || exit 0
-          docker compose -f docker-compose.prod.yml ps || true
-          docker compose -f docker-compose.prod.yml logs --tail 200 api || true
-          docker compose -f docker-compose.prod.yml logs --tail 200 web || true
+          docker compose --env-file .env.production -f docker-compose.prod.yml ps || true
+          docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 api || true
+          docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail 200 web || true
+          docker inspect nextdream-api --format '{{json .Config.Image}} {{json .NetworkSettings.Networks}}' || true
+          docker inspect nextdream-web --format '{{json .Config.Image}} {{json .NetworkSettings.Networks}}' || true
           cat "$APP_DIR/.release-tag" 2>/dev/null || true
           EOS
