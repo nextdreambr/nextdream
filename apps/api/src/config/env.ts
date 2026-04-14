@@ -15,6 +15,15 @@ export function getRequiredEnv(name: string): string {
   );
 }
 
+export function getEnvOrDefault(name: string, fallback: string): string {
+  const value = process.env[name];
+  if (value && value.trim().length > 0) {
+    return value;
+  }
+
+  return fallback;
+}
+
 export function getCorsOrigins(): string[] {
   const raw = process.env.CORS_ORIGIN;
   if (!raw) {

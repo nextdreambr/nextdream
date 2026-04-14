@@ -11,13 +11,52 @@ export class ApiError extends Error {
 }
 
 type AccessTokenGetter = () => string | null;
+type RefreshTokenGetter = () => string | null;
+type SessionChangeHandler = (session: AuthSession | null) => void;
 
 let getAccessToken: AccessTokenGetter = () => null;
+let getRefreshToken: RefreshTokenGetter = () => null;
+let handleSessionChange: SessionChangeHandler = () => {};
+let refreshSessionRequest: Promise<AuthSession | null> | null = null;
+
+const AUTH_STORAGE_KEY = 'nextdream.auth.session';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
 export function setAccessTokenGetter(getter: AccessTokenGetter) {
   getAccessToken = getter;
+}
+
+export function setRefreshTokenGetter(getter: RefreshTokenGetter) {
+  getRefreshToken = getter;
+}
+
+export function setSessionChangeHandler(handler: SessionChangeHandler) {
+  handleSessionChange = handler;
+}
+
+function loadStoredSession(): AuthSession | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<AuthSession>;
+    if (!parsed.accessToken || !parsed.refreshToken || !parsed.user) return null;
+
+    return parsed as AuthSession;
+  } catch {
+    return null;
+  }
+}
+
+function getAvailableAccessToken() {
+  return getAccessToken() ?? loadStoredSession()?.accessToken ?? null;
+}
+
+function getAvailableRefreshToken() {
+  return getRefreshToken() ?? loadStoredSession()?.refreshToken ?? null;
 }
 
 function buildUrl(path: string): string {
@@ -43,8 +82,17 @@ function extractMessage(payload: unknown, fallback: string): string {
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return apiRequestInternal<T>(path, init, true);
+}
+
+async function apiRequestInternal<T>(
+  path: string,
+  init: RequestInit,
+  allowRefresh: boolean,
+  overrideAccessToken?: string,
+): Promise<T> {
   const headers = normalizeHeaders(init.headers);
-  const token = getAccessToken();
+  const token = overrideAccessToken ?? getAvailableAccessToken();
 
   if (!headers['Content-Type'] && init.body && !(init.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
@@ -55,18 +103,82 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   const response = await fetch(buildUrl(path), {
     ...init,
+    credentials: init.credentials ?? 'include',
     headers,
   });
 
   const text = await response.text();
   const payload = text ? (JSON.parse(text) as unknown) : undefined;
 
+  if (
+    response.status === 401 &&
+    allowRefresh &&
+    path !== '/auth/login' &&
+    path !== '/auth/register' &&
+    path !== '/auth/refresh'
+  ) {
+    const refreshedSession = await refreshAuthSession();
+    if (refreshedSession?.accessToken) {
+      return apiRequestInternal<T>(path, init, false, refreshedSession.accessToken);
+    }
+  }
+
   if (!response.ok) {
+    if (response.status === 401) {
+      handleSessionChange(null);
+    }
     const fallback = `Request failed with status ${response.status}`;
     throw new ApiError(extractMessage(payload, fallback), response.status, payload);
   }
 
   return (payload ?? {}) as T;
+}
+
+async function refreshAuthSession(): Promise<AuthSession | null> {
+  if (refreshSessionRequest) return refreshSessionRequest;
+
+  const refreshToken = getAvailableRefreshToken();
+  if (!refreshToken) {
+    handleSessionChange(null);
+    return null;
+  }
+
+  refreshSessionRequest = (async () => {
+    try {
+      const response = await fetch(buildUrl('/auth/refresh'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      const text = await response.text();
+      const payload = text ? (JSON.parse(text) as unknown) : undefined;
+
+      if (!response.ok) {
+        handleSessionChange(null);
+        return null;
+      }
+
+      const session = payload as Partial<AuthSession>;
+      if (!session.accessToken || !session.refreshToken || !session.user) {
+        handleSessionChange(null);
+        return null;
+      }
+
+      handleSessionChange(session as AuthSession);
+      return session as AuthSession;
+    } catch {
+      handleSessionChange(null);
+      return null;
+    } finally {
+      refreshSessionRequest = null;
+    }
+  })();
+
+  return refreshSessionRequest;
 }
 
 export type ApiUserRole = 'paciente' | 'apoiador' | 'admin';
@@ -139,6 +251,12 @@ export interface Proposal {
 export const authApi = {
   login(payload: { email: string; password: string }) {
     return apiRequest<AuthSession>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  refresh(payload: { refreshToken: string }) {
+    return apiRequest<AuthSession>('/auth/refresh', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

@@ -10,8 +10,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { AdminInvite } from '../../entities/admin-invite.entity';
+import type { StringValue } from 'ms';
 import { User } from '../../entities/user.entity';
-import { getRequiredEnv } from '../../config/env';
+import { getEnvOrDefault, getRequiredEnv } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -35,6 +36,8 @@ export interface AuthSessionPayload {
 
 @Injectable()
 export class AuthService {
+  private readonly accessTokenExpiresIn: StringValue = getEnvOrDefault('JWT_ACCESS_EXPIRES_IN', '1h') as StringValue;
+  private readonly refreshTokenExpiresIn: StringValue = getEnvOrDefault('JWT_REFRESH_EXPIRES_IN', '7d') as StringValue;
   private readonly usersRepository: Repository<User>;
   private readonly adminInvitesRepository: Repository<AdminInvite>;
   private readonly jwtService: JwtService;
@@ -141,6 +144,29 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
+  async refresh(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{
+        sub: string;
+        role: User['role'];
+      }>(refreshToken, {
+        secret: getRequiredEnv('JWT_REFRESH_SECRET'),
+      });
+
+      const user = await this.usersRepository.findOne({
+        where: { id: payload.sub },
+      });
+
+      if (!user || user.suspended) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      return this.buildAuthResponse(user);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
   private async buildAuthResponse(user: User): Promise<AuthSessionPayload> {
     const payload = {
       sub: user.id,
@@ -151,11 +177,11 @@ export class AuthService {
     return {
       accessToken: await this.jwtService.signAsync(payload, {
         secret: getRequiredEnv('JWT_ACCESS_SECRET'),
-        expiresIn: '1h',
+        expiresIn: this.accessTokenExpiresIn,
       }),
       refreshToken: await this.jwtService.signAsync(payload, {
         secret: getRequiredEnv('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
+        expiresIn: this.refreshTokenExpiresIn,
       }),
       user: {
         id: user.id,

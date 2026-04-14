@@ -1,5 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { AppNotification, AuthSession, notificationsApi, setAccessTokenGetter } from '../lib/api';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react';
+import {
+  AppNotification,
+  AuthSession,
+  notificationsApi,
+  setAccessTokenGetter,
+  setRefreshTokenGetter,
+  setSessionChangeHandler,
+} from '../lib/api';
 
 export type AppRole = 'public' | 'paciente' | 'apoiador' | 'admin';
 
@@ -102,9 +109,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   }, [session]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setAccessTokenGetter(() => accessToken);
-  }, [accessToken]);
+    setRefreshTokenGetter(() => refreshToken);
+    setSessionChangeHandler((nextSession) => {
+      setSession(nextSession);
+      if (!nextSession) {
+        setNotifications([]);
+      }
+    });
+  }, [accessToken, refreshToken]);
 
   const reloadNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
