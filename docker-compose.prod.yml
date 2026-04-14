@@ -11,6 +11,9 @@ services:
       - "${API_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     expose:
       - "4000"
+    networks:
+      default:
+        ipv4_address: ${API_CONTAINER_IP:-172.30.0.3}
 
   web:
     image: ${WEB_IMAGE:?WEB_IMAGE is required}

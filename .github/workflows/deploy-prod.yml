@@ -182,6 +182,7 @@ jobs:
           TRUST_PROXY: ${{ vars.TRUST_PROXY }}
           PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
           DOCKER_SUBNET: ${{ vars.DOCKER_SUBNET || '172.30.0.0/24' }}
+          API_CONTAINER_IP: ${{ vars.API_CONTAINER_IP || '172.30.0.3' }}
           WEB_PROXY_IP: ${{ vars.WEB_PROXY_IP || '172.30.0.2' }}
           AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
           AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
@@ -299,6 +300,7 @@ jobs:
           TRUST_PROXY: ${{ vars.TRUST_PROXY }}
           PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
           DOCKER_SUBNET: ${{ vars.DOCKER_SUBNET || '172.30.0.0/24' }}
+          API_CONTAINER_IP: ${{ vars.API_CONTAINER_IP || '172.30.0.3' }}
           WEB_PROXY_IP: ${{ vars.WEB_PROXY_IP || '172.30.0.2' }}
           AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
           AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE }}
@@ -354,6 +356,7 @@ jobs:
           TRUST_PROXY=${TRUST_PROXY}
           PROXY_TRUSTED_IPS=${PROXY_TRUSTED_IPS}
           DOCKER_SUBNET=${DOCKER_SUBNET}
+          API_CONTAINER_IP=${API_CONTAINER_IP}
           WEB_PROXY_IP=${WEB_PROXY_IP}
           AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
           DATABASE_URL=${database_url_runtime}
@@ -375,7 +378,7 @@ jobs:
             "chmod 600 '$APP_DIR/.env.production'"
 
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' API_BIND_ADDRESS='$API_BIND_ADDRESS' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' DOCKER_SUBNET='$DOCKER_SUBNET' WEB_PROXY_IP='$WEB_PROXY_IP' bash -s" <<'EOS'
+            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' API_BIND_ADDRESS='$API_BIND_ADDRESS' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' DOCKER_SUBNET='$DOCKER_SUBNET' API_CONTAINER_IP='$API_CONTAINER_IP' WEB_PROXY_IP='$WEB_PROXY_IP' bash -s" <<'EOS'
           set -euo pipefail
           cd "$APP_DIR"
 
