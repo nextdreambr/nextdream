@@ -387,6 +387,13 @@ jobs:
             exit 1
           fi
 
+          df -h /
+          docker system df || true
+          docker container prune -f || true
+          docker image prune -af || true
+          docker builder prune -af || true
+          docker system df || true
+
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
           docker compose --env-file .env.production -f docker-compose.prod.yml pull
           docker compose --env-file .env.production -f docker-compose.prod.yml run --rm -T api node apps/api/dist/scripts/sync-schema.js </dev/null
