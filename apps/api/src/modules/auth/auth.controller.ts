@@ -1,7 +1,9 @@
 import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
 import { Response } from 'express';
 import { Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService, AuthSessionPayload, AuthUserPayload } from './auth.service';
+import { getLoginRateLimitConfig } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -16,6 +18,13 @@ function toPublicAuthResponse(auth: AuthSessionPayload): PublicAuthResponse {
     user: auth.user,
   };
 }
+
+const loginThrottle = {
+  default: {
+    limit: () => getLoginRateLimitConfig().limit,
+    ttl: () => getLoginRateLimitConfig().ttl,
+  },
+};
 
 @Controller('auth')
 export class AuthController {
@@ -37,6 +46,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @Throttle(loginThrottle)
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
@@ -48,6 +58,7 @@ export class AuthController {
 
   @Post('admin-invites/accept')
   @HttpCode(200)
+  @Throttle(loginThrottle)
   async acceptAdminInvite(
     @Body() dto: AcceptAdminInviteDto,
     @Res({ passthrough: true }) response: Response,
