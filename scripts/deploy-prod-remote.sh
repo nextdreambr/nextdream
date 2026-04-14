@@ -33,6 +33,11 @@ compose() {
   docker compose --env-file .env.production -f docker-compose.prod.yml "$@"
 }
 
+run_schema_sync() {
+  docker run --rm --env-file .env.production "$API_IMAGE" \
+    node apps/api/dist/scripts/sync-schema.js
+}
+
 check_free_disk() {
   local available_mb
   local minimum_mb
@@ -157,7 +162,7 @@ main() {
   compose pull api web
 
   if [[ "$DEPLOY_ACTION" == "deploy" ]]; then
-    compose run --rm -T api node apps/api/dist/scripts/sync-schema.js </dev/null
+    run_schema_sync </dev/null
   elif [[ "$DEPLOY_ACTION" != "rollback" ]]; then
     echo "Unsupported DEPLOY_ACTION: $DEPLOY_ACTION"
     exit 1
