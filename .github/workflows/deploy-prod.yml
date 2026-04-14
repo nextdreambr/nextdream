@@ -80,6 +80,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     strategy:
       matrix:
         include:
@@ -125,6 +126,7 @@ jobs:
 
       - name: Build and push ${{ matrix.name }} image
         if: ${{ matrix.name == 'api' }}
+        id: build_push_api
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -132,9 +134,12 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ needs.resolve-release.outputs.repo_lc }}-${{ matrix.name }}:${{ needs.resolve-release.outputs.image_tag }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
       - name: Build and push ${{ matrix.name }} image with Sentry web env
         if: ${{ matrix.name == 'web' }}
+        id: build_push_web
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -142,12 +147,61 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ needs.resolve-release.outputs.repo_lc }}-${{ matrix.name }}:${{ needs.resolve-release.outputs.image_tag }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL }}
             VITE_SENTRY_DSN=${{ vars.SENTRY_DSN_WEB }}
             VITE_SENTRY_TRACES_SAMPLE_RATE=${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
             VITE_SENTRY_RELEASE=${{ needs.resolve-release.outputs.image_tag }}
             VITE_GA_MEASUREMENT_ID=${{ vars.VITE_GA_MEASUREMENT_ID }}
+
+      - name: Resolve published image digest
+        id: pushed_image
+        env:
+          IMAGE_TAG: ${{ needs.resolve-release.outputs.image_tag }}
+          REPO_LC: ${{ needs.resolve-release.outputs.repo_lc }}
+        run: |
+          set -euo pipefail
+
+          tag_ref="ghcr.io/${REPO_LC}-${{ matrix.name }}:${IMAGE_TAG}"
+          digest=""
+
+          for attempt in $(seq 1 5); do
+            digest="$(docker buildx imagetools inspect "$tag_ref" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')"
+            if [[ -n "$digest" && "$digest" != "null" ]]; then
+              echo "image_ref=${tag_ref%%:*}@${digest}" >> "$GITHUB_OUTPUT"
+              echo "tag_ref=${tag_ref}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Unable to resolve digest for ${tag_ref}"
+          exit 1
+
+      - name: Scan published ${{ matrix.name }} image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.pushed_image.outputs.image_ref }}
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Generate SBOM for ${{ matrix.name }} image
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.pushed_image.outputs.image_ref }}
+          artifact-name: sbom-${{ matrix.name }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
+
+      - name: Sign published ${{ matrix.name }} image
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${{ steps.pushed_image.outputs.image_ref }}"
 
   deploy:
     needs:
@@ -319,6 +373,24 @@ jobs:
           echo "api_image=$(resolve_image "$api_tag_ref")" >> "$GITHUB_OUTPUT"
           echo "web_image=$(resolve_image "$web_tag_ref")" >> "$GITHUB_OUTPUT"
 
+      - name: Install Cosign for deploy verification
+        uses: sigstore/cosign-installer@v3.8.1
+
+      - name: Verify signed image references
+        run: |
+          set -euo pipefail
+
+          verify_image() {
+            local image_ref="$1"
+            cosign verify \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --certificate-identity-regexp '^https://github\.com/nextdreambr/nextdream/\.github/workflows/deploy-prod\.yml@.*$' \
+              "$image_ref" >/dev/null
+          }
+
+          verify_image "${{ steps.image_refs.outputs.api_image }}"
+          verify_image "${{ steps.image_refs.outputs.web_image }}"
+
       - name: Read previous deployed tag
         id: previous
         env:
@@ -484,12 +556,12 @@ jobs:
           fi
 
           health_ready=0
-          for attempt in $(seq 1 20); do
+          for attempt in $(seq 1 10); do
             if curl -fsS --max-time 10 "$base_url/api/health" >/dev/null 2>&1; then
               health_ready=1
               break
             fi
-            sleep 3
+            sleep 2
           done
 
           if [[ "$health_ready" -ne 1 ]]; then
