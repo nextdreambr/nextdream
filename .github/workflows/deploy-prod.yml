@@ -306,6 +306,7 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
+          API_BIND_ADDRESS: ${{ vars.API_BIND_ADDRESS || '127.0.0.1' }}
           WEB_BIND_ADDRESS: ${{ vars.WEB_BIND_ADDRESS || '127.0.0.1' }}
           API_IMAGE: ${{ env.IMAGE_REPO_BASE }}-api:${{ env.IMAGE_TAG }}
           WEB_IMAGE: ${{ env.IMAGE_REPO_BASE }}-web:${{ env.IMAGE_TAG }}
@@ -341,6 +342,7 @@ jobs:
             "cat > '$APP_DIR/.env.production'" <<EOV
           NODE_ENV=${NODE_ENV}
           API_PORT=${API_PORT}
+          API_BIND_ADDRESS=${API_BIND_ADDRESS}
           APP_URL=${APP_URL}
           CORS_ORIGIN=${CORS_ORIGIN}
           VITE_API_URL=${VITE_API_URL}
@@ -366,7 +368,7 @@ jobs:
             "chmod 600 '$APP_DIR/.env.production'"
 
           ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
-            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' bash -s" <<'EOS'
+            "APP_DIR='$APP_DIR' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' IMAGE_TAG='$IMAGE_TAG' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' API_BIND_ADDRESS='$API_BIND_ADDRESS' WEB_BIND_ADDRESS='$WEB_BIND_ADDRESS' bash -s" <<'EOS'
           set -euo pipefail
           cd "$APP_DIR"
 
@@ -399,6 +401,39 @@ jobs:
 
           printf '%s' "$IMAGE_TAG" > "$APP_DIR/.release-tag"
           EOS
+
+      - name: Verify public API endpoints
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          set -euo pipefail
+
+          base_url="${APP_URL%/}"
+
+          health_ready=0
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 10 "$base_url/api/health" >/dev/null 2>&1; then
+              health_ready=1
+              break
+            fi
+            sleep 3
+          done
+
+          if [[ "$health_ready" -ne 1 ]]; then
+            echo "Public API health check failed at $base_url/api/health"
+            exit 1
+          fi
+
+          status_code="$(curl -sS --max-time 10 -o /tmp/login-smoke.json -w '%{http_code}' \
+            -X POST "$base_url/api/auth/login" \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"invalid@example.com","password":"invalid-password"}')"
+
+          if [[ "$status_code" == "000" || "$status_code" -ge 500 ]]; then
+            echo "Public login smoke failed with status: $status_code"
+            cat /tmp/login-smoke.json || true
+            exit 1
+          fi
 
       - name: Verify web bundle contains Sentry DSN marker
         env:

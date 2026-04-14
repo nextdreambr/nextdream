@@ -7,6 +7,8 @@ services:
       - .env.production
     environment:
       NODE_ENV: production
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     expose:
       - "4000"
 
