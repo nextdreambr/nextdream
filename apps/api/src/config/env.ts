@@ -74,17 +74,40 @@ export function getSentryTunnelRateLimitConfig() {
 
 export function getAllowedSentryTunnelOrigins(): string[] {
   const origins = new Set<string>();
+  const hasAppUrl = Boolean(process.env.APP_URL?.trim());
+  const hasCorsOrigin = Boolean(process.env.CORS_ORIGIN?.trim());
 
-  const appOrigin = toOrigin(process.env.APP_URL);
-  if (appOrigin) {
-    origins.add(appOrigin);
+  if (!hasAppUrl && !hasCorsOrigin) {
+    return [];
   }
 
-  for (const origin of getCorsOrigins()) {
-    const normalizedOrigin = toOrigin(origin);
-    if (normalizedOrigin) {
-      origins.add(normalizedOrigin);
+  if (hasAppUrl) {
+    const appOrigin = toOrigin(process.env.APP_URL);
+    if (appOrigin) {
+      origins.add(appOrigin);
     }
+  }
+
+  if (hasCorsOrigin) {
+    for (const origin of getCorsOrigins()) {
+      const normalizedOrigin = toOrigin(origin);
+      if (normalizedOrigin) {
+        origins.add(normalizedOrigin);
+      }
+    }
+  }
+
+  if (origins.size === 0) {
+    const providedEnvVars = [
+      hasAppUrl ? `APP_URL=${process.env.APP_URL}` : null,
+      hasCorsOrigin ? `CORS_ORIGIN=${process.env.CORS_ORIGIN}` : null,
+    ]
+      .filter((value): value is string => value !== null)
+      .join(', ');
+
+    throw new Error(
+      `Invalid Sentry tunnel origin configuration: no valid origins were derived from ${providedEnvVars}.`,
+    );
   }
 
   return Array.from(origins);

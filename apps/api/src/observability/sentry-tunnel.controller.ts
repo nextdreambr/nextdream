@@ -55,7 +55,12 @@ export class SentryTunnelController {
   }
 
   private assertAllowedOrigin(originHeader: string | undefined) {
+    const allowedOrigins = getAllowedSentryTunnelOrigins();
+
     if (!originHeader) {
+      if (allowedOrigins.length > 0) {
+        throw new ForbiddenException('Untrusted origin');
+      }
       return;
     }
 
@@ -66,7 +71,6 @@ export class SentryTunnelController {
       throw new ForbiddenException('Untrusted origin');
     }
 
-    const allowedOrigins = getAllowedSentryTunnelOrigins();
     if (allowedOrigins.length > 0 && !allowedOrigins.includes(requestOrigin)) {
       throw new ForbiddenException('Untrusted origin');
     }

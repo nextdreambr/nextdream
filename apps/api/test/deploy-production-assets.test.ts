@@ -8,6 +8,51 @@ function readRepoFile(path: string) {
   return readFileSync(resolve(root, path), 'utf8');
 }
 
+function extractComposeServiceBlock(composeFile: string, serviceName: 'api' | 'web') {
+  const lines = composeFile.split('\n');
+  const serviceHeader = `  ${serviceName}:`;
+  const serviceBlock: string[] = [];
+  let foundServicesSection = false;
+  let isCapturing = false;
+
+  for (const line of lines) {
+    if (!foundServicesSection) {
+      if (line === 'services:') {
+        foundServicesSection = true;
+      }
+      continue;
+    }
+
+    if (isCapturing) {
+      if (/^[^\s].*:\s*$/.test(line) || /^ {2}[a-zA-Z0-9_-]+:\s*$/.test(line)) {
+        break;
+      }
+
+      serviceBlock.push(line);
+      continue;
+    }
+
+    if (/^[^\s].*:\s*$/.test(line)) {
+      break;
+    }
+
+    if (line === serviceHeader) {
+      isCapturing = true;
+      serviceBlock.push(line);
+    }
+  }
+
+  if (!foundServicesSection) {
+    throw new Error('Unable to locate services section in docker-compose.prod.yml');
+  }
+
+  if (serviceBlock.length === 0) {
+    throw new Error(`Unable to locate ${serviceName} service block in docker-compose.prod.yml`);
+  }
+
+  return serviceBlock.join('\n');
+}
+
 describe('production deploy hardening assets', () => {
   it('runs the API container as a non-root user', () => {
     const dockerfile = readRepoFile('Dockerfile.api');
@@ -26,15 +71,32 @@ describe('production deploy hardening assets', () => {
 
   it('hardens the production compose services and adds healthchecks', () => {
     const composeFile = readRepoFile('docker-compose.prod.yml');
+    const apiService = extractComposeServiceBlock(composeFile, 'api');
+    const webService = extractComposeServiceBlock(composeFile, 'web');
 
-    expect(composeFile).toMatch(/api:[\s\S]*read_only:\s*true/);
-    expect(composeFile).toMatch(/web:[\s\S]*read_only:\s*true/);
-    expect(composeFile).toMatch(/api:[\s\S]*security_opt:[\s\S]*no-new-privileges:true/);
-    expect(composeFile).toMatch(/web:[\s\S]*security_opt:[\s\S]*no-new-privileges:true/);
-    expect(composeFile).toMatch(/api:[\s\S]*cap_drop:[\s\S]*-\s*ALL/);
-    expect(composeFile).toMatch(/web:[\s\S]*cap_drop:[\s\S]*-\s*ALL/);
-    expect(composeFile).toMatch(/api:[\s\S]*healthcheck:/);
-    expect(composeFile).toMatch(/web:[\s\S]*healthcheck:/);
+    expect(apiService).toMatch(/API_PORT:\s*4000/);
+    expect(apiService).toMatch(/read_only:\s*true/);
+    expect(webService).toMatch(/read_only:\s*true/);
+    expect(apiService).toMatch(/security_opt:[\s\S]*no-new-privileges:true/);
+    expect(webService).toMatch(/security_opt:[\s\S]*no-new-privileges:true/);
+    expect(apiService).toMatch(/cap_drop:[\s\S]*-\s*ALL/);
+    expect(webService).toMatch(/cap_drop:[\s\S]*-\s*ALL/);
+    expect(apiService).toMatch(/healthcheck:[\s\S]*127\.0\.0\.1:4000\/health/);
+    expect(webService).toMatch(/healthcheck:/);
+  });
+
+  it('extracts service blocks without bleeding hardening fields across services', () => {
+    const composeFile = `services:
+  api:
+    image: api
+  web:
+    read_only: true
+`;
+    const apiService = extractComposeServiceBlock(composeFile, 'api');
+    const webService = extractComposeServiceBlock(composeFile, 'web');
+
+    expect(apiService).not.toMatch(/read_only:\s*true/);
+    expect(webService).toMatch(/read_only:\s*true/);
   });
 
   it('adds cache and supply-chain verification to the deploy workflow', () => {

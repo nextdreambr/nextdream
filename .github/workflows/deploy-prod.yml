@@ -245,7 +245,6 @@ jobs:
           OCI_KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
           APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
           NODE_ENV: ${{ vars.NODE_ENV }}
-          API_PORT: ${{ vars.API_PORT }}
           APP_URL: ${{ vars.APP_URL }}
           CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
@@ -292,7 +291,6 @@ jobs:
             OCI_KNOWN_HOSTS
             APP_DIR
             NODE_ENV
-            API_PORT
             APP_URL
             CORS_ORIGIN
             VITE_API_URL
@@ -428,7 +426,6 @@ jobs:
         id: deploy_bundle
         env:
           NODE_ENV: ${{ vars.NODE_ENV }}
-          API_PORT: ${{ vars.API_PORT }}
           API_BIND_ADDRESS: ${{ vars.API_BIND_ADDRESS || '127.0.0.1' }}
           WEB_BIND_ADDRESS: ${{ vars.WEB_BIND_ADDRESS || '127.0.0.1' }}
           APP_URL: ${{ vars.APP_URL }}
@@ -473,7 +470,6 @@ jobs:
 
           cat > "$bundle_dir/.env.production" <<EOF
           NODE_ENV=${NODE_ENV}
-          API_PORT=${API_PORT}
           API_BIND_ADDRESS=${API_BIND_ADDRESS}
           WEB_BIND_ADDRESS=${WEB_BIND_ADDRESS}
           APP_URL=${APP_URL}
