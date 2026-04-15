@@ -7,6 +7,11 @@ import {
   setRefreshTokenGetter,
   setSessionChangeHandler,
 } from '../lib/api';
+import {
+  clearStoredSession,
+  loadStoredSession,
+  persistStoredSession,
+} from '../lib/authSession';
 
 export type AppRole = 'public' | 'paciente' | 'apoiador' | 'admin';
 
@@ -36,21 +41,7 @@ interface AppContextType {
   reloadNotifications: () => Promise<void>;
 }
 
-const STORAGE_KEY = 'nextdream.auth.session';
-
 const AppContext = createContext<AppContextType | null>(null);
-
-function loadStoredSession(): AuthSession | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed.accessToken || !parsed.refreshToken || !parsed.user) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
 
 function toAppUser(session: AuthSession | null): AppUser | null {
   if (!session) return null;
@@ -84,7 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setSession(null);
     setNotifications([]);
-    localStorage.removeItem(STORAGE_KEY);
+    clearStoredSession();
   }, []);
 
   const markNotificationRead = useCallback((id: string) => {
@@ -103,10 +94,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!session) {
-      localStorage.removeItem(STORAGE_KEY);
+      clearStoredSession();
       return;
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    persistStoredSession(session);
   }, [session]);
 
   useLayoutEffect(() => {

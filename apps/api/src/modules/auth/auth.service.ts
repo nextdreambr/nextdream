@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Inject,
+  InternalServerErrorException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,8 +10,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { AdminInvite } from '../../entities/admin-invite.entity';
-import type { StringValue } from 'ms';
+import ms, { type StringValue } from 'ms';
 import { User } from '../../entities/user.entity';
 import { getEnvOrDefault, getRequiredEnv } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
@@ -36,8 +38,8 @@ export interface AuthSessionPayload {
 
 @Injectable()
 export class AuthService {
-  private readonly accessTokenExpiresIn: StringValue = getEnvOrDefault('JWT_ACCESS_EXPIRES_IN', '1h') as StringValue;
-  private readonly refreshTokenExpiresIn: StringValue = getEnvOrDefault('JWT_REFRESH_EXPIRES_IN', '7d') as StringValue;
+  private readonly accessTokenExpiresIn: StringValue = this.readJwtTtl('JWT_ACCESS_EXPIRES_IN', '1h');
+  private readonly refreshTokenExpiresIn: StringValue = this.readJwtTtl('JWT_REFRESH_EXPIRES_IN', '7d');
   private readonly usersRepository: Repository<User>;
   private readonly adminInvitesRepository: Repository<AdminInvite>;
   private readonly jwtService: JwtService;
@@ -144,27 +146,35 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string): Promise<AuthSessionPayload> {
+    let payload: {
+      sub: string;
+      role: User['role'];
+    };
+
     try {
-      const payload = await this.jwtService.verifyAsync<{
+      payload = await this.jwtService.verifyAsync<{
         sub: string;
         role: User['role'];
       }>(refreshToken, {
         secret: getRequiredEnv('JWT_REFRESH_SECRET'),
       });
-
-      const user = await this.usersRepository.findOne({
-        where: { id: payload.sub },
-      });
-
-      if (!user || user.suspended) {
+    } catch (error) {
+      if (this.isJwtValidationError(error)) {
         throw new UnauthorizedException('Invalid refresh token');
       }
+      throw error;
+    }
 
-      return this.buildAuthResponse(user);
-    } catch {
+    const user = await this.usersRepository.findOne({
+      where: { id: payload.sub },
+    });
+
+    if (!user || user.suspended) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+
+    return this.buildAuthResponse(user);
   }
 
   private async buildAuthResponse(user: User): Promise<AuthSessionPayload> {
@@ -178,10 +188,12 @@ export class AuthService {
       accessToken: await this.jwtService.signAsync(payload, {
         secret: getRequiredEnv('JWT_ACCESS_SECRET'),
         expiresIn: this.accessTokenExpiresIn,
+        jwtid: randomUUID(),
       }),
       refreshToken: await this.jwtService.signAsync(payload, {
         secret: getRequiredEnv('JWT_REFRESH_SECRET'),
         expiresIn: this.refreshTokenExpiresIn,
+        jwtid: randomUUID(),
       }),
       user: {
         id: user.id,
@@ -193,5 +205,28 @@ export class AuthService {
         emailNotificationsEnabled: user.emailNotificationsEnabled,
       },
     };
+  }
+
+  private readJwtTtl(name: string, fallback: StringValue): StringValue {
+    const value = getEnvOrDefault(name, fallback);
+    if (ms(value as StringValue) === undefined) {
+      throw new InternalServerErrorException(
+        `Invalid JWT TTL value for ${name}: "${value}"`,
+      );
+    }
+
+    return value as StringValue;
+  }
+
+  private isJwtValidationError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return [
+      'JsonWebTokenError',
+      'NotBeforeError',
+      'TokenExpiredError',
+    ].includes(error.name);
   }
 }

@@ -1,3 +1,5 @@
+import { loadStoredSession } from './authSession';
+
 export class ApiError extends Error {
   status: number;
   payload?: unknown;
@@ -19,8 +21,6 @@ let getRefreshToken: RefreshTokenGetter = () => null;
 let handleSessionChange: SessionChangeHandler = () => {};
 let refreshSessionRequest: Promise<AuthSession | null> | null = null;
 
-const AUTH_STORAGE_KEY = 'nextdream.auth.session';
-
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
 export function setAccessTokenGetter(getter: AccessTokenGetter) {
@@ -33,22 +33,6 @@ export function setRefreshTokenGetter(getter: RefreshTokenGetter) {
 
 export function setSessionChangeHandler(handler: SessionChangeHandler) {
   handleSessionChange = handler;
-}
-
-function loadStoredSession(): AuthSession | null {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<AuthSession>;
-    if (!parsed.accessToken || !parsed.refreshToken || !parsed.user) return null;
-
-    return parsed as AuthSession;
-  } catch {
-    return null;
-  }
 }
 
 function getAvailableAccessToken() {
@@ -93,11 +77,20 @@ async function apiRequestInternal<T>(
 ): Promise<T> {
   const headers = normalizeHeaders(init.headers);
   const token = overrideAccessToken ?? getAvailableAccessToken();
+  const authorizationHeaderKey = Object.keys(headers).find(
+    (key) => key.toLowerCase() === 'authorization',
+  );
+  const isAuthRoute = path.startsWith('/auth');
 
   if (!headers['Content-Type'] && init.body && !(init.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-  if (token && !headers.Authorization) {
+  if (overrideAccessToken) {
+    if (authorizationHeaderKey) {
+      delete headers[authorizationHeaderKey];
+    }
+    headers.Authorization = `Bearer ${overrideAccessToken}`;
+  } else if (token && !authorizationHeaderKey) {
     headers.Authorization = `Bearer ${token}`;
   }
 
@@ -113,9 +106,7 @@ async function apiRequestInternal<T>(
   if (
     response.status === 401 &&
     allowRefresh &&
-    path !== '/auth/login' &&
-    path !== '/auth/register' &&
-    path !== '/auth/refresh'
+    !isAuthRoute
   ) {
     const refreshedSession = await refreshAuthSession();
     if (refreshedSession?.accessToken) {
@@ -124,7 +115,7 @@ async function apiRequestInternal<T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && !isAuthRoute) {
       handleSessionChange(null);
     }
     const fallback = `Request failed with status ${response.status}`;

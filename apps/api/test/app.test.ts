@@ -182,6 +182,8 @@ describe('NextDream API', () => {
     expect(refresh.body.user.email).toBe(patientEmail);
     expect(refresh.body.accessToken).toEqual(expect.any(String));
     expect(refresh.body.refreshToken).toEqual(expect.any(String));
+    expect(refresh.body.accessToken).not.toBe(login.body.accessToken);
+    expect(refresh.body.refreshToken).not.toBe(login.body.refreshToken);
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')

@@ -6,6 +6,7 @@ import {
   setRefreshTokenGetter,
   setSessionChangeHandler,
 } from './api';
+import { AUTH_STORAGE_KEY } from './authSession';
 
 describe('apiRequest', () => {
   const originalFetch = globalThis.fetch;
@@ -56,7 +57,7 @@ describe('apiRequest', () => {
       text: async () => JSON.stringify({ id: 'u1' }),
     } as Response);
 
-    window.localStorage.setItem('nextdream.auth.session', JSON.stringify({
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
       accessToken: 'persisted-token',
       refreshToken: 'refresh-token',
       user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true },
@@ -71,7 +72,6 @@ describe('apiRequest', () => {
 
   it('refreshes the session and retries the original request after a 401', async () => {
     const handleSessionChange = vi.fn();
-    setAccessTokenGetter(() => 'expired-token');
     setRefreshTokenGetter(() => 'refresh-token');
     setSessionChangeHandler(handleSessionChange);
 
@@ -96,7 +96,11 @@ describe('apiRequest', () => {
         text: async () => JSON.stringify([{ id: 'p1' }]),
       } as Response);
 
-    const result = await apiRequest<Array<{ id: string }>>('/proposals/mine');
+    const result = await apiRequest<Array<{ id: string }>>('/proposals/mine', {
+      headers: {
+        Authorization: 'Bearer expired-token',
+      },
+    });
 
     expect(result).toEqual([{ id: 'p1' }]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -109,6 +113,31 @@ describe('apiRequest', () => {
     const retryInit = fetchMock.mock.calls[2]?.[1] as RequestInit;
     const retryHeaders = retryInit.headers as Record<string, string>;
     expect(retryHeaders.Authorization).toBe('Bearer new-access-token');
+  });
+
+  it('does not attempt token refresh or clear the session on auth-route 401 responses', async () => {
+    const handleSessionChange = vi.fn();
+    setRefreshTokenGetter(() => 'refresh-token');
+    setSessionChangeHandler(handleSessionChange);
+
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ message: 'Invalid invite token' }),
+    } as Response);
+
+    await expect(apiRequest('/auth/admin-invites/accept', {
+      method: 'POST',
+    })).rejects.toEqual(
+      expect.objectContaining<ApiError>({
+        name: 'ApiError',
+        status: 401,
+        message: 'Invalid invite token',
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(handleSessionChange).not.toHaveBeenCalled();
   });
 
   it('throws ApiError with API message on non-2xx response', async () => {
