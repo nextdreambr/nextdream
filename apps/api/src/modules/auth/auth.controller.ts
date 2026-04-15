@@ -2,23 +2,13 @@ import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
 import { Response } from 'express';
 import { Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AuthService, AuthSessionPayload, AuthUserPayload } from './auth.service';
+import { AuthService, AuthSessionPayload } from './auth.service';
 import { getLoginRateLimitConfig } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
-
-interface PublicAuthResponse {
-  user: AuthUserPayload;
-}
-
-function toPublicAuthResponse(auth: AuthSessionPayload): PublicAuthResponse {
-  return {
-    user: auth.user,
-  };
-}
 
 const loginThrottle = {
   default: {
