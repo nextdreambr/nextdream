@@ -15,6 +15,7 @@ import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ChangeInstitutionPasswordDto } from './dto/change-institution-password.dto';
+import { CreateManagedPatientAccessInviteDto } from './dto/create-managed-patient-access-invite.dto';
 import { CreateManagedPatientDto } from './dto/create-managed-patient.dto';
 import { UpdateInstitutionProfileDto } from './dto/update-institution-profile.dto';
 import { UpdateManagedPatientDto } from './dto/update-managed-patient.dto';
@@ -53,6 +54,14 @@ export class InstitutionController {
     return this.institutionService.createPatient(currentUser, dto);
   }
 
+  @Get('patients/:managedPatientId')
+  getPatientDetail(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('managedPatientId') managedPatientId: string,
+  ) {
+    return this.institutionService.getPatientDetail(currentUser, managedPatientId);
+  }
+
   @Patch('patients/:managedPatientId')
   updatePatient(
     @CurrentUser() currentUser: JwtPayload,
@@ -60,6 +69,15 @@ export class InstitutionController {
     @Body() dto: UpdateManagedPatientDto,
   ) {
     return this.institutionService.updatePatient(currentUser, managedPatientId, dto);
+  }
+
+  @Post('patients/:managedPatientId/access-invite')
+  createPatientAccessInvite(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('managedPatientId') managedPatientId: string,
+    @Body() dto: CreateManagedPatientAccessInviteDto,
+  ) {
+    return this.institutionService.createPatientAccessInvite(currentUser, managedPatientId, dto);
   }
 
   @Get('profile')

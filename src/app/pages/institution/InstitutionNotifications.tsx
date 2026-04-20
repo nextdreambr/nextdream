@@ -2,6 +2,7 @@ import React from 'react';
 import { Bell, Building2, CheckCheck, ChevronRight, Inbox, MessageCircle, PartyPopper, Shield, Star } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useApp } from '../../context/AppContext';
+import { formatRelativeDate } from '../../lib/relativeTime';
 
 const typeIcon: Record<string, React.ReactNode> = {
   proposta: <Inbox className="w-4 h-4 text-indigo-500" />,
@@ -18,19 +19,6 @@ const typeBg: Record<string, string> = {
   concluido: 'bg-green-50',
   seguranca: 'bg-red-50',
 };
-
-function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  if (diffMs < 0) return date.toLocaleDateString('pt-BR');
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Hoje';
-  if (diffDays === 1) return 'Ontem';
-  if (diffDays < 7) return `${diffDays} dias atrás`;
-  return date.toLocaleDateString('pt-BR');
-}
 
 export default function InstitutionNotifications() {
   const navigate = useNavigate();
@@ -97,7 +85,7 @@ export default function InstitutionNotifications() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notification.message}</p>
                 <div className="flex items-center justify-between mt-1.5">
-                  <span className="text-xs text-gray-400">{timeAgo(notification.createdAt)}</span>
+                  <span className="text-xs text-gray-400">{formatRelativeDate(notification.createdAt)}</span>
                   {notification.actionPath && (
                     <span className="flex items-center gap-1 text-xs text-indigo-600 font-medium">
                       Ver <ChevronRight className="w-3 h-3" />

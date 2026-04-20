@@ -5,6 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService, AuthSessionPayload, AuthUserPayload } from './auth.service';
 import { getLoginRateLimitConfig } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
+import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
@@ -64,6 +65,18 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<PublicAuthResponse> {
     const auth = await this.authService.acceptAdminInvite(dto);
+    setAuthCookies(response, auth);
+    return toPublicAuthResponse(auth);
+  }
+
+  @Post('patient-invites/accept')
+  @HttpCode(200)
+  @Throttle(loginThrottle)
+  async acceptPatientInvite(
+    @Body() dto: AcceptPatientInviteDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<PublicAuthResponse> {
+    const auth = await this.authService.acceptPatientInvite(dto);
     setAuthCookies(response, auth);
     return toPublicAuthResponse(auth);
   }

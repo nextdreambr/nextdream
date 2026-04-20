@@ -98,6 +98,9 @@ export default function PatientProposals() {
                     <div>
                       <p className="text-sm font-medium text-gray-800">{proposal.supporterName ?? 'Apoiador'}</p>
                       <p className="text-xs text-pink-600">{proposal.dreamTitle ?? 'Sonho'}</p>
+                      {proposal.managedByInstitution && proposal.institutionName && (
+                        <p className="text-xs text-indigo-600 mt-1">Operado por {proposal.institutionName}</p>
+                      )}
                     </div>
                   </div>
                   <ProposalStatusBadge status={status} />
@@ -118,7 +121,7 @@ export default function PatientProposals() {
                   ))}
                 </div>
 
-                {isPending && (
+                {isPending && proposal.canRespond !== false && (
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleAccept(proposal.id)}
@@ -137,6 +140,12 @@ export default function PatientProposals() {
                     >
                       <XCircle className="w-4 h-4" /> Recusar
                     </button>
+                  </div>
+                )}
+
+                {isPending && proposal.canRespond === false && (
+                  <div className="rounded-2xl bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                    A instituição responsável segue operando esta proposta. Você pode acompanhar o andamento por aqui.
                   </div>
                 )}
 

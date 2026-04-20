@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { Building2, MapPin, PencilLine, Plus, Search, Users, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ApiError, institutionApi, type ManagedPatient } from '../../lib/api';
@@ -256,15 +257,36 @@ export default function InstitutionPatients() {
             <div className="divide-y divide-indigo-50">
               {patients.map((patient) => (
                 <div key={patient.id} className="px-5 py-4 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
+                  <Link to={`/instituicao/pacientes/${patient.id}`} className="min-w-0 flex-1 hover:opacity-90">
                     <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>{patient.name}</p>
-                    <p className="text-xs text-gray-500 inline-flex items-center gap-1">
+                    <p className="text-xs text-gray-500 inline-flex items-center gap-1 mt-1">
                       <MapPin className="w-3 h-3" />
                       {formatLocationLabel(patient) || 'Localização não informada'}
                     </p>
-                  </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">Acompanhado</span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        patient.accessStatus === 'ativo'
+                          ? 'bg-green-50 text-green-700'
+                          : patient.accessStatus === 'convite-pendente'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {patient.accessStatus === 'ativo'
+                          ? 'Acesso ativo'
+                          : patient.accessStatus === 'convite-pendente'
+                            ? 'Convite pendente'
+                            : 'Sem acesso'}
+                      </span>
+                    </div>
+                  </Link>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">Acompanhado</span>
+                    <Link
+                      to={`/instituicao/pacientes/${patient.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-indigo-100 text-xs text-indigo-700 hover:bg-indigo-50"
+                    >
+                      Abrir prontuário
+                    </Link>
                     <button
                       type="button"
                       onClick={() => startEditing(patient)}

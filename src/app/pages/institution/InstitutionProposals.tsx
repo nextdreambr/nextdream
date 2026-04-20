@@ -146,9 +146,22 @@ export default function InstitutionProposals() {
             return (
               <div key={proposal.id} className="bg-white rounded-2xl border border-indigo-100 p-5">
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{proposal.supporterName ?? 'Apoiador'}</p>
-                    <p className="text-xs text-indigo-600">{proposal.dreamTitle ?? 'Sonho'}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
+                      {(proposal.supporterName ?? 'A')[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{proposal.supporterName ?? 'Apoiador'}</p>
+                      <p className="text-xs text-indigo-600">{proposal.dreamTitle ?? 'Sonho'}</p>
+                      {proposal.patientName && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Paciente: {proposal.patientName}{proposal.patientCity ? ` • ${proposal.patientCity}` : ''}
+                        </p>
+                      )}
+                      {proposal.managedByInstitution && proposal.institutionName && (
+                        <p className="text-xs text-indigo-600 mt-1">Operado por {proposal.institutionName}</p>
+                      )}
+                    </div>
                   </div>
                   <ProposalStatusBadge status={proposal.status} />
                 </div>

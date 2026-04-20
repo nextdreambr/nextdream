@@ -10,6 +10,7 @@ import { AdminReport } from './entities/admin-report.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Message } from './entities/message.entity';
 import { Notification } from './entities/notification.entity';
+import { PatientInvite } from './entities/patient-invite.entity';
 import { ValidationPipe } from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { Dream } from './entities/dream.entity';
@@ -52,6 +53,7 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
             Notification,
             AdminContactMessage,
             AdminInvite,
+            PatientInvite,
             AdminReport,
             AuditLog,
           ],

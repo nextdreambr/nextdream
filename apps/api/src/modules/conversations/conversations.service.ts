@@ -1,9 +1,11 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { AdminReport } from '../../entities/admin-report.entity';
 import { AuditLog } from '../../entities/audit-log.entity';
 import { Conversation } from '../../entities/conversation.entity';
+import { Dream } from '../../entities/dream.entity';
+import { ManagedPatient } from '../../entities/managed-patient.entity';
 import { Message } from '../../entities/message.entity';
 import { User } from '../../entities/user.entity';
 import { JwtPayload } from '../auth/jwt-auth.guard';
@@ -17,6 +19,8 @@ export class ConversationsService {
   private readonly conversationsRepository: Repository<Conversation>;
   private readonly messagesRepository: Repository<Message>;
   private readonly usersRepository: Repository<User>;
+  private readonly dreamsRepository: Repository<Dream>;
+  private readonly managedPatientsRepository: Repository<ManagedPatient>;
   private readonly auditLogsRepository: Repository<AuditLog>;
   private readonly reportsRepository: Repository<AdminReport>;
   private readonly institutionService: InstitutionService;
@@ -26,6 +30,8 @@ export class ConversationsService {
     @InjectRepository(Conversation) conversationsRepository: Repository<Conversation>,
     @InjectRepository(Message) messagesRepository: Repository<Message>,
     @InjectRepository(User) usersRepository: Repository<User>,
+    @InjectRepository(Dream) dreamsRepository: Repository<Dream>,
+    @InjectRepository(ManagedPatient) managedPatientsRepository: Repository<ManagedPatient>,
     @InjectRepository(AuditLog) auditLogsRepository: Repository<AuditLog>,
     @InjectRepository(AdminReport) reportsRepository: Repository<AdminReport>,
     @Inject(InstitutionService) institutionService: InstitutionService,
@@ -34,6 +40,8 @@ export class ConversationsService {
     this.conversationsRepository = conversationsRepository;
     this.messagesRepository = messagesRepository;
     this.usersRepository = usersRepository;
+    this.dreamsRepository = dreamsRepository;
+    this.managedPatientsRepository = managedPatientsRepository;
     this.auditLogsRepository = auditLogsRepository;
     this.reportsRepository = reportsRepository;
     this.institutionService = institutionService;
@@ -43,22 +51,35 @@ export class ConversationsService {
   async listMine(currentUser: JwtPayload) {
     if (currentUser.role === 'admin') {
       const conversations = await this.conversationsRepository.find({ order: { createdAt: 'DESC' } });
-      return conversations.map((conversation) => this.serializeConversation(conversation));
+      return this.serializeConversations(conversations);
     }
 
+    const linkedManagedPatientIds =
+      currentUser.role === 'paciente'
+        ? await this.institutionService.listLinkedManagedPatientIdsForUser(currentUser.sub)
+        : [];
     if (currentUser.role === 'instituicao') {
       await this.institutionService.overview(currentUser);
     }
 
     const conversations = await this.conversationsRepository
       .createQueryBuilder('conversation')
-      .where('conversation.patientId = :userId OR conversation.supporterId = :userId', {
-        userId: currentUser.sub,
-      })
+      .where(
+        new Brackets((where) => {
+          where.where('conversation.patientId = :userId OR conversation.supporterId = :userId', {
+            userId: currentUser.sub,
+          });
+          if (currentUser.role === 'paciente' && linkedManagedPatientIds.length > 0) {
+            where.orWhere('conversation.managedPatientId IN (:...managedPatientIds)', {
+              managedPatientIds: linkedManagedPatientIds,
+            });
+          }
+        }),
+      )
       .orderBy('conversation.createdAt', 'DESC')
       .getMany();
 
-    return conversations.map((conversation) => this.serializeConversation(conversation));
+    return this.serializeConversations(conversations);
   }
 
   async listMessages(currentUser: JwtPayload, conversationId: string) {
@@ -85,8 +106,20 @@ export class ConversationsService {
       throw new ForbiddenException('Conversation is closed');
     }
 
-    if (currentUser.role !== 'admin' && currentUser.sub !== conversation.patientId && currentUser.sub !== conversation.supporterId) {
+    const linkedViewer = await this.institutionService.isLinkedManagedPatient(
+      currentUser.sub,
+      conversation.managedPatientId,
+    );
+    if (
+      currentUser.role !== 'admin' &&
+      currentUser.sub !== conversation.patientId &&
+      currentUser.sub !== conversation.supporterId &&
+      !linkedViewer
+    ) {
       throw new ForbiddenException('You are not allowed to send messages in this conversation');
+    }
+    if (linkedViewer) {
+      throw new ForbiddenException('Patient can follow this conversation, but the institution operates the case');
     }
 
     const message = this.messagesRepository.create({
@@ -129,7 +162,7 @@ export class ConversationsService {
     const conversation = await this.requireConversationAccess(currentUser, conversationId);
 
     if (conversation.status === 'encerrada') {
-      return this.serializeConversation(conversation);
+      return (await this.serializeConversations([conversation]))[0];
     }
 
     conversation.status = 'encerrada';
@@ -181,7 +214,7 @@ export class ConversationsService {
       actionPath: '/apoiador/chat',
     });
 
-    return this.serializeConversation(saved);
+    return (await this.serializeConversations([saved]))[0];
   }
 
   private async requireConversationAccess(currentUser: JwtPayload, conversationId: string) {
@@ -190,10 +223,15 @@ export class ConversationsService {
       throw new NotFoundException('Conversation not found');
     }
 
+    const linkedViewer = await this.institutionService.isLinkedManagedPatient(
+      currentUser.sub,
+      conversation.managedPatientId,
+    );
     if (
       currentUser.role !== 'admin' &&
       currentUser.sub !== conversation.patientId &&
-      currentUser.sub !== conversation.supporterId
+      currentUser.sub !== conversation.supporterId &&
+      !linkedViewer
     ) {
       throw new ForbiddenException('You are not allowed to access this conversation');
     }
@@ -201,17 +239,58 @@ export class ConversationsService {
     return conversation;
   }
 
-  private serializeConversation(conversation: Conversation) {
-    return {
-      id: conversation.id,
-      dreamId: conversation.dreamId,
-      patientId: conversation.patientId,
-      operatorUserId: conversation.patientId,
-      managedPatientId: conversation.managedPatientId,
-      supporterId: conversation.supporterId,
-      status: conversation.status,
-      createdAt: conversation.createdAt,
-    };
+  private async serializeConversations(conversations: Conversation[]) {
+    if (conversations.length === 0) {
+      return [];
+    }
+
+    const dreamIds = [...new Set(conversations.map((conversation) => conversation.dreamId))];
+    const operatorIds = [...new Set(conversations.map((conversation) => conversation.patientId))];
+    const managedPatientIds = [
+      ...new Set(conversations.map((conversation) => conversation.managedPatientId).filter(Boolean) as string[]),
+    ];
+
+    const [dreams, operators, managedPatients] = await Promise.all([
+      this.dreamsRepository.findBy({ id: In(dreamIds) }),
+      this.usersRepository.findBy({ id: In(operatorIds) }),
+      managedPatientIds.length > 0
+        ? this.managedPatientsRepository.findBy({ id: In(managedPatientIds) })
+        : Promise.resolve([]),
+    ]);
+
+    const dreamsById = new Map(dreams.map((dream) => [dream.id, dream]));
+    const operatorsById = new Map(operators.map((user) => [user.id, user]));
+    const managedPatientsById = new Map(managedPatients.map((patient) => [patient.id, patient]));
+
+    return conversations.map((conversation) => {
+      const dream = dreamsById.get(conversation.dreamId);
+      const operator = operatorsById.get(conversation.patientId);
+      const managedPatient = conversation.managedPatientId
+        ? managedPatientsById.get(conversation.managedPatientId)
+        : undefined;
+
+      return {
+        id: conversation.id,
+        dreamId: conversation.dreamId,
+        dreamTitle: dream?.title,
+        dreamStatus: dream?.status,
+        dreamPath: dream?.managedPatientId ? `/instituicao/sonhos/editar/${dream.id}` : `/paciente/sonhos/${dream?.id}`,
+        patientId: conversation.patientId,
+        operatorUserId: conversation.patientId,
+        managedPatientId: conversation.managedPatientId,
+        supporterId: conversation.supporterId,
+        status: conversation.status,
+        managedByInstitution: Boolean(conversation.managedPatientId),
+        patientName: managedPatient?.name ?? operator?.name,
+        patientLocation: managedPatient
+          ? [managedPatient.city, managedPatient.state].filter(Boolean).join(', ') || undefined
+          : operator
+            ? [operator.city, operator.state].filter(Boolean).join(', ') || undefined
+            : undefined,
+        institutionName: conversation.managedPatientId ? operator?.name : undefined,
+        createdAt: conversation.createdAt,
+      };
+    });
   }
 
   private serializeMessage(message: Message) {

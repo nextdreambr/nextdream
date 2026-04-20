@@ -11,6 +11,7 @@ import { Dream } from '../entities/dream.entity';
 import { ManagedPatient } from '../entities/managed-patient.entity';
 import { Message } from '../entities/message.entity';
 import { Notification } from '../entities/notification.entity';
+import { PatientInvite } from '../entities/patient-invite.entity';
 import { Proposal } from '../entities/proposal.entity';
 import { User } from '../entities/user.entity';
 
@@ -62,6 +63,7 @@ const dataSource = new DataSource({
     ManagedPatient,
     Message,
     Notification,
+    PatientInvite,
     AdminContactMessage,
     AdminReport,
     AuditLog,
@@ -75,7 +77,7 @@ async function run() {
 
     await manager.transaction(async (tx) => {
     await tx.query(
-      'TRUNCATE TABLE notifications, messages, conversations, proposals, dreams, managed_patients, admin_reports, admin_contact_messages, audit_logs, users RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE notifications, messages, patient_invites, conversations, proposals, dreams, managed_patients, admin_reports, admin_contact_messages, audit_logs, users RESTART IDENTITY CASCADE',
     );
 
     const passwordHash = await bcrypt.hash('Seed123!', 10);
@@ -139,6 +141,20 @@ async function run() {
         emailNotificationsEnabled: false,
       },
       {
+        id: 'u-paciente-inst-1',
+        name: 'Paciente Vinculado Demo',
+        email: 'paciente-instituicao@nextdream.local',
+        passwordHash,
+        role: 'paciente',
+        state: 'PE',
+        city: 'Paulista',
+        verified: true,
+        approved: true,
+        approvedAt,
+        suspended: false,
+        emailNotificationsEnabled: true,
+      },
+      {
         id: 'u-admin-1',
         name: 'Admin Demo',
         email: 'admin@nextdream.local',
@@ -188,6 +204,7 @@ async function run() {
       {
         id: '33333333-3333-4333-8333-333333333333',
         institutionId: 'u-instituicao-1',
+        linkedUserId: 'u-paciente-inst-1',
         name: 'Ana Lucia Demo',
         state: 'PE',
         city: 'Paulista',
@@ -198,6 +215,17 @@ async function run() {
         name: 'Raimunda Alves Demo',
         state: 'PE',
         city: 'Camaragibe',
+      },
+    ]);
+
+    await tx.insert(PatientInvite, [
+      {
+        id: 'pi-demo-1',
+        email: 'convite-paciente@nextdream.local',
+        tokenHash: await bcrypt.hash('ConviteDemo123', 10),
+        managedPatientId: 'mp-demo-4',
+        institutionId: 'u-instituicao-1',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 48),
       },
     ]);
 
@@ -545,6 +573,15 @@ async function run() {
         title: 'Conversa institucional em andamento',
         message: 'Você recebeu nova mensagem em uma conversa com a instituição.',
         actionPath: '/apoiador/chat?conversationId=c-demo-inst-1',
+        read: false,
+      },
+      {
+        id: 'n-demo-5',
+        userId: 'u-paciente-inst-1',
+        type: 'mensagem',
+        title: 'Sua instituição segue um caso ativo',
+        message: 'Você já pode acompanhar o caso institucional vinculado ao seu perfil.',
+        actionPath: '/paciente/chat?conversationId=c-demo-inst-1',
         read: false,
       },
     ]);

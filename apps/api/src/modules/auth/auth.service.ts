@@ -10,10 +10,13 @@ import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { AdminInvite } from '../../entities/admin-invite.entity';
+import { ManagedPatient } from '../../entities/managed-patient.entity';
+import { PatientInvite } from '../../entities/patient-invite.entity';
 import { User } from '../../entities/user.entity';
 import { getRequiredEnv } from '../../config/env';
 import { buildLocationLabel, normalizeLocationPart } from '../../lib/location';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
+import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { MailService } from '../mail/mail.service';
@@ -43,17 +46,23 @@ export interface AuthSessionPayload {
 export class AuthService {
   private readonly usersRepository: Repository<User>;
   private readonly adminInvitesRepository: Repository<AdminInvite>;
+  private readonly patientInvitesRepository: Repository<PatientInvite>;
+  private readonly managedPatientsRepository: Repository<ManagedPatient>;
   private readonly jwtService: JwtService;
   private readonly mailService: MailService;
 
   constructor(
     @InjectRepository(User) usersRepository: Repository<User>,
     @InjectRepository(AdminInvite) adminInvitesRepository: Repository<AdminInvite>,
+    @InjectRepository(PatientInvite) patientInvitesRepository: Repository<PatientInvite>,
+    @InjectRepository(ManagedPatient) managedPatientsRepository: Repository<ManagedPatient>,
     @Inject(JwtService) jwtService: JwtService,
     @Inject(MailService) mailService: MailService,
   ) {
     this.usersRepository = usersRepository;
     this.adminInvitesRepository = adminInvitesRepository;
+    this.patientInvitesRepository = patientInvitesRepository;
+    this.managedPatientsRepository = managedPatientsRepository;
     this.jwtService = jwtService;
     this.mailService = mailService;
   }
@@ -142,6 +151,65 @@ export class AuthService {
 
     invite.usedAt = new Date();
     await this.adminInvitesRepository.save(invite);
+
+    await this.mailService.sendWelcomeEmail({
+      to: saved.email,
+      name: saved.name,
+      role: saved.role,
+    });
+
+    return this.buildAuthResponse(saved);
+  }
+
+  async acceptPatientInvite(dto: AcceptPatientInviteDto): Promise<AuthSessionPayload> {
+    const normalizedEmail = dto.email.toLowerCase();
+    const invite = await this.patientInvitesRepository.findOne({ where: { email: normalizedEmail } });
+    if (!invite) {
+      throw new BadRequestException('Invalid or expired invite');
+    }
+    if (invite.usedAt || invite.expiresAt <= new Date()) {
+      throw new BadRequestException('Invite is no longer valid');
+    }
+
+    const tokenMatches = await bcrypt.compare(dto.token, invite.tokenHash);
+    if (!tokenMatches) {
+      throw new UnauthorizedException('Invalid invite token');
+    }
+
+    const existing = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    const managedPatient = await this.managedPatientsRepository.findOne({
+      where: { id: invite.managedPatientId, institutionId: invite.institutionId },
+    });
+    if (!managedPatient) {
+      throw new BadRequestException('Invite is no longer valid');
+    }
+    if (managedPatient.linkedUserId) {
+      throw new ConflictException('Patient access has already been activated');
+    }
+
+    const user = this.usersRepository.create({
+      name: dto.name.trim(),
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(dto.password, 10),
+      role: 'paciente',
+      state: managedPatient.state,
+      city: managedPatient.city,
+      verified: true,
+      approved: true,
+      approvedAt: new Date(),
+      suspended: false,
+    });
+    const saved = await this.usersRepository.save(user);
+
+    managedPatient.linkedUserId = saved.id;
+    await this.managedPatientsRepository.save(managedPatient);
+
+    invite.usedAt = new Date();
+    await this.patientInvitesRepository.save(invite);
 
     await this.mailService.sendWelcomeEmail({
       to: saved.email,

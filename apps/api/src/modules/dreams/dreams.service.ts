@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { Conversation } from '../../entities/conversation.entity';
 import { Dream } from '../../entities/dream.entity';
 import { Proposal } from '../../entities/proposal.entity';
@@ -134,14 +134,24 @@ export class DreamsService {
       return this.serializeDream(dream);
     }
 
-    if ((currentUser.role === 'paciente' || currentUser.role === 'instituicao') && dream.patientId === currentUser.sub) {
+    if (currentUser.role === 'instituicao' && dream.patientId === currentUser.sub) {
       if (currentUser.role === 'instituicao') {
         await this.institutionService.ensureManagedPatientForInstitution(
           currentUser.sub,
           dream.managedPatientId ?? '',
         );
       }
-      return this.serializeDream(dream);
+      return this.serializeDream(dream, currentUser);
+    }
+
+    if (currentUser.role === 'paciente') {
+      const canSeeLinkedCase = await this.institutionService.isLinkedManagedPatient(
+        currentUser.sub,
+        dream.managedPatientId,
+      );
+      if (dream.patientId === currentUser.sub || canSeeLinkedCase) {
+        return this.serializeDream(dream, currentUser);
+      }
     }
 
     if (currentUser.role === 'apoiador') {
@@ -151,7 +161,7 @@ export class DreamsService {
       });
 
       if (dream.status === 'publicado' || hasProposal) {
-        return this.serializeDream(dream);
+        return this.serializeDream(dream, currentUser);
       }
     }
 
@@ -177,11 +187,25 @@ export class DreamsService {
       status: normalizedStatus,
     });
 
+    const linkedManagedPatientIds =
+      currentUser.role === 'paciente'
+        ? await this.institutionService.listLinkedManagedPatientIdsForUser(currentUser.sub)
+        : [];
+
     const queryBuilder = this.dreamsRepository
       .createQueryBuilder('dream')
       .leftJoinAndSelect('dream.patient', 'patient')
       .leftJoinAndSelect('dream.managedPatient', 'managedPatient')
-      .where('dream.patientId = :patientId', { patientId: currentUser.sub })
+      .where(
+        new Brackets((where) => {
+          where.where('dream.patientId = :patientId', { patientId: currentUser.sub });
+          if (currentUser.role === 'paciente' && linkedManagedPatientIds.length > 0) {
+            where.orWhere('dream.managedPatientId IN (:...managedPatientIds)', {
+              managedPatientIds: linkedManagedPatientIds,
+            });
+          }
+        }),
+      )
       .orderBy('dream.createdAt', 'DESC');
 
     if (normalizedStatus) {
@@ -202,7 +226,7 @@ export class DreamsService {
 
     if (!shouldPaginate) {
       const dreams = await queryBuilder.getMany();
-      return dreams.map((dream) => this.serializeDream(dream));
+      return dreams.map((dream) => this.serializeDream(dream, currentUser));
     }
 
     const [dreams, total] = await queryBuilder
@@ -211,7 +235,7 @@ export class DreamsService {
       .getManyAndCount();
 
     return buildPaginatedResult(
-      dreams.map((dream) => this.serializeDream(dream)),
+      dreams.map((dream) => this.serializeDream(dream, currentUser)),
       pagination.page,
       pagination.pageSize,
       total,
@@ -277,14 +301,24 @@ export class DreamsService {
     if (!dream) {
       throw new NotFoundException('Dream not found');
     }
-    if (dream.patientId !== currentUser.sub) {
-      throw new ForbiddenException('Only the dream owner can view proposals');
-    }
     if (currentUser.role === 'instituicao') {
+      if (dream.patientId !== currentUser.sub) {
+        throw new ForbiddenException('Only the dream owner can view proposals');
+      }
       await this.institutionService.ensureManagedPatientForInstitution(
         currentUser.sub,
         dream.managedPatientId ?? '',
       );
+    } else if (currentUser.role === 'paciente') {
+      const canSeeLinkedCase = await this.institutionService.isLinkedManagedPatient(
+        currentUser.sub,
+        dream.managedPatientId,
+      );
+      if (dream.patientId !== currentUser.sub && !canSeeLinkedCase) {
+        throw new ForbiddenException('Only the dream owner can view proposals');
+      }
+    } else {
+      throw new ForbiddenException('Only patients or institutions can view proposals');
     }
 
     const proposals = await this.proposalsRepository.find({
@@ -292,7 +326,7 @@ export class DreamsService {
       order: { createdAt: 'DESC' },
     });
 
-    return proposals.map((proposal) => this.serializeProposal(proposal));
+    return proposals.map((proposal) => this.serializeProposal(proposal, currentUser));
   }
 
   async createProposal(currentUser: JwtPayload, dreamId: string, dto: CreateProposalDto) {
@@ -337,7 +371,7 @@ export class DreamsService {
       actionPath: buildOperatorRoute(operator.role, 'propostas'),
     });
 
-    return this.serializeProposal(saved);
+    return this.serializeProposal(saved, currentUser);
   }
 
   async acceptProposal(currentUser: JwtPayload, proposalId: string) {
@@ -390,7 +424,7 @@ export class DreamsService {
     });
 
     return {
-      ...this.serializeProposal(proposal),
+      ...this.serializeProposal(proposal, currentUser),
       conversationId: savedConversation.id,
     };
   }
@@ -428,7 +462,7 @@ export class DreamsService {
       });
     }
 
-    return this.serializeProposal(proposal);
+    return this.serializeProposal(proposal, currentUser);
   }
 
   async listSupporterProposals(currentUser: JwtPayload) {
@@ -463,13 +497,27 @@ export class DreamsService {
       status: normalizedStatus,
     });
 
+    const linkedManagedPatientIds =
+      currentUser.role === 'paciente'
+        ? await this.institutionService.listLinkedManagedPatientIdsForUser(currentUser.sub)
+        : [];
+
     const queryBuilder = this.proposalsRepository
       .createQueryBuilder('proposal')
       .leftJoinAndSelect('proposal.dream', 'dream')
       .leftJoinAndSelect('proposal.supporter', 'supporter')
       .leftJoinAndSelect('dream.patient', 'patient')
       .leftJoinAndSelect('dream.managedPatient', 'managedPatient')
-      .where('dream.patientId = :patientId', { patientId: currentUser.sub })
+      .where(
+        new Brackets((where) => {
+          where.where('dream.patientId = :patientId', { patientId: currentUser.sub });
+          if (currentUser.role === 'paciente' && linkedManagedPatientIds.length > 0) {
+            where.orWhere('dream.managedPatientId IN (:...managedPatientIds)', {
+              managedPatientIds: linkedManagedPatientIds,
+            });
+          }
+        }),
+      )
       .orderBy('proposal.createdAt', 'DESC');
 
     if (normalizedStatus) {
@@ -490,7 +538,7 @@ export class DreamsService {
 
     if (!shouldPaginate) {
       const proposals = await queryBuilder.getMany();
-      return proposals.map((proposal) => this.serializeProposal(proposal));
+      return proposals.map((proposal) => this.serializeProposal(proposal, currentUser));
     }
 
     const [proposals, total] = await queryBuilder
@@ -499,19 +547,24 @@ export class DreamsService {
       .getManyAndCount();
 
     return buildPaginatedResult(
-      proposals.map((proposal) => this.serializeProposal(proposal)),
+      proposals.map((proposal) => this.serializeProposal(proposal, currentUser)),
       pagination.page,
       pagination.pageSize,
       total,
     );
   }
 
-  private serializeDream(dream: Dream) {
+  private serializeDream(dream: Dream, currentUser?: JwtPayload) {
     const patientName = dream.managedPatient?.name ?? dream.patient?.name;
     const patientCity = dream.managedPatient
       ? buildLocationLabel(dream.managedPatient)
       : buildLocationLabel(dream.patient ?? {});
     const institutionName = dream.managedPatientId ? dream.patient?.name : undefined;
+    const isLinkedViewer = Boolean(
+      currentUser?.role === 'paciente' &&
+      dream.managedPatientId &&
+      dream.patientId !== currentUser.sub,
+    );
 
     return {
       id: dream.id,
@@ -529,18 +582,36 @@ export class DreamsService {
       institutionName,
       patientName,
       patientCity,
+      operatorRole: dream.managedPatientId ? ('instituicao' as const) : ('paciente' as const),
+      canEdit: currentUser
+        ? currentUser.role === 'instituicao'
+          ? dream.patientId === currentUser.sub
+          : currentUser.role === 'paciente'
+            ? dream.patientId === currentUser.sub && !isLinkedViewer
+            : false
+        : undefined,
       createdAt: dream.createdAt,
       updatedAt: dream.updatedAt,
     };
   }
 
-  private serializeProposal(proposal: Proposal) {
+  private serializeProposal(proposal: Proposal, currentUser?: JwtPayload) {
     return {
       id: proposal.id,
       dreamId: proposal.dreamId,
       dreamTitle: proposal.dream?.title,
       dreamStatus: proposal.dream?.status,
       dreamCategory: proposal.dream?.category,
+      patientId: proposal.dream?.managedPatientId ?? proposal.dream?.patientId,
+      patientName: proposal.dream?.managedPatient?.name ?? proposal.dream?.patient?.name,
+      patientCity: proposal.dream?.managedPatient
+        ? buildLocationLabel(proposal.dream.managedPatient)
+        : buildLocationLabel(proposal.dream?.patient ?? {}),
+      managedByInstitution: Boolean(proposal.dream?.managedPatientId),
+      institutionName: proposal.dream?.managedPatientId ? proposal.dream?.patient?.name : undefined,
+      canRespond: currentUser
+        ? proposal.dream?.patientId === currentUser.sub && currentUser.role !== 'apoiador'
+        : undefined,
       supporterId: proposal.supporterId,
       supporterName: proposal.supporter?.name,
       message: proposal.message,

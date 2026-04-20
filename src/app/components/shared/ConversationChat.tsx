@@ -24,6 +24,12 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+  const isReadOnlyLinkedPatient = Boolean(
+    currentUser?.role === 'paciente' &&
+    selectedConversation?.managedByInstitution &&
+    selectedConversation.operatorUserId &&
+    selectedConversation.operatorUserId !== currentUser.id,
+  );
 
   useEffect(() => {
     const fromState = (location.state as { conversationId?: string } | null)?.conversationId;
@@ -143,7 +149,19 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
             }`}
           >
             <p className="text-xs text-gray-500">Conversa #{conversation.id.slice(0, 8)}</p>
-            <p className="text-sm text-gray-700">Sonho #{conversation.dreamId.slice(0, 8)}</p>
+            <p className="text-sm text-gray-700" style={{ fontWeight: 600 }}>
+              {conversation.dreamTitle ?? `Sonho #${conversation.dreamId.slice(0, 8)}`}
+            </p>
+            {conversation.patientName && (
+              <p className="text-xs text-gray-500 mt-1">
+                Paciente: {conversation.patientName}
+              </p>
+            )}
+            {conversation.managedByInstitution && conversation.institutionName && (
+              <p className="text-xs text-indigo-600 mt-1">
+                Operado por {conversation.institutionName}
+              </p>
+            )}
             <p className={`text-xs mt-1 ${conversation.status === 'encerrada' ? 'text-gray-500' : 'text-green-700'}`}>
               {conversation.status === 'encerrada' ? 'Encerrada' : 'Ativa'}
             </p>
@@ -155,7 +173,24 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
         <header className="px-4 py-3 border-b border-pink-100 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500">Conversa</p>
-            <h1 className="text-sm text-gray-800">{selectedConversation ? `#${selectedConversation.id.slice(0, 8)}` : 'Selecione uma conversa'}</h1>
+            <h1 className="text-sm text-gray-800">
+              {selectedConversation
+                ? selectedConversation.dreamTitle ?? `#${selectedConversation.id.slice(0, 8)}`
+                : 'Selecione uma conversa'}
+            </h1>
+            {selectedConversation && (
+              <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                {selectedConversation.patientName && <span>Paciente: {selectedConversation.patientName}</span>}
+                {selectedConversation.managedByInstitution && selectedConversation.institutionName && (
+                  <span className="text-indigo-600">Instituição operadora: {selectedConversation.institutionName}</span>
+                )}
+                {selectedConversation.dreamPath && (
+                  <Link to={selectedConversation.dreamPath} className="text-pink-600 hover:text-pink-700">
+                    Ver sonho
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
           {selectedConversation && (
             <span className={`text-xs px-2 py-1 rounded-full ${selectedConversation.status === 'encerrada' ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
@@ -163,6 +198,12 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
             </span>
           )}
         </header>
+
+        {isReadOnlyLinkedPatient && (
+          <div className="px-4 py-3 border-b border-pink-100 bg-indigo-50 text-xs text-indigo-700">
+            Você acompanha este caso como paciente vinculado. A conversa continua sendo operada pela instituição.
+          </div>
+        )}
 
         <div className="flex-1 p-4 space-y-3 overflow-auto">
           {messages.length === 0 ? (
@@ -188,13 +229,19 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            disabled={!selectedConversation || selectedConversation.status === 'encerrada'}
+            disabled={!selectedConversation || selectedConversation.status === 'encerrada' || isReadOnlyLinkedPatient}
             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"
-            placeholder={selectedConversation?.status === 'encerrada' ? 'Conversa encerrada' : 'Digite sua mensagem'}
+            placeholder={
+              isReadOnlyLinkedPatient
+                ? 'A instituição opera esta conversa'
+                : selectedConversation?.status === 'encerrada'
+                  ? 'Conversa encerrada'
+                  : 'Digite sua mensagem'
+            }
           />
           <button
             type="submit"
-            disabled={sending || !selectedConversation || selectedConversation.status === 'encerrada' || !draft.trim()}
+            disabled={sending || !selectedConversation || selectedConversation.status === 'encerrada' || isReadOnlyLinkedPatient || !draft.trim()}
             className="px-3 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 disabled:bg-pink-300 text-white text-sm inline-flex items-center gap-1"
           >
             <Send className="w-4 h-4" /> Enviar

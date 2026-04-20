@@ -44,7 +44,7 @@ describe('InstitutionCreateDream', () => {
     updateDreamMock.mockReset();
   });
 
-  it('loads existing dream data and updates it in edit mode', async () => {
+  it('uses the patient wizard flow before saving institution dream changes', async () => {
     listPatientsMock.mockResolvedValue([
       {
         id: 'managed-1',
@@ -101,12 +101,25 @@ describe('InstitutionCreateDream', () => {
     );
 
     expect(await screen.findByDisplayValue('Oficina de musica suave')).toBeInTheDocument();
+    expect(screen.getAllByText('Conte seu sonho').length).toBeGreaterThan(0);
+    expect(screen.getByText('Preferências')).toBeInTheDocument();
+    expect(screen.getByText('Privacidade')).toBeInTheDocument();
+    expect(screen.getByText('Revisar e publicar')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/título do sonho/i), { target: { value: 'Oficina de musica e pintura' } });
-    fireEvent.change(screen.getByLabelText(/descrição/i), { target: { value: 'Uma tarde artística mediada pela instituição.' } });
-    fireEvent.change(screen.getByLabelText(/formato/i), { target: { value: 'ambos' } });
-    fireEvent.change(screen.getByLabelText(/urgência/i), { target: { value: 'alta' } });
-    fireEvent.change(screen.getByLabelText(/privacidade/i), { target: { value: 'verificados' } });
+    fireEvent.change(screen.getByLabelText(/descreva seu sonho/i), { target: { value: 'Uma tarde artística mediada pela instituição.' } });
+    fireEvent.click(screen.getByRole('button', { name: /alta/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
+
+    expect(screen.getByRole('heading', { name: /preferências de apoio/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /ambos/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
+
+    expect(screen.getByRole('heading', { name: /configurações de privacidade/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /somente verificados/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
+
+    expect(screen.getByRole('heading', { name: /revisar e publicar/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /salvar alterações/i }));
 
     await waitFor(() => {

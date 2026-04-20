@@ -148,6 +148,8 @@ export interface PublicDream {
   institutionName?: string;
   patientName?: string;
   patientCity?: string;
+  operatorRole?: 'paciente' | 'instituicao';
+  canEdit?: boolean;
   restrictions?: string;
   createdAt: string;
   updatedAt: string;
@@ -166,6 +168,12 @@ export interface Proposal {
   dreamTitle?: string;
   dreamStatus?: PublicDream['status'];
   dreamCategory?: string;
+  patientId?: string;
+  patientName?: string;
+  patientCity?: string;
+  managedByInstitution?: boolean;
+  institutionName?: string;
+  canRespond?: boolean;
   supporterId: string;
   supporterName?: string;
   message: string;
@@ -197,6 +205,12 @@ export const authApi = {
   },
   acceptAdminInvite(payload: { email: string; token: string; name: string; password: string }) {
     return apiRequest<AuthSession>('/auth/admin-invites/accept', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  acceptPatientInvite(payload: { email: string; token: string; name: string; password: string }) {
+    return apiRequest<AuthSession>('/auth/patient-invites/accept', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -264,10 +278,17 @@ export const proposalsApi = {
 export interface Conversation {
   id: string;
   dreamId: string;
+  dreamTitle?: string;
+  dreamStatus?: PublicDream['status'];
+  dreamPath?: string;
   patientId: string;
   operatorUserId?: string;
   managedPatientId?: string;
   supporterId: string;
+  managedByInstitution?: boolean;
+  patientName?: string;
+  patientLocation?: string;
+  institutionName?: string;
   status: 'ativa' | 'encerrada';
   createdAt: string;
 }
@@ -322,21 +343,67 @@ export interface AdminUser {
 
 export interface InstitutionOverview {
   managedPatients: number;
+  linkedPatients: number;
+  pendingAccessInvites: number;
   dreams: number;
+  dreamsPublished: number;
+  dreamsInConversation: number;
   proposals: number;
+  pendingProposals: number;
+  acceptedProposals: number;
   activeConversations: number;
+  supporterConnections: number;
 }
 
 export interface ManagedPatient {
   id: string;
   institutionId: string;
   linkedUserId?: string;
+  linkedUserEmail?: string;
+  accessStatus?: 'sem-acesso' | 'convite-pendente' | 'ativo';
+  pendingInviteEmail?: string;
+  pendingInviteExpiresAt?: string;
   name: string;
   state?: string;
   city?: string;
   locationLabel?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ManagedPatientDetail {
+  patient: ManagedPatient;
+  summary: {
+    dreams: number;
+    proposals: number;
+    activeConversations: number;
+  };
+  dreams: Array<{
+    id: string;
+    title: string;
+    category: string;
+    status: PublicDream['status'];
+    urgency: PublicDream['urgency'];
+    updatedAt: string;
+  }>;
+  proposals: Array<{
+    id: string;
+    dreamId: string;
+    dreamTitle?: string;
+    status: Proposal['status'];
+    supporterId: string;
+    supporterName?: string;
+    createdAt: string;
+  }>;
+  conversations: Array<{
+    id: string;
+    dreamId: string;
+    dreamTitle?: string;
+    status: Conversation['status'];
+    supporterId: string;
+    supporterName?: string;
+    createdAt: string;
+  }>;
 }
 
 export interface AdminInvite {
@@ -546,6 +613,9 @@ export const institutionApi = {
   listPatientsPage(params: { page?: number; pageSize?: number; query?: string }) {
     return apiRequest<PaginatedResult<ManagedPatient>>(`/institution/patients${buildQueryString(params)}`);
   },
+  getPatient(managedPatientId: string) {
+    return apiRequest<ManagedPatientDetail>(`/institution/patients/${managedPatientId}`);
+  },
   createPatient(payload: { name: string; state?: string; city?: string }) {
     return apiRequest<ManagedPatient>('/institution/patients', {
       method: 'POST',
@@ -557,6 +627,15 @@ export const institutionApi = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
+  },
+  createPatientAccessInvite(managedPatientId: string, payload: { email: string }) {
+    return apiRequest<{ id: string; email: string; managedPatientId: string; expiresAt: string; inviteUrl: string }>(
+      `/institution/patients/${managedPatientId}/access-invite`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
   },
   getProfile() {
     return apiRequest<InstitutionProfile>('/institution/profile');

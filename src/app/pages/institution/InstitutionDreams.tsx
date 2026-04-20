@@ -118,34 +118,40 @@ export default function InstitutionDreams() {
       ) : (
         <div className="space-y-3">
           {dreams.map((dream) => (
-            <div key={dream.id} className="bg-white border border-indigo-100 rounded-2xl p-5">
+            <Link
+              key={dream.id}
+              to={`/instituicao/sonhos/editar/${dream.id}`}
+              className="block bg-white border border-indigo-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-sm transition-all"
+            >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <DreamStatusBadge status={dream.status} />
                     <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">{dream.category}</span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                      Beneficiário: {dream.patientName ?? 'Paciente acompanhado'}
+                    </span>
                   </div>
                   <p className="text-lg text-gray-800" style={{ fontWeight: 700 }}>{dream.title}</p>
                   <p className="text-sm text-gray-500">
                     {dream.patientName} {dream.patientCity ? `• ${dream.patientCity}` : ''}
                   </p>
                   {dream.institutionName && (
-                    <p className="text-xs text-indigo-600">Acompanhado por {dream.institutionName}</p>
+                    <p className="text-xs text-indigo-600">Paciente beneficiário operado por {dream.institutionName}</p>
                   )}
                   <p className="text-sm text-gray-600">{dream.description}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link
-                    to={`/instituicao/sonhos/editar/${dream.id}`}
+                  <span
                     aria-label={`Editar sonho ${dream.title}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:border-indigo-200 hover:text-indigo-700"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600"
                   >
                     <PencilLine className="w-4 h-4" />
                     Editar sonho
-                  </Link>
+                  </span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

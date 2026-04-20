@@ -539,6 +539,170 @@ describe('NextDream API', () => {
     );
   });
 
+  it('creates patient access invites and lets linked patients follow institution-managed cases', async () => {
+    const password = 'Secret123!';
+    const patientEmail = 'paciente-vinculado@example.com';
+    const supporterEmail = 'apoiador-vinculado@example.com';
+    const { institutionToken } = await registerApprovedInstitution({
+      name: 'Instituicao Vinculo',
+      email: 'instituicao-vinculo@example.com',
+      password,
+      state: 'PE',
+      city: 'Recife',
+      adminEmail: 'admin-vinculo@example.com',
+    });
+
+    const managedPatient = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        name: 'Lucia Beneficiaria',
+        state: 'PE',
+        city: 'Olinda',
+      });
+    expect(managedPatient.status).toBe(201);
+
+    const dream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        title: 'Passeio cultural com a paciente',
+        description: 'A instituição quer viabilizar uma visita cultural leve.',
+        category: 'Literatura e Cultura',
+        format: 'presencial',
+        urgency: 'media',
+        privacy: 'publico',
+        managedPatientId: managedPatient.body.id,
+      });
+    expect(dream.status).toBe(201);
+
+    const supporter = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiador Vinculado',
+        email: supporterEmail,
+        password,
+        role: 'apoiador',
+        state: 'PE',
+        city: 'Recife',
+      });
+    expect(supporter.status).toBe(201);
+
+    const proposal = await request(app.getHttpServer())
+      .post(`/dreams/${dream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporter.headers["set-cookie"])}`)
+      .send({
+        message: 'Consigo acompanhar a visita e organizar a logística.',
+        offering: 'Companhia e logística',
+        availability: 'Terças à tarde',
+        duration: '2 horas',
+      });
+    expect(proposal.status).toBe(201);
+
+    const acceptedProposal = await request(app.getHttpServer())
+      .post(`/proposals/${proposal.body.id}/accept`)
+      .set('Authorization', `Bearer ${institutionToken}`);
+    expect(acceptedProposal.status).toBe(200);
+
+    const detailBeforeInvite = await request(app.getHttpServer())
+      .get(`/institution/patients/${managedPatient.body.id}`)
+      .set('Authorization', `Bearer ${institutionToken}`);
+    expect(detailBeforeInvite.status).toBe(200);
+    expect(detailBeforeInvite.body.patient.accessStatus).toBe('sem-acesso');
+    expect(detailBeforeInvite.body.summary).toMatchObject({
+      dreams: 1,
+      proposals: 1,
+      activeConversations: 1,
+    });
+
+    const createInvite = await request(app.getHttpServer())
+      .post(`/institution/patients/${managedPatient.body.id}/access-invite`)
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({ email: patientEmail });
+    expect(createInvite.status).toBe(201);
+    expect(createInvite.body.inviteUrl).toContain('/aceitar-convite-paciente');
+
+    const inviteUrl = new URL(createInvite.body.inviteUrl);
+    const acceptInvite = await request(app.getHttpServer())
+      .post('/auth/patient-invites/accept')
+      .send({
+        email: patientEmail,
+        token: inviteUrl.searchParams.get('token'),
+        name: 'Lucia Beneficiaria',
+        password,
+      });
+
+    expect(acceptInvite.status).toBe(200);
+    expect(acceptInvite.body.user.role).toBe('paciente');
+    expect(acceptInvite.body.user.city).toBe('Olinda');
+
+    const linkedPatientToken = getAccessTokenFromSetCookie(acceptInvite.headers["set-cookie"]);
+
+    const patientDreams = await request(app.getHttpServer())
+      .get('/dreams/mine')
+      .set('Authorization', `Bearer ${linkedPatientToken}`);
+    expect(patientDreams.status).toBe(200);
+    expect(patientDreams.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: dream.body.id,
+          managedByInstitution: true,
+          institutionName: 'Instituicao Vinculo',
+          patientName: 'Lucia Beneficiaria',
+          canEdit: false,
+        }),
+      ]),
+    );
+
+    const patientProposals = await request(app.getHttpServer())
+      .get('/proposals/received')
+      .set('Authorization', `Bearer ${linkedPatientToken}`);
+    expect(patientProposals.status).toBe(200);
+    expect(patientProposals.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: proposal.body.id,
+          managedByInstitution: true,
+          institutionName: 'Instituicao Vinculo',
+          patientName: 'Lucia Beneficiaria',
+          canRespond: false,
+        }),
+      ]),
+    );
+
+    const patientConversations = await request(app.getHttpServer())
+      .get('/conversations/mine')
+      .set('Authorization', `Bearer ${linkedPatientToken}`);
+    expect(patientConversations.status).toBe(200);
+    expect(patientConversations.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: acceptedProposal.body.conversationId,
+          managedByInstitution: true,
+          patientName: 'Lucia Beneficiaria',
+          institutionName: 'Instituicao Vinculo',
+          dreamTitle: 'Passeio cultural com a paciente',
+        }),
+      ]),
+    );
+
+    const patientMessageAttempt = await request(app.getHttpServer())
+      .post(`/conversations/${acceptedProposal.body.conversationId}/messages`)
+      .set('Authorization', `Bearer ${linkedPatientToken}`)
+      .send({ body: 'Posso responder aqui?' });
+    expect(patientMessageAttempt.status).toBe(403);
+
+    const detailAfterInvite = await request(app.getHttpServer())
+      .get(`/institution/patients/${managedPatient.body.id}`)
+      .set('Authorization', `Bearer ${institutionToken}`);
+    expect(detailAfterInvite.status).toBe(200);
+    expect(detailAfterInvite.body.patient).toMatchObject({
+      linkedUserId: acceptInvite.body.user.id,
+      linkedUserEmail: patientEmail,
+      accessStatus: 'ativo',
+    });
+  });
+
   it('paginates, filters and updates managed patients for institutions', async () => {
     const password = 'Secret123!';
     const { institutionToken } = await registerApprovedInstitution({

@@ -63,9 +63,16 @@ describe('InstitutionDashboard', () => {
     });
     overviewMock.mockResolvedValue({
       managedPatients: 3,
+      linkedPatients: 1,
+      pendingAccessInvites: 1,
       dreams: 2,
+      dreamsPublished: 2,
+      dreamsInConversation: 1,
       proposals: 4,
+      pendingProposals: 2,
+      acceptedProposals: 2,
       activeConversations: 1,
+      supporterConnections: 2,
     });
 
     render(
@@ -76,10 +83,9 @@ describe('InstitutionDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /pacientes acompanhados/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /propostas recebidas/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /propostas pendentes/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /apoiadores conectados/i })).toBeInTheDocument();
     });
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('reloads the overview when the approved institution account changes', async () => {
