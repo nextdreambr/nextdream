@@ -1,24 +1,30 @@
 import { IsIn, IsOptional, IsString } from 'class-validator';
 import { DreamFormat, DreamPrivacy, DreamUrgency } from '../../../entities/dream.entity';
 
-export class CreateDreamDto {
+export class UpdateDreamDto {
+  @IsOptional()
   @IsString()
-  title!: string;
+  title?: string;
 
+  @IsOptional()
   @IsString()
-  description!: string;
+  description?: string;
 
+  @IsOptional()
   @IsString()
-  category!: string;
+  category?: string;
 
+  @IsOptional()
   @IsIn(['remoto', 'presencial', 'ambos'])
-  format!: DreamFormat;
+  format?: DreamFormat;
 
+  @IsOptional()
   @IsIn(['baixa', 'media', 'alta'])
-  urgency!: DreamUrgency;
+  urgency?: DreamUrgency;
 
+  @IsOptional()
   @IsIn(['publico', 'verificados', 'anonimo'])
-  privacy!: DreamPrivacy;
+  privacy?: DreamPrivacy;
 
   @IsOptional()
   @IsString()

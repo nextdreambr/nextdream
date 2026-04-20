@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { DreamsService } from '../dreams/dreams.service';
@@ -19,8 +19,14 @@ export class ProposalsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('received')
-  listReceived(@CurrentUser() currentUser: JwtPayload) {
-    return this.dreamsService.listReceivedProposals(currentUser);
+  listReceived(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('query') query?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.dreamsService.listReceivedProposals(currentUser, { page, pageSize, query, status });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -31,5 +37,15 @@ export class ProposalsController {
     @Param('proposalId') proposalId: string,
   ) {
     return this.dreamsService.acceptProposal(currentUser, proposalId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':proposalId/reject')
+  @HttpCode(200)
+  rejectProposal(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('proposalId') proposalId: string,
+  ) {
+    return this.dreamsService.rejectProposal(currentUser, proposalId);
   }
 }

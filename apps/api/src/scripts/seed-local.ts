@@ -8,13 +8,23 @@ import { AdminReport } from '../entities/admin-report.entity';
 import { AuditLog } from '../entities/audit-log.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { Dream } from '../entities/dream.entity';
+import { ManagedPatient } from '../entities/managed-patient.entity';
 import { Message } from '../entities/message.entity';
 import { Notification } from '../entities/notification.entity';
 import { Proposal } from '../entities/proposal.entity';
 import { User } from '../entities/user.entity';
 
 function loadLocalEnv() {
-  const envFiles = ['.env.local', '.env'].map((name) => resolve(process.cwd(), '..', '..', name));
+  const candidateRoots = [
+    process.cwd(),
+    resolve(process.cwd(), '..'),
+    resolve(process.cwd(), '..', '..'),
+    resolve(process.cwd(), '..', '..', '..'),
+    resolve(process.cwd(), '..', '..', '..', '..'),
+  ];
+  const envFiles = candidateRoots.flatMap((root) =>
+    ['.env.local', '.env'].map((name) => resolve(root, name)),
+  );
 
   for (const file of envFiles) {
     if (!existsSync(file)) continue;
@@ -49,6 +59,7 @@ const dataSource = new DataSource({
     Dream,
     Proposal,
     Conversation,
+    ManagedPatient,
     Message,
     Notification,
     AdminContactMessage,
@@ -62,12 +73,13 @@ async function run() {
   await dataSource.initialize();
   const manager = dataSource.manager;
 
-  await manager.transaction(async (tx) => {
+    await manager.transaction(async (tx) => {
     await tx.query(
-      'TRUNCATE TABLE notifications, messages, conversations, proposals, dreams, admin_reports, admin_contact_messages, audit_logs, users RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE notifications, messages, conversations, proposals, dreams, managed_patients, admin_reports, admin_contact_messages, audit_logs, users RESTART IDENTITY CASCADE',
     );
 
     const passwordHash = await bcrypt.hash('Seed123!', 10);
+    const approvedAt = new Date();
 
     await tx.insert(User, [
       {
@@ -76,7 +88,8 @@ async function run() {
         email: 'paciente1@nextdream.local',
         passwordHash,
         role: 'paciente',
-        city: 'São Paulo, SP',
+        state: 'SP',
+        city: 'São Paulo',
         verified: true,
         suspended: false,
         emailNotificationsEnabled: true,
@@ -87,7 +100,8 @@ async function run() {
         email: 'paciente2@nextdream.local',
         passwordHash,
         role: 'paciente',
-        city: 'Campinas, SP',
+        state: 'SP',
+        city: 'Campinas',
         verified: true,
         suspended: false,
         emailNotificationsEnabled: false,
@@ -98,7 +112,8 @@ async function run() {
         email: 'apoiador1@nextdream.local',
         passwordHash,
         role: 'apoiador',
-        city: 'São Paulo, SP',
+        state: 'SP',
+        city: 'São Paulo',
         verified: true,
         suspended: false,
         emailNotificationsEnabled: true,
@@ -109,7 +124,8 @@ async function run() {
         email: 'apoiador2@nextdream.local',
         passwordHash,
         role: 'apoiador',
-        city: 'Santos, SP',
+        state: 'SP',
+        city: 'Santos',
         verified: true,
         suspended: false,
         emailNotificationsEnabled: false,
@@ -120,10 +136,58 @@ async function run() {
         email: 'admin@nextdream.local',
         passwordHash,
         role: 'admin',
-        city: 'São Paulo, SP',
+        state: 'SP',
+        city: 'São Paulo',
         verified: true,
         suspended: false,
         emailNotificationsEnabled: true,
+      },
+      {
+        id: 'u-instituicao-1',
+        name: 'Casa Esperanca Demo',
+        email: 'instituicao1@nextdream.local',
+        passwordHash,
+        role: 'instituicao',
+        state: 'PE',
+        city: 'Recife',
+        institutionType: 'ONG',
+        institutionDescription: 'Instituicao demo dedicada a intermediar sonhos com acompanhamento humanizado.',
+        verified: true,
+        approved: true,
+        approvedAt,
+        suspended: false,
+        emailNotificationsEnabled: true,
+      },
+    ]);
+
+    await tx.insert(ManagedPatient, [
+      {
+        id: 'mp-demo-1',
+        institutionId: 'u-instituicao-1',
+        name: 'Maria das Dores Demo',
+        state: 'PE',
+        city: 'Olinda',
+      },
+      {
+        id: 'mp-demo-2',
+        institutionId: 'u-instituicao-1',
+        name: 'Jose Carlos Demo',
+        state: 'PE',
+        city: 'Jaboatão dos Guararapes',
+      },
+      {
+        id: 'mp-demo-3',
+        institutionId: 'u-instituicao-1',
+        name: 'Ana Lucia Demo',
+        state: 'PE',
+        city: 'Paulista',
+      },
+      {
+        id: 'mp-demo-4',
+        institutionId: 'u-instituicao-1',
+        name: 'Raimunda Alves Demo',
+        state: 'PE',
+        city: 'Camaragibe',
       },
     ]);
 
@@ -260,6 +324,42 @@ async function run() {
         privacy: 'publico',
         patientId: 'u-paciente-2',
       },
+      {
+        id: 'd-demo-inst-1',
+        title: 'Tarde de musica para paciente acompanhada',
+        description: 'A instituicao busca uma pessoa para compartilhar um momento musical leve com uma paciente acompanhada.',
+        category: 'Arte e Música',
+        format: 'presencial',
+        urgency: 'media',
+        status: 'publicado',
+        privacy: 'publico',
+        patientId: 'u-instituicao-1',
+        managedPatientId: 'mp-demo-1',
+      },
+      {
+        id: 'd-demo-inst-2',
+        title: 'Passeio guiado ao jardim da instituicao',
+        description: 'A equipe deseja companhia para um passeio leve com beneficiaria acompanhada.',
+        category: 'Experiência ao ar livre',
+        format: 'presencial',
+        urgency: 'baixa',
+        status: 'publicado',
+        privacy: 'publico',
+        patientId: 'u-instituicao-1',
+        managedPatientId: 'mp-demo-2',
+      },
+      {
+        id: 'd-demo-inst-3',
+        title: 'Leitura remota com roda de conversa',
+        description: 'Sonho institucional já em conversa com apoiador para encontros remotos.',
+        category: 'Literatura e Cultura',
+        format: 'remoto',
+        urgency: 'media',
+        status: 'em-conversa',
+        privacy: 'publico',
+        patientId: 'u-instituicao-1',
+        managedPatientId: 'mp-demo-3',
+      },
     ]);
 
     await tx.insert(Proposal, [
@@ -283,6 +383,36 @@ async function run() {
         duration: '1 hora',
         status: 'aceita',
       },
+      {
+        id: 'pr-demo-inst-1',
+        dreamId: 'd-demo-inst-1',
+        supporterId: 'u-apoiador-1',
+        message: 'Posso conduzir uma tarde musical com repertorio leve.',
+        offering: 'Companhia musical presencial',
+        availability: 'Quartas à tarde',
+        duration: '90 minutos',
+        status: 'enviada',
+      },
+      {
+        id: 'pr-demo-inst-2',
+        dreamId: 'd-demo-inst-2',
+        supporterId: 'u-apoiador-2',
+        message: 'Posso acompanhar o passeio e apoiar no deslocamento.',
+        offering: 'Companhia para passeio',
+        availability: 'Sextas pela manhã',
+        duration: '2 horas',
+        status: 'recusada',
+      },
+      {
+        id: 'pr-demo-inst-3',
+        dreamId: 'd-demo-inst-3',
+        supporterId: 'u-apoiador-1',
+        message: 'Posso facilitar leituras curtas com conversa acolhedora.',
+        offering: 'Leitura mediada por videochamada',
+        availability: 'Terças à noite',
+        duration: '1 hora',
+        status: 'aceita',
+      },
     ]);
 
     await tx.insert(Conversation, [
@@ -291,6 +421,14 @@ async function run() {
         dreamId: 'd-demo-2',
         patientId: 'u-paciente-2',
         supporterId: 'u-apoiador-2',
+        status: 'ativa',
+      },
+      {
+        id: 'c-demo-inst-1',
+        dreamId: 'd-demo-inst-3',
+        patientId: 'u-instituicao-1',
+        managedPatientId: 'mp-demo-3',
+        supporterId: 'u-apoiador-1',
         status: 'ativa',
       },
     ]);
@@ -308,6 +446,20 @@ async function run() {
         conversationId: 'c-demo-1',
         senderId: 'u-apoiador-2',
         body: 'Combinado, podemos começar amanhã às 20h.',
+        moderated: false,
+      },
+      {
+        id: 'm-demo-inst-1',
+        conversationId: 'c-demo-inst-1',
+        senderId: 'u-instituicao-1',
+        body: 'Nossa equipe já separou a beneficiaria e o material da atividade.',
+        moderated: false,
+      },
+      {
+        id: 'm-demo-inst-2',
+        conversationId: 'c-demo-inst-1',
+        senderId: 'u-apoiador-1',
+        body: 'Perfeito, posso iniciar a videochamada às 19h.',
         moderated: false,
       },
     ]);
@@ -365,6 +517,24 @@ async function run() {
         title: 'Nova mensagem no chat',
         message: 'Você recebeu uma nova mensagem em uma conversa ativa.',
         actionPath: '/apoiador/chat?conversationId=c-demo-1',
+        read: false,
+      },
+      {
+        id: 'n-demo-3',
+        userId: 'u-instituicao-1',
+        type: 'proposta',
+        title: 'Nova proposta institucional',
+        message: 'Uma nova proposta foi recebida para um sonho mediado pela instituição.',
+        actionPath: '/instituicao/propostas',
+        read: false,
+      },
+      {
+        id: 'n-demo-4',
+        userId: 'u-apoiador-1',
+        type: 'mensagem',
+        title: 'Conversa institucional em andamento',
+        message: 'Você recebeu nova mensagem em uma conversa com a instituição.',
+        actionPath: '/apoiador/chat?conversationId=c-demo-inst-1',
         read: false,
       },
     ]);

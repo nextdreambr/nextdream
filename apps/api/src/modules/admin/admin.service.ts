@@ -19,6 +19,7 @@ import { Dream } from '../../entities/dream.entity';
 import { Message } from '../../entities/message.entity';
 import { Proposal } from '../../entities/proposal.entity';
 import { User } from '../../entities/user.entity';
+import { buildLocationLabel } from '../../lib/location';
 import { JwtPayload } from '../auth/jwt-auth.guard';
 import { MailService } from '../mail/mail.service';
 import { CloseChatDto } from './dto/close-chat.dto';
@@ -94,8 +95,12 @@ export class AdminService {
       name: user.name,
       email: user.email,
       role: user.role,
+      state: user.state,
       city: user.city,
+      locationLabel: buildLocationLabel(user),
       verified: user.verified,
+      approved: user.approved,
+      approvedAt: user.approvedAt,
       suspended: user.suspended,
       suspensionReason: user.suspensionReason,
       suspendedAt: user.suspendedAt,
@@ -113,8 +118,12 @@ export class AdminService {
       name: user.name,
       email: user.email,
       role: user.role,
+      state: user.state,
       city: user.city,
+      locationLabel: buildLocationLabel(user),
       verified: user.verified,
+      approved: user.approved,
+      approvedAt: user.approvedAt,
       suspended: user.suspended,
       suspensionReason: user.suspensionReason,
       suspendedAt: user.suspendedAt,
@@ -198,6 +207,8 @@ export class AdminService {
       email: saved.email,
       role: saved.role,
       verified: saved.verified,
+      approved: saved.approved,
+      approvedAt: saved.approvedAt,
       suspended: saved.suspended,
       suspendedAt: saved.suspendedAt,
       createdAt: saved.createdAt,
@@ -211,7 +222,7 @@ export class AdminService {
       if (existing.role === 'admin') {
         throw new ConflictException('Email already registered as admin');
       }
-      throw new BadRequestException('Email already registered as paciente/apoiador');
+      throw new BadRequestException('Email already registered as another user');
     }
 
     await this.adminInvitesRepository.delete({ email: normalizedEmail });
@@ -292,6 +303,38 @@ export class AdminService {
     };
   }
 
+  async approveUser(currentUser: JwtPayload, userId: string) {
+    const user = await this.usersRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'instituicao') {
+      throw new BadRequestException('Only institution accounts require manual approval');
+    }
+
+    user.approved = true;
+    user.approvedAt = user.approvedAt ?? new Date();
+    const saved = await this.usersRepository.save(user);
+
+    await this.logAction(currentUser, {
+      action: 'Instituição aprovada',
+      target: `${saved.name} (${saved.id})`,
+      type: 'usuario',
+      severity: 'media',
+      outcome: 'ok',
+      details: 'Conta institucional aprovada manualmente.',
+      refPath: '/admin/usuarios',
+      refId: saved.id,
+    });
+
+    return {
+      id: saved.id,
+      role: saved.role,
+      approved: saved.approved,
+      approvedAt: saved.approvedAt,
+    };
+  }
+
   async listDreams() {
     const dreams = await this.dreamsRepository.find({ order: { createdAt: 'DESC' } });
     return dreams.map((dream) => ({
@@ -299,8 +342,9 @@ export class AdminService {
       title: dream.title,
       category: dream.category,
       status: dream.status,
-      patientId: dream.patientId,
-      patientName: dream.patient?.name,
+      patientId: dream.managedPatientId ?? dream.patientId,
+      patientName: dream.managedPatient?.name ?? dream.patient?.name,
+      institutionName: dream.managedPatientId ? dream.patient?.name : undefined,
       createdAt: dream.createdAt,
     }));
   }

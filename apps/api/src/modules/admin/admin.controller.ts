@@ -63,6 +63,15 @@ export class AdminController {
     return this.adminService.suspendUser(currentUser, userId, dto);
   }
 
+  @Post('users/:userId/approve')
+  @HttpCode(200)
+  approveUser(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('userId') userId: string,
+  ) {
+    return this.adminService.approveUser(currentUser, userId);
+  }
+
   @Get('dreams')
   listDreams() {
     return this.adminService.listDreams();

@@ -8,6 +8,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ManagedPatient } from './managed-patient.entity';
 import { User } from './user.entity';
 import { Proposal } from './proposal.entity';
 
@@ -43,10 +44,20 @@ export class Dream {
   privacy!: DreamPrivacy;
 
   @ManyToOne(() => User, (user) => user.dreams, { eager: true, onDelete: 'CASCADE' })
-  patient!: User;
+  patient?: User;
 
   @Column({ type: 'varchar' })
   patientId!: string;
+
+  @ManyToOne(() => ManagedPatient, (managedPatient) => managedPatient.dreams, {
+    eager: true,
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
+  managedPatient?: ManagedPatient;
+
+  @Column({ type: 'varchar', nullable: true })
+  managedPatientId?: string;
 
   @OneToMany(() => Proposal, (proposal) => proposal.dream)
   proposals!: Proposal[];

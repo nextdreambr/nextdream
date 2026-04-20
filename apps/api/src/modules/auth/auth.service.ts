@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import { AdminInvite } from '../../entities/admin-invite.entity';
 import { User } from '../../entities/user.entity';
 import { getRequiredEnv } from '../../config/env';
+import { buildLocationLabel, normalizeLocationPart } from '../../lib/location';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -21,9 +22,14 @@ export interface AuthUserPayload {
   id: string;
   name: string;
   email: string;
-  role: 'paciente' | 'apoiador' | 'admin';
+  role: 'paciente' | 'apoiador' | 'instituicao' | 'admin';
+  state?: string;
   city?: string;
+  locationLabel?: string;
+  institutionType?: string;
+  institutionDescription?: string;
   verified: boolean;
+  approved: boolean;
   emailNotificationsEnabled?: boolean;
 }
 
@@ -69,8 +75,11 @@ export class AuthService {
       email: dto.email.toLowerCase(),
       passwordHash: await bcrypt.hash(dto.password, 10),
       role: dto.role,
-      city: dto.city,
+      state: normalizeLocationPart(dto.state),
+      city: normalizeLocationPart(dto.city),
       verified: true,
+      approved: dto.role !== 'instituicao',
+      approvedAt: dto.role === 'instituicao' ? undefined : new Date(),
     });
 
     const saved = await this.usersRepository.save(user);
@@ -125,6 +134,8 @@ export class AuthService {
       passwordHash: await bcrypt.hash(dto.password, 10),
       role: 'admin',
       verified: true,
+      approved: true,
+      approvedAt: new Date(),
       suspended: false,
     });
     const saved = await this.usersRepository.save(user);
@@ -162,8 +173,13 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        state: user.state,
         city: user.city,
+        locationLabel: buildLocationLabel(user),
+        institutionType: user.institutionType,
+        institutionDescription: user.institutionDescription,
         verified: user.verified,
+        approved: user.approved,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
       },
     };
