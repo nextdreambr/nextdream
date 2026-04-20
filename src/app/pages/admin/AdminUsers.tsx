@@ -33,11 +33,24 @@ export default function AdminUsers() {
     }
   }
 
+  async function approveUser(userId: string) {
+    setActingId(userId);
+    try {
+      await adminApi.approveUser(userId);
+      await loadUsers();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError('Não foi possível aprovar a instituição.');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Usuários</h1>
-        <p className="text-sm text-gray-500">Gestão operacional de apoiadores e pacientes.</p>
+        <p className="text-sm text-gray-500">Gestão operacional de pacientes, apoiadores e instituições.</p>
       </div>
 
       <div className="bg-white border border-pink-100 rounded-2xl overflow-auto">
@@ -48,6 +61,7 @@ export default function AdminUsers() {
               <th className="text-left px-3 py-2">Email</th>
               <th className="text-left px-3 py-2">Role</th>
               <th className="text-left px-3 py-2">Status</th>
+              <th className="text-left px-3 py-2">Aprovação</th>
               <th className="text-right px-3 py-2">Ação</th>
             </tr>
           </thead>
@@ -62,16 +76,32 @@ export default function AdminUsers() {
                     {user.suspended ? 'Suspenso' : 'Ativo'}
                   </span>
                 </td>
+                <td className="px-3 py-2">
+                  <span className={`px-2 py-1 rounded-full text-xs ${user.approved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {user.approved ? 'Aprovado' : 'Pendente'}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-right">
-                  {!user.suspended && (
-                    <button
-                      onClick={() => suspendUser(user.id)}
-                      disabled={actingId === user.id}
-                      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-xs"
-                    >
-                      Suspender
-                    </button>
-                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    {user.role === 'instituicao' && !user.approved && (
+                      <button
+                        onClick={() => approveUser(user.id)}
+                        disabled={actingId === user.id}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white text-xs"
+                      >
+                        Aprovar
+                      </button>
+                    )}
+                    {!user.suspended && (
+                      <button
+                        onClick={() => suspendUser(user.id)}
+                        disabled={actingId === user.id}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-xs"
+                      >
+                        Suspender
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

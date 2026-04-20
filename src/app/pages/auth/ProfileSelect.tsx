@@ -1,23 +1,38 @@
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Star, Heart, ArrowRight, CheckCircle } from 'lucide-react';
+import { Building2, Star, Heart, ArrowRight, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 
 export default function ProfileSelect() {
   const [searchParams] = useSearchParams();
   const initialType = searchParams.get('tipo');
-  const [selected, setSelected] = useState<'paciente' | 'apoiador' | null>(
-    initialType === 'paciente' ? 'paciente' : initialType === 'apoiador' ? 'apoiador' : null
+  const [selected, setSelected] = useState<'paciente' | 'apoiador' | 'instituicao' | null>(
+    initialType === 'paciente'
+      ? 'paciente'
+      : initialType === 'apoiador'
+        ? 'apoiador'
+        : initialType === 'instituicao'
+          ? 'instituicao'
+          : null,
   );
   const navigate = useNavigate();
 
   const handleContinue = () => {
     if (!selected) return;
-    navigate(selected === 'paciente' ? '/onboarding/paciente' : '/onboarding/apoiador');
+    if (selected === 'paciente') {
+      navigate('/onboarding/paciente');
+      return;
+    }
+    if (selected === 'apoiador') {
+      navigate('/onboarding/apoiador');
+      return;
+    }
+
+    navigate('/cadastro?tipo=instituicao');
   };
 
   return (
     <div className="min-h-screen bg-pink-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-4xl">
         <div className="text-center mb-10">
           <h1 className="text-gray-800 mb-3" style={{ fontWeight: 700, fontSize: '1.75rem' }}>Como você quer usar o NextDream?</h1>
           <p className="text-gray-500">Escolha seu perfil para começar. Você pode mudar depois.</p>
@@ -26,7 +41,7 @@ export default function ProfileSelect() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        <div className="grid lg:grid-cols-3 gap-4 mb-8">
           <button
             onClick={() => setSelected('paciente')}
             className={`relative text-left p-6 rounded-2xl border-2 transition-all ${
@@ -54,9 +69,6 @@ export default function ProfileSelect() {
                   {item}
                 </div>
               ))}
-            </div>
-            <div className="mt-4 p-2 bg-pink-50 rounded-lg">
-              <p className="text-xs text-pink-600">💡 Pode ser para você ou para alguém que você cuida</p>
             </div>
           </button>
 
@@ -88,8 +100,35 @@ export default function ProfileSelect() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 p-2 bg-teal-50 rounded-lg">
-              <p className="text-xs text-teal-600">💚 Você oferece tempo, companhia e habilidades</p>
+          </button>
+
+          <button
+            onClick={() => setSelected('instituicao')}
+            className={`relative text-left p-6 rounded-2xl border-2 transition-all ${
+              selected === 'instituicao'
+                ? 'border-indigo-600 bg-white shadow-lg shadow-indigo-100'
+                : 'border-gray-200 bg-white hover:border-indigo-300'
+            }`}
+          >
+            {selected === 'instituicao' && (
+              <div className="absolute top-4 right-4">
+                <CheckCircle className="w-5 h-5 text-indigo-600 fill-indigo-100" />
+              </div>
+            )}
+            <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center mb-4">
+              <Building2 className="w-6 h-6 text-indigo-600" />
+            </div>
+            <h3 className="text-gray-800 mb-2">Sou Hospital / ONG</h3>
+            <p className="text-gray-500 text-sm leading-relaxed mb-4">
+              Quero acompanhar pacientes ou assistidos, publicar sonhos com responsabilidade e intermediar conexões seguras com apoiadores.
+            </p>
+            <div className="space-y-1.5">
+              {['Cadastrar pacientes acompanhados', 'Publicar sonhos em nome deles', 'Filtrar propostas e conduzir o contato'].map(item => (
+                <div key={item} className="flex items-center gap-2 text-xs text-gray-500">
+                  <CheckCircle className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  {item}
+                </div>
+              ))}
             </div>
           </button>
         </div>
@@ -101,7 +140,9 @@ export default function ProfileSelect() {
             ${selected
               ? selected === 'paciente'
                 ? 'bg-pink-600 hover:bg-pink-700 text-white'
-                : 'bg-teal-600 hover:bg-teal-700 text-white'
+                : selected === 'apoiador'
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
         >
