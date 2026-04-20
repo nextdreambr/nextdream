@@ -88,7 +88,9 @@ describe('Register', () => {
       });
     });
 
-    expect(loginMock).toHaveBeenCalled();
-    expect(navigateMock).toHaveBeenCalledWith('/instituicao/dashboard');
+    await waitFor(() => {
+      expect(loginMock).toHaveBeenCalled();
+      expect(navigateMock).toHaveBeenCalledWith('/instituicao/dashboard');
+    });
   });
 });

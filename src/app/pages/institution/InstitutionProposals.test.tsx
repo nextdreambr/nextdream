@@ -21,18 +21,21 @@ vi.mock('../../lib/api', async () => {
     ...actual,
     proposalsApi: {
       ...actual.proposalsApi,
+      accept: vi.fn(),
       listReceivedPage: vi.fn(),
       reject: vi.fn(),
     },
   };
 });
 
+const acceptProposalMock = vi.mocked(proposalsApi.accept);
 const listReceivedPageMock = vi.mocked(proposalsApi.listReceivedPage);
 const rejectProposalMock = vi.mocked(proposalsApi.reject);
 
 describe('InstitutionProposals', () => {
   beforeEach(() => {
     navigateMock.mockReset();
+    acceptProposalMock.mockReset();
     listReceivedPageMock.mockReset();
     rejectProposalMock.mockReset();
   });
@@ -97,12 +100,52 @@ describe('InstitutionProposals', () => {
     );
 
     expect(await screen.findByText('Apoiador Um')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/buscar propostas/i)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /buscar propostas/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /filtrar por status/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /recusar proposta de apoiador um/i }));
 
     await waitFor(() => {
       expect(rejectProposalMock).toHaveBeenCalledWith('proposal-1');
+    });
+  });
+
+  it('disables both proposal actions while a rejection is in flight', async () => {
+    listReceivedPageMock.mockResolvedValue({
+      items: [{
+        id: 'proposal-1',
+        dreamId: 'dream-1',
+        dreamTitle: 'Oficina de musica suave',
+        supporterId: 'supporter-1',
+        supporterName: 'Apoiador Um',
+        message: 'Posso conduzir a oficina.',
+        offering: 'Atividade musical guiada',
+        availability: 'Quartas à tarde',
+        duration: '90 minutos',
+        status: 'enviada',
+        createdAt: '2026-04-19T10:00:00.000Z',
+      }],
+      page: 1,
+      pageSize: 6,
+      total: 1,
+      totalPages: 1,
+    });
+    rejectProposalMock.mockImplementation(() => new Promise(() => {}));
+
+    render(
+      <MemoryRouter>
+        <InstitutionProposals />
+      </MemoryRouter>,
+    );
+
+    const acceptButton = await screen.findByRole('button', { name: /aceitar/i });
+    const rejectButton = screen.getByRole('button', { name: /recusar proposta de apoiador um/i });
+
+    fireEvent.click(rejectButton);
+
+    await waitFor(() => {
+      expect(acceptButton).toBeDisabled();
+      expect(rejectButton).toBeDisabled();
     });
   });
 });

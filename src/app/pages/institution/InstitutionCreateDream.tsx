@@ -40,6 +40,12 @@ export default function InstitutionCreateDream() {
           setPrivacy(dream.privacy);
           setManagedPatientId(dream.managedPatientId ?? data[0]?.id ?? '');
         } else {
+          setTitle('');
+          setDescription('');
+          setCategory(DREAM_CATEGORIES[0] ?? 'Outro');
+          setFormat('presencial');
+          setUrgency('media');
+          setPrivacy('publico');
           setManagedPatientId(data[0]?.id ?? '');
         }
       } catch (err) {
@@ -56,7 +62,7 @@ export default function InstitutionCreateDream() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [id]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

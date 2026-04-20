@@ -109,7 +109,7 @@ export function InstitutionLayout() {
           <aside className="w-64 h-full bg-white p-4" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <img src={logoImg} alt="NextDream" className="h-7 w-auto" />
-              <button onClick={() => setSidebarOpen(false)}><X className="w-5 h-5" /></button>
+              <button type="button" aria-label="Fechar menu" onClick={() => setSidebarOpen(false)}><X className="w-5 h-5" /></button>
             </div>
 
             <div className="flex items-center gap-3 mb-5 px-1 py-3 border-b border-indigo-50">
@@ -163,7 +163,7 @@ export function InstitutionLayout() {
 
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         <header className="sticky top-0 z-20 bg-white border-b border-indigo-100 px-4 sm:px-6 h-14 flex items-center justify-between">
-          <button className="md:hidden p-1.5 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(true)}>
+          <button type="button" aria-label="Abrir menu" className="md:hidden p-1.5 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5 text-gray-600" />
           </button>
           <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">

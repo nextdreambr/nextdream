@@ -44,7 +44,7 @@ export class Dream {
   privacy!: DreamPrivacy;
 
   @ManyToOne(() => User, (user) => user.dreams, { eager: true, onDelete: 'CASCADE' })
-  patient?: User;
+  patient!: User;
 
   @Column({ type: 'varchar' })
   patientId!: string;

@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppProvider, useApp } from './AppContext';
 
 function ContextProbe() {
@@ -16,6 +16,14 @@ function ContextProbe() {
 }
 
 describe('AppProvider', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
   it('restores a cookie-based auth session that only stores the user payload', () => {
     localStorage.setItem(
       'nextdream.auth.session',

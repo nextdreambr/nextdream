@@ -21,13 +21,15 @@ const typeBg: Record<string, string> = {
 
 function timeAgo(dateStr: string): string {
   const date = new Date(dateStr);
-  const now = new Date('2026-04-18');
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 0) return date.toLocaleDateString('pt-BR');
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   if (diffDays === 0) return 'Hoje';
   if (diffDays === 1) return 'Ontem';
   if (diffDays < 7) return `${diffDays} dias atrás`;
-  return dateStr.split(' ')[0];
+  return date.toLocaleDateString('pt-BR');
 }
 
 export default function InstitutionNotifications() {
@@ -77,10 +79,11 @@ export default function InstitutionNotifications() {
       {notifications.length > 0 && (
         <div className="bg-white rounded-2xl border border-indigo-100 overflow-hidden divide-y divide-gray-50">
           {notifications.map((notification) => (
-            <div
+            <button
+              type="button"
               key={notification.id}
               onClick={() => handleClick(notification)}
-              className={`flex items-start gap-4 p-4 transition-colors cursor-pointer hover:bg-gray-50 ${!notification.read ? 'bg-indigo-50/40' : ''}`}
+              className={`flex w-full items-start gap-4 border-0 bg-transparent p-4 text-left transition-colors cursor-pointer hover:bg-gray-50 ${!notification.read ? 'bg-indigo-50/40' : ''}`}
             >
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${typeBg[notification.type] ?? 'bg-gray-50'}`}>
                 {typeIcon[notification.type] ?? <Bell className="w-4 h-4 text-gray-400" />}
@@ -102,7 +105,7 @@ export default function InstitutionNotifications() {
                   )}
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

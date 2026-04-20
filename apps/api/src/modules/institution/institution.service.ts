@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -116,11 +117,15 @@ export class InstitutionService {
 
   async createPatient(currentUser: JwtPayload, dto: CreateManagedPatientDto) {
     const institution = await this.requireApprovedInstitution(currentUser.sub);
+    const name = dto.name.trim();
+    if (!name) {
+      throw new BadRequestException('Patient name is required');
+    }
 
     const patient = this.managedPatientsRepository.create({
       institution,
       institutionId: institution.id,
-      name: dto.name.trim(),
+      name,
       state: normalizeLocationPart(dto.state),
       city: normalizeLocationPart(dto.city),
     });
@@ -141,7 +146,11 @@ export class InstitutionService {
     }
 
     if (dto.name !== undefined) {
-      patient.name = dto.name.trim();
+      const name = dto.name.trim();
+      if (!name) {
+        throw new BadRequestException('Patient name is required');
+      }
+      patient.name = name;
     }
     if (dto.state !== undefined) {
       patient.state = normalizeLocationPart(dto.state);

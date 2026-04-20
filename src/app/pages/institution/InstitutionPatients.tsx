@@ -85,6 +85,10 @@ export default function InstitutionPatients() {
     if (!form.name.trim()) {
       return;
     }
+    if (hasIncompleteLocation) {
+      setError('Preencha estado e cidade juntos ou deixe ambos em branco.');
+      return;
+    }
 
     setSaving(true);
     setError('');
@@ -130,8 +134,10 @@ export default function InstitutionPatients() {
         </div>
 
         <div className="w-full lg:w-80 relative">
+          <label htmlFor="institution-patients-search" className="sr-only">Buscar pacientes</label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
+            id="institution-patients-search"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);

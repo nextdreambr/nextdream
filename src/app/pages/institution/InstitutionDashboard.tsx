@@ -11,11 +11,14 @@ export default function InstitutionDashboard() {
 
   useEffect(() => {
     if (!currentUser?.approved) {
+      setOverview(null);
+      setError('');
       return;
     }
 
     let mounted = true;
     async function load() {
+      setError('');
       try {
         const data = await institutionApi.overview();
         if (mounted) {
@@ -31,7 +34,7 @@ export default function InstitutionDashboard() {
     return () => {
       mounted = false;
     };
-  }, [currentUser?.approved]);
+  }, [currentUser?.approved, currentUser?.id]);
 
   if (!currentUser) {
     return null;

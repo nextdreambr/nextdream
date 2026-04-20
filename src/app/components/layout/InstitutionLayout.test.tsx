@@ -64,5 +64,6 @@ describe('InstitutionLayout', () => {
     expect(screen.getAllByText('Pacientes').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /notificações/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /pacientes/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /abrir menu/i })).toBeInTheDocument();
   });
 });

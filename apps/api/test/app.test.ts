@@ -400,6 +400,8 @@ describe('NextDream API', () => {
       passwordHash: await bcrypt.hash(password, 10),
       role: 'admin',
       verified: true,
+      approved: true,
+      approvedAt: new Date(),
     }));
 
     const adminLogin = await request(app.getHttpServer())
@@ -417,6 +419,15 @@ describe('NextDream API', () => {
 
     expect(approveInstitution.status).toBe(200);
     expect(approveInstitution.body.approved).toBe(true);
+
+    const createManagedPatientWithBlankName = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`)
+      .send({
+        name: '   ',
+      });
+
+    expect(createManagedPatientWithBlankName.status).toBe(400);
 
     const createManagedPatient = await request(app.getHttpServer())
       .post('/institution/patients')
@@ -1285,6 +1296,8 @@ describe('NextDream API', () => {
         passwordHash: await bcrypt.hash(password, 10),
         role: 'admin',
         verified: true,
+        approved: true,
+        approvedAt: new Date(),
         suspended: false,
       }),
     );
@@ -1381,11 +1394,51 @@ describe('NextDream API', () => {
       .send({ body: 'Combinado, estarei lá no horário.' });
     expect(postSupporterMessage.status).toBe(201);
 
+    const patientNotificationsBeforeAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
+    expect(patientNotificationsBeforeAdminMessage.status).toBe(200);
+
+    const supporterNotificationsBeforeAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
+    expect(supporterNotificationsBeforeAdminMessage.status).toBe(200);
+
+    const patientMessageNotificationsBeforeAdmin = patientNotificationsBeforeAdminMessage.body.filter(
+      (item: { type: string }) => item.type === 'mensagem',
+    ).length;
+    const supporterMessageNotificationsBeforeAdmin = supporterNotificationsBeforeAdminMessage.body.filter(
+      (item: { type: string }) => item.type === 'mensagem',
+    ).length;
+
+    const postAdminMessage = await request(app.getHttpServer())
+      .post(`/conversations/${conversationId}/messages`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
+      .send({ body: 'Mensagem da moderação para os dois lados.' });
+    expect(postAdminMessage.status).toBe(201);
+
+    const patientNotificationsAfterAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
+    expect(patientNotificationsAfterAdminMessage.status).toBe(200);
+
+    const supporterNotificationsAfterAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
+    expect(supporterNotificationsAfterAdminMessage.status).toBe(200);
+
+    expect(
+      patientNotificationsAfterAdminMessage.body.filter((item: { type: string }) => item.type === 'mensagem').length,
+    ).toBe(patientMessageNotificationsBeforeAdmin + 1);
+    expect(
+      supporterNotificationsAfterAdminMessage.body.filter((item: { type: string }) => item.type === 'mensagem').length,
+    ).toBe(supporterMessageNotificationsBeforeAdmin + 1);
+
     const listMessages = await request(app.getHttpServer())
       .get(`/conversations/${conversationId}/messages`)
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(listMessages.status).toBe(200);
-    expect(listMessages.body).toHaveLength(2);
+    expect(listMessages.body).toHaveLength(3);
 
     const closeConversation = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/close`)
@@ -1432,6 +1485,8 @@ describe('NextDream API', () => {
         passwordHash: await bcrypt.hash(password, 10),
         role: 'admin',
         verified: true,
+        approved: true,
+        approvedAt: new Date(),
         suspended: false,
       }),
     );

@@ -82,15 +82,18 @@ describe('apiRequest', () => {
       text: async () => JSON.stringify({ message: 'Missing authentication token' }),
     } as Response);
 
-    await expect(apiRequest('/institution/patients')).rejects.toEqual(
-      expect.objectContaining<ApiError>({
-        name: 'ApiError',
-        status: 401,
-        message: 'Missing authentication token',
-      }),
-    );
+    try {
+      await expect(apiRequest('/institution/patients')).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Missing authentication token',
+        }),
+      );
 
-    expect(listener).toHaveBeenCalledTimes(1);
-    window.removeEventListener('nextdream:auth-expired', listener);
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
   });
 });

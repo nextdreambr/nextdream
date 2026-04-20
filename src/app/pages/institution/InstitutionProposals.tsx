@@ -31,6 +31,7 @@ export default function InstitutionProposals() {
 
   async function loadProposals(nextPage = page, nextQuery = query, nextStatus = status) {
     setLoading(true);
+    setError('');
     try {
       const data = await proposalsApi.listReceivedPage({
         page: nextPage,
@@ -95,8 +96,10 @@ export default function InstitutionProposals() {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
         <div className="relative">
+          <label htmlFor="institution-proposals-search" className="sr-only">Buscar propostas</label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
+            id="institution-proposals-search"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -106,7 +109,9 @@ export default function InstitutionProposals() {
             className="w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
           />
         </div>
+        <label htmlFor="institution-proposals-status" className="sr-only">Filtrar por status</label>
         <select
+          id="institution-proposals-status"
           value={status}
           onChange={(event) => {
             setStatus(event.target.value as Proposal['status'] | '');
@@ -136,6 +141,7 @@ export default function InstitutionProposals() {
         <div className="space-y-3">
           {proposals.map((proposal) => {
             const isPending = proposal.status === 'em-analise' || proposal.status === 'enviada';
+            const isMutating = acceptingId === proposal.id || rejectingId === proposal.id;
 
             return (
               <div key={proposal.id} className="bg-white rounded-2xl border border-indigo-100 p-5">
@@ -166,7 +172,7 @@ export default function InstitutionProposals() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleAccept(proposal.id)}
-                      disabled={acceptingId === proposal.id}
+                      disabled={isMutating}
                       className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
                     >
                       {acceptingId === proposal.id ? (
@@ -178,7 +184,7 @@ export default function InstitutionProposals() {
                     <button
                       onClick={() => handleReject(proposal.id)}
                       aria-label={`Recusar proposta de ${proposal.supporterName ?? 'Apoiador'}`}
-                      disabled={rejectingId === proposal.id}
+                      disabled={isMutating}
                       className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm hover:bg-gray-50 transition-colors flex items-center gap-1.5"
                     >
                       {rejectingId === proposal.id ? (

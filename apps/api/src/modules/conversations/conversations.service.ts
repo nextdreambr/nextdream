@@ -98,23 +98,26 @@ export class ConversationsService {
 
     const saved = await this.messagesRepository.save(message);
 
-    const receiverId = conversation.patientId === currentUser.sub
-      ? conversation.supporterId
-      : conversation.patientId;
-    const receiver = await this.usersRepository.findOneBy({ id: receiverId });
-    const receiverPath = receiver?.role === 'instituicao'
-      ? `/instituicao/chat?conversationId=${conversation.id}`
-      : receiverId === conversation.patientId
-        ? `/paciente/chat?conversationId=${conversation.id}`
-        : `/apoiador/chat?conversationId=${conversation.id}`;
+    const receiverIds = currentUser.role === 'admin'
+      ? [conversation.patientId, conversation.supporterId]
+      : [conversation.patientId === currentUser.sub ? conversation.supporterId : conversation.patientId];
 
-    await this.notificationsService.createNotification({
-      userId: receiverId,
-      type: 'mensagem',
-      title: 'Nova mensagem no chat',
-      message: 'Você recebeu uma nova mensagem em uma conversa ativa.',
-      actionPath: receiverPath,
-    });
+    for (const receiverId of new Set(receiverIds)) {
+      const receiver = await this.usersRepository.findOneBy({ id: receiverId });
+      const receiverPath = receiver?.role === 'instituicao'
+        ? `/instituicao/chat?conversationId=${conversation.id}`
+        : receiverId === conversation.patientId
+          ? `/paciente/chat?conversationId=${conversation.id}`
+          : `/apoiador/chat?conversationId=${conversation.id}`;
+
+      await this.notificationsService.createNotification({
+        userId: receiverId,
+        type: 'mensagem',
+        title: 'Nova mensagem no chat',
+        message: 'Você recebeu uma nova mensagem em uma conversa ativa.',
+        actionPath: receiverPath,
+      });
+    }
 
     return this.serializeMessage(saved);
   }

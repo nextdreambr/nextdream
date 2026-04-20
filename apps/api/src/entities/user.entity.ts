@@ -45,7 +45,7 @@ export class User {
   @Column({ type: 'boolean', default: true })
   verified!: boolean;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: 'boolean', default: false })
   approved!: boolean;
 
   @Column({ type: process.env.NODE_ENV === 'test' ? 'datetime' : 'timestamp', nullable: true })

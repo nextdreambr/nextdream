@@ -16,13 +16,13 @@ export class ManagedPatient {
   @PrimaryColumn('varchar')
   id!: string;
 
-  @ManyToOne(() => User, (user) => user.managedPatients, { eager: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.managedPatients, { onDelete: 'CASCADE' })
   institution!: User;
 
   @Column({ type: 'varchar' })
   institutionId!: string;
 
-  @ManyToOne(() => User, { eager: true, nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   linkedUser?: User;
 
   @Column({ type: 'varchar', nullable: true })

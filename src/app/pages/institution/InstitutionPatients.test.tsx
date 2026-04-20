@@ -158,7 +158,7 @@ describe('InstitutionPatients', () => {
     expect(await screen.findByText('Maria das Dores')).toBeInTheDocument();
     expect(screen.getByText('Recife, PE')).toBeInTheDocument();
 
-    expect(screen.getByPlaceholderText(/buscar pacientes/i)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /buscar pacientes/i })).toBeInTheDocument();
     expect(screen.getByText(/página 1 de 2/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /editar maria das dores/i }));
@@ -187,5 +187,31 @@ describe('InstitutionPatients', () => {
         query: '',
       });
     });
+  });
+
+  it('blocks programmatic submit when the location is incomplete', async () => {
+    listPatientsPageMock.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 2,
+      total: 0,
+      totalPages: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <InstitutionPatients />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(/nenhum paciente acompanhado ainda/i);
+
+    fireEvent.change(screen.getByLabelText(/nome do paciente/i), { target: { value: 'Maria das Dores' } });
+    fireEvent.change(screen.getByLabelText(/^estado$/i), { target: { value: 'PE' } });
+
+    fireEvent.submit(screen.getByRole('button', { name: /adicionar paciente/i }).closest('form') as HTMLFormElement);
+
+    expect(createPatientMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/preencha estado e cidade juntos ou deixe ambos em branco/i)).toBeInTheDocument();
   });
 });

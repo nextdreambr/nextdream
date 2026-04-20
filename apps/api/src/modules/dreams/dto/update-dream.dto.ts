@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { DreamFormat, DreamPrivacy, DreamUrgency } from '../../../entities/dream.entity';
 
 export class UpdateDreamDto {
@@ -27,6 +27,6 @@ export class UpdateDreamDto {
   privacy?: DreamPrivacy;
 
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   managedPatientId?: string;
 }

@@ -81,4 +81,60 @@ describe('InstitutionDashboard', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
   });
+
+  it('reloads the overview when the approved institution account changes', async () => {
+    overviewMock
+      .mockResolvedValueOnce({
+        managedPatients: 3,
+        dreams: 2,
+        proposals: 4,
+        activeConversations: 1,
+      })
+      .mockResolvedValueOnce({
+        managedPatients: 5,
+        dreams: 1,
+        proposals: 2,
+        activeConversations: 0,
+      });
+
+    useAppMock.mockReturnValue({
+      currentUser: {
+        id: 'institution-1',
+        name: 'Casa Esperanca',
+        role: 'instituicao',
+        approved: true,
+      },
+    });
+
+    const view = render(
+      <MemoryRouter>
+        <InstitutionDashboard />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(overviewMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
+    useAppMock.mockReturnValue({
+      currentUser: {
+        id: 'institution-2',
+        name: 'Outra Casa',
+        role: 'instituicao',
+        approved: true,
+      },
+    });
+
+    view.rerender(
+      <MemoryRouter>
+        <InstitutionDashboard />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(overviewMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('5')).toBeInTheDocument();
+    });
+  });
 });
