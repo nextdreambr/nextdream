@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
 
-export class AcceptAdminInviteDto {
+export class AcceptPatientInviteDto {
   @IsEmail()
   email!: string;
 

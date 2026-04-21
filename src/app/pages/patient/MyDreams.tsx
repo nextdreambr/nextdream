@@ -212,12 +212,13 @@ export default function MyDreams() {
         <div className="grid sm:grid-cols-2 gap-6 mt-8">
           {filtered.map(dream => {
             const theme = categoryTheme[dream.category] || categoryTheme['Outro'];
+            const dreamLink = dream.canEdit === false ? `/paciente/sonhos/${dream.id}` : `/paciente/sonhos/editar/${dream.id}`;
             return (
               <div
                 key={dream.id}
                 className="group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full relative"
               >
-                <Link to={`/paciente/sonhos/${dream.id}`} className="block flex-1 flex flex-col">
+                <Link to={dreamLink} className="block flex-1 flex flex-col">
                   <div className="relative h-48 overflow-hidden">
                     <ImageWithFallback
                       src={theme.img}
@@ -241,6 +242,11 @@ export default function MyDreams() {
                     <div className="mb-3">
                       <DreamStatusBadge status={dream.status} />
                     </div>
+                    {dream.managedByInstitution && dream.institutionName && (
+                      <p className="text-xs text-indigo-600 mb-2">
+                        Caso acompanhado por {dream.institutionName}
+                      </p>
+                    )}
                     <h3 className="text-lg font-bold text-gray-900 mb-2 leading-snug group-hover:text-pink-600 transition-colors line-clamp-2">
                       {dream.title}
                     </h3>
@@ -251,21 +257,24 @@ export default function MyDreams() {
                       <span className="inline-flex items-center gap-1.5 text-gray-400 text-xs font-medium">
                         {dream.format === 'remoto' ? '💻 Online' : dream.format === 'presencial' ? '📍 Presencial' : '🤝 Ambos'}
                       </span>
-                      <span className="text-pink-600 text-xs font-bold hover:text-pink-700">Ver detalhes →</span>
+                      <span className="text-pink-600 text-xs font-bold hover:text-pink-700">
+                        {dream.canEdit === false ? 'Ver caso →' : 'Editar sonho →'}
+                      </span>
                     </div>
                   </div>
                 </Link>
-                {/* Botão de Edição Flutuante */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(`/paciente/sonhos/editar/${dream.id}`);
-                  }}
-                  className="absolute bottom-6 right-6 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 hover:bg-pink-50 shadow-sm transition-all z-10"
-                  title="Editar sonho"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
+                {dream.canEdit !== false && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(`/paciente/sonhos/editar/${dream.id}`);
+                    }}
+                    className="absolute bottom-6 right-6 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 hover:bg-pink-50 shadow-sm transition-all z-10"
+                    title="Editar sonho"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             );
           })}

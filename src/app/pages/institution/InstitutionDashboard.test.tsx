@@ -26,6 +26,23 @@ vi.mock('../../lib/api', async () => {
 
 const overviewMock = vi.mocked(institutionApi.overview);
 
+function buildOverview(overrides: Partial<Awaited<ReturnType<typeof institutionApi.overview>>> = {}) {
+  return {
+    managedPatients: 0,
+    linkedPatients: 0,
+    pendingAccessInvites: 0,
+    dreams: 0,
+    dreamsPublished: 0,
+    dreamsInConversation: 0,
+    proposals: 0,
+    pendingProposals: 0,
+    acceptedProposals: 0,
+    activeConversations: 0,
+    supporterConnections: 0,
+    ...overrides,
+  };
+}
+
 describe('InstitutionDashboard', () => {
   beforeEach(() => {
     overviewMock.mockReset();
@@ -63,9 +80,16 @@ describe('InstitutionDashboard', () => {
     });
     overviewMock.mockResolvedValue({
       managedPatients: 3,
+      linkedPatients: 1,
+      pendingAccessInvites: 1,
       dreams: 2,
+      dreamsPublished: 2,
+      dreamsInConversation: 1,
       proposals: 4,
+      pendingProposals: 2,
+      acceptedProposals: 2,
       activeConversations: 1,
+      supporterConnections: 2,
     });
 
     render(
@@ -76,26 +100,25 @@ describe('InstitutionDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /pacientes acompanhados/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /propostas recebidas/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /propostas pendentes/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /apoiadores com propostas/i })).toBeInTheDocument();
     });
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('reloads the overview when the approved institution account changes', async () => {
     overviewMock
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce(buildOverview({
         managedPatients: 3,
         dreams: 2,
         proposals: 4,
         activeConversations: 1,
-      })
-      .mockResolvedValueOnce({
+      }))
+      .mockResolvedValueOnce(buildOverview({
         managedPatients: 5,
         dreams: 1,
         proposals: 2,
         activeConversations: 0,
-      });
+      }));
 
     useAppMock.mockReturnValue({
       currentUser: {

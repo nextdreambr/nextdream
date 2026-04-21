@@ -88,9 +88,16 @@ describe('InstitutionProfile', () => {
     });
     overviewMock.mockResolvedValue({
       managedPatients: 4,
+      linkedPatients: 2,
+      pendingAccessInvites: 1,
       dreams: 3,
+      dreamsPublished: 2,
+      dreamsInConversation: 1,
       proposals: 5,
+      pendingProposals: 2,
+      acceptedProposals: 1,
       activeConversations: 1,
+      supporterConnections: 3,
     });
     getPreferencesMock.mockResolvedValue({ emailEnabled: true });
     updateProfileMock.mockResolvedValue({

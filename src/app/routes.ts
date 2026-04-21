@@ -23,6 +23,7 @@ import Register from './pages/auth/Register';
 import ProfileSelect from './pages/auth/ProfileSelect';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import AcceptAdminInvite from './pages/auth/AcceptAdminInvite';
+import AcceptPatientInvite from './pages/auth/AcceptPatientInvite';
 import NotFound from './pages/NotFound';
 import PublicDreamDetail from './pages/PublicDreamDetail';
 import Contact from './pages/Contact';
@@ -56,6 +57,7 @@ import SupporterNotifications from './pages/supporter/SupporterNotifications';
 // Institution pages
 import InstitutionDashboard from './pages/institution/InstitutionDashboard';
 import InstitutionPatients from './pages/institution/InstitutionPatients';
+import InstitutionPatientDetail from './pages/institution/InstitutionPatientDetail';
 import InstitutionDreams from './pages/institution/InstitutionDreams';
 import InstitutionCreateDream from './pages/institution/InstitutionCreateDream';
 import InstitutionProposals from './pages/institution/InstitutionProposals';
@@ -97,6 +99,7 @@ export const router = createBrowserRouter([
           { path: 'selecionar-perfil', Component: ProfileSelect },
           { path: 'esqueci-senha', Component: ForgotPassword },
           { path: 'aceitar-convite-admin', Component: AcceptAdminInvite },
+          { path: 'aceitar-convite-paciente', Component: AcceptPatientInvite },
           { path: 'sonhos/:id', Component: PublicDreamDetail },
           { path: 'contato', Component: Contact },
           { path: 'parcerias', Component: Partnerships },
@@ -150,6 +153,7 @@ export const router = createBrowserRouter([
           { index: true, Component: InstitutionDashboard },
           { path: 'dashboard', Component: InstitutionDashboard },
           { path: 'pacientes', Component: InstitutionPatients },
+          { path: 'pacientes/:managedPatientId', Component: InstitutionPatientDetail },
           { path: 'sonhos', Component: InstitutionDreams },
           { path: 'sonhos/criar', Component: InstitutionCreateDream },
           { path: 'sonhos/editar/:id', Component: InstitutionCreateDream },

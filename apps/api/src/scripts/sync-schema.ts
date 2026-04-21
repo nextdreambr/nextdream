@@ -11,6 +11,7 @@ import { Dream } from '../entities/dream.entity';
 import { ManagedPatient } from '../entities/managed-patient.entity';
 import { Message } from '../entities/message.entity';
 import { Notification } from '../entities/notification.entity';
+import { PatientInvite } from '../entities/patient-invite.entity';
 import { Proposal } from '../entities/proposal.entity';
 import { User } from '../entities/user.entity';
 
@@ -63,6 +64,7 @@ async function run() {
       ManagedPatient,
       Message,
       Notification,
+      PatientInvite,
       AdminContactMessage,
       AdminInvite,
       AdminReport,

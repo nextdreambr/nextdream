@@ -16,13 +16,16 @@ describe('local seed assets', () => {
     expect(syncSchemaScript).toContain('const candidateRoots = [');
     expect(syncSchemaScript).toContain("resolve(process.cwd(), '..', '..', '..', '..')");
     expect(syncSchemaScript).toContain("import { ManagedPatient } from '../entities/managed-patient.entity';");
+    expect(syncSchemaScript).toContain("import { PatientInvite } from '../entities/patient-invite.entity';");
     expect(syncSchemaScript).toMatch(/entities:\s*\[[\s\S]*ManagedPatient[\s\S]*\]/);
+    expect(syncSchemaScript).toMatch(/entities:\s*\[[\s\S]*PatientInvite[\s\S]*\]/);
   });
 
   it('provisions an approved institution with several managed patients, dreams, proposals and profile metadata', () => {
     const seedScript = readRepoFile('apps/api/src/scripts/seed-local.ts');
 
     expect(seedScript).toContain("import { ManagedPatient } from '../entities/managed-patient.entity';");
+    expect(seedScript).toContain("import { PatientInvite } from '../entities/patient-invite.entity';");
     expect(seedScript).toContain('const candidateRoots = [');
     expect(seedScript).toContain("resolve(process.cwd(), '..', '..', '..', '..')");
     expect(seedScript).toContain('managed_patients');
@@ -37,6 +40,11 @@ describe('local seed assets', () => {
     expect(seedScript).toContain("id: '33333333-3333-4333-8333-333333333333'");
     expect(seedScript).toContain("id: '44444444-4444-4444-8444-444444444444'");
     expect(seedScript).toContain("institutionId: 'u-instituicao-1'");
+    expect(seedScript).toContain("linkedUserId: 'u-paciente-inst-1'");
+    expect(seedScript).toContain("id: 'u-paciente-inst-1'");
+    expect(seedScript).toContain("email: 'paciente-instituicao@nextdream.local'");
+    expect(seedScript).toContain("id: 'pi-demo-1'");
+    expect(seedScript).toContain("email: 'convite-paciente@nextdream.local'");
     expect(seedScript).toContain("id: 'd-demo-inst-1'");
     expect(seedScript).toContain("id: 'd-demo-inst-2'");
     expect(seedScript).toContain("id: 'd-demo-inst-3'");
@@ -47,5 +55,6 @@ describe('local seed assets', () => {
     expect(seedScript).toContain("id: 'pr-demo-inst-3'");
     expect(seedScript).toContain("status: 'recusada'");
     expect(seedScript).toContain("id: 'c-demo-inst-1'");
+    expect(seedScript).toContain("id: 'n-demo-5'");
   });
 });
