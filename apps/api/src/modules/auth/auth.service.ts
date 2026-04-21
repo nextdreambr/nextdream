@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { AdminInvite } from '../../entities/admin-invite.entity';
 import { ManagedPatient } from '../../entities/managed-patient.entity';
@@ -179,44 +179,73 @@ export class AuthService {
       throw new UnauthorizedException('Invalid invite token');
     }
 
-    const existing = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
-    if (existing) {
-      throw new ConflictException('Email already registered');
-    }
-
-    const managedPatient = await this.managedPatientsRepository.findOne({
-      where: { id: invite.managedPatientId, institutionId: invite.institutionId },
-    });
-    if (!managedPatient) {
-      throw new BadRequestException('Invite is no longer valid');
-    }
-    if (managedPatient.linkedUserId) {
-      throw new ConflictException('Patient access has already been activated');
-    }
-
-    const user = this.usersRepository.create({
-      name: dto.name.trim(),
-      email: normalizedEmail,
-      passwordHash: await bcrypt.hash(dto.password, 10),
-      role: 'paciente',
-      state: managedPatient.state,
-      city: managedPatient.city,
-      verified: true,
-      approved: true,
-      approvedAt: new Date(),
-      suspended: false,
-    });
+    const passwordHash = await bcrypt.hash(dto.password, 10);
     const saved = await this.dataSource.transaction(async (manager) => {
       const txUsersRepository = manager.getRepository(User);
       const txManagedPatientsRepository = manager.getRepository(ManagedPatient);
       const txPatientInvitesRepository = manager.getRepository(PatientInvite);
+      const now = new Date();
+      const transactionInvite = await txPatientInvitesRepository.findOne({
+        where: { id: invite.id, email: normalizedEmail },
+      });
+      if (!transactionInvite) {
+        throw new BadRequestException('Invalid or expired invite');
+      }
+      if (transactionInvite.expiresAt <= now) {
+        throw new BadRequestException('Invite is no longer valid');
+      }
+      if (transactionInvite.usedAt) {
+        throw new ConflictException('Patient access has already been activated');
+      }
+
+      const transactionManagedPatient = await txManagedPatientsRepository.findOne({
+        where: { id: transactionInvite.managedPatientId, institutionId: transactionInvite.institutionId },
+      });
+      if (!transactionManagedPatient) {
+        throw new BadRequestException('Invite is no longer valid');
+      }
+      if (transactionManagedPatient.linkedUserId) {
+        throw new ConflictException('Patient access has already been activated');
+      }
+
+      const existing = await txUsersRepository.findOne({ where: { email: normalizedEmail } });
+      if (existing) {
+        throw new ConflictException('Email already registered');
+      }
+
+      const inviteMarked = await txPatientInvitesRepository.update(
+        { id: transactionInvite.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+      if (inviteMarked.affected !== 1) {
+        throw new ConflictException('Patient access has already been activated');
+      }
+
+      const user = this.usersRepository.create({
+        name: dto.name.trim(),
+        email: normalizedEmail,
+        passwordHash,
+        role: 'paciente',
+        state: transactionManagedPatient.state,
+        city: transactionManagedPatient.city,
+        verified: true,
+        approved: true,
+        approvedAt: new Date(),
+        suspended: false,
+      });
       const transactionSavedUser = await txUsersRepository.save(user);
 
-      managedPatient.linkedUserId = transactionSavedUser.id;
-      await txManagedPatientsRepository.save(managedPatient);
-
-      invite.usedAt = new Date();
-      await txPatientInvitesRepository.save(invite);
+      const managedPatientLinked = await txManagedPatientsRepository.update(
+        {
+          id: transactionManagedPatient.id,
+          institutionId: transactionInvite.institutionId,
+          linkedUserId: IsNull(),
+        },
+        { linkedUserId: transactionSavedUser.id },
+      );
+      if (managedPatientLinked.affected !== 1) {
+        throw new ConflictException('Patient access has already been activated');
+      }
 
       return transactionSavedUser;
     });

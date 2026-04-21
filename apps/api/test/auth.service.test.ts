@@ -1,5 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
+import { ConflictException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { ManagedPatient } from '../src/entities/managed-patient.entity';
@@ -39,7 +40,7 @@ describe('AuthService.acceptPatientInvite', () => {
     process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
   });
 
-  it('commits all invite activation writes in one transaction and sends email after commit', async () => {
+  it('revalidates invite state inside one transaction, marks it atomically and sends email after commit', async () => {
     const events: string[] = [];
     const invite = {
       id: 'invite-1',
@@ -80,21 +81,33 @@ describe('AuthService.acceptPatientInvite', () => {
     });
 
     const txUsersRepository = {
+      findOne: vi.fn(async () => {
+        events.push('read-user');
+        return null;
+      }),
       save: vi.fn(async (user: User) => {
         events.push('save-user');
         return user;
       }),
     };
     const txManagedPatientsRepository = {
-      save: vi.fn(async (patient: ManagedPatient) => {
-        events.push('save-managed-patient');
-        return patient;
+      findOne: vi.fn(async () => {
+        events.push('read-managed-patient');
+        return managedPatient;
+      }),
+      update: vi.fn(async () => {
+        events.push('link-managed-patient');
+        return { affected: 1 };
       }),
     };
     const txPatientInvitesRepository = {
-      save: vi.fn(async (patientInvite: PatientInvite) => {
-        events.push('save-patient-invite');
-        return patientInvite;
+      findOne: vi.fn(async () => {
+        events.push('read-invite');
+        return invite;
+      }),
+      update: vi.fn(async () => {
+        events.push('mark-invite-used');
+        return { affected: 1 };
       }),
     };
     const dataSource = {
@@ -134,12 +147,26 @@ describe('AuthService.acceptPatientInvite', () => {
     });
 
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(txPatientInvitesRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'invite-1', email: 'patient@example.com' },
+    });
+    expect(txManagedPatientsRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'managed-patient-1', institutionId: 'institution-1' },
+    });
+    expect(txUsersRepository.findOne).toHaveBeenCalledWith({
+      where: { email: 'patient@example.com' },
+    });
     expect(txUsersRepository.save).toHaveBeenCalledWith(createdUser);
-    expect(txManagedPatientsRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ linkedUserId: 'user-1' }),
-    );
-    expect(txPatientInvitesRepository.save).toHaveBeenCalledWith(
+    expect(txPatientInvitesRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'invite-1' }),
       expect.objectContaining({ usedAt: expect.any(Date) }),
+    );
+    expect(txManagedPatientsRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'managed-patient-1',
+        institutionId: 'institution-1',
+      }),
+      { linkedUserId: 'user-1' },
     );
     expect(mailService.sendWelcomeEmail).toHaveBeenCalledWith({
       to: 'patient@example.com',
@@ -147,12 +174,95 @@ describe('AuthService.acceptPatientInvite', () => {
       role: 'paciente',
     });
     expect(events).toEqual([
+      'read-invite',
+      'read-managed-patient',
+      'read-user',
+      'mark-invite-used',
       'save-user',
-      'save-managed-patient',
-      'save-patient-invite',
+      'link-managed-patient',
       'commit',
       'send-email',
     ]);
     expect(result.user.id).toBe('user-1');
+  });
+
+  it('returns a controlled conflict when the managed patient is linked by a concurrent acceptance', async () => {
+    const invite = {
+      id: 'invite-1',
+      email: 'patient@example.com',
+      tokenHash: await bcrypt.hash('InviteToken123!', 1),
+      institutionId: 'institution-1',
+      managedPatientId: 'managed-patient-1',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      usedAt: null,
+    } as unknown as PatientInvite;
+    const managedPatient = {
+      id: 'managed-patient-1',
+      institutionId: 'institution-1',
+      name: 'Paciente Vinculado',
+      state: 'PE',
+      city: 'Recife',
+      linkedUserId: 'existing-user',
+    } as ManagedPatient;
+
+    usersRepository.findOne.mockResolvedValue(null);
+    patientInvitesRepository.findOne.mockResolvedValue(invite);
+    managedPatientsRepository.findOne.mockResolvedValue({
+      ...managedPatient,
+      linkedUserId: undefined,
+    });
+
+    const txUsersRepository = {
+      findOne: vi.fn(async () => null),
+      save: vi.fn(),
+    };
+    const txManagedPatientsRepository = {
+      findOne: vi.fn(async () => managedPatient),
+      update: vi.fn(),
+    };
+    const txPatientInvitesRepository = {
+      findOne: vi.fn(async () => invite),
+      update: vi.fn(),
+    };
+    const dataSource = {
+      transaction: vi.fn(async (callback: (manager: {
+        getRepository: (entity: unknown) => unknown;
+      }) => Promise<unknown>) => {
+        const manager = {
+          getRepository: (entity: unknown) => {
+            if (entity === User) return txUsersRepository;
+            if (entity === ManagedPatient) return txManagedPatientsRepository;
+            if (entity === PatientInvite) return txPatientInvitesRepository;
+            throw new Error(`Unexpected repository request: ${String(entity)}`);
+          },
+        };
+
+        return callback(manager);
+      }),
+    } as unknown as DataSource;
+
+    const service = new (AuthService as any)(
+      usersRepository,
+      adminInvitesRepository,
+      patientInvitesRepository,
+      managedPatientsRepository,
+      jwtService as unknown as JwtService,
+      mailService as unknown as MailService,
+      dataSource,
+    );
+
+    await expect(
+      service.acceptPatientInvite({
+        email: 'patient@example.com',
+        token: 'InviteToken123!',
+        name: 'Paciente Vinculado',
+        password: 'Secret123!',
+      }),
+    ).rejects.toThrow(new ConflictException('Patient access has already been activated'));
+
+    expect(txUsersRepository.save).not.toHaveBeenCalled();
+    expect(txPatientInvitesRepository.update).not.toHaveBeenCalled();
+    expect(txManagedPatientsRepository.update).not.toHaveBeenCalled();
+    expect(mailService.sendWelcomeEmail).not.toHaveBeenCalled();
   });
 });
