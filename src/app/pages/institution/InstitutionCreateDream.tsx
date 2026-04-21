@@ -22,6 +22,12 @@ function checkForMoney(text: string): boolean {
   return BLOCKED_WORDS.some((word) => text.toLowerCase().includes(word));
 }
 
+function getDescriptionWarning(text: string): string {
+  return checkForMoney(text)
+    ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem. 🚫'
+    : '';
+}
+
 export default function InstitutionCreateDream() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,6 +71,7 @@ export default function InstitutionCreateDream() {
           ? dream?.managedPatientId ?? preferredManagedPatientId ?? ''
           : dream?.managedPatientId ?? preferredManagedPatientId ?? patientList[0]?.id ?? '';
         setManagedPatientId(nextManagedPatientId);
+        setWarning(getDescriptionWarning((dream?.description ?? '').trim()));
         setForm((current) => ({
           ...current,
           title: dream?.title ?? '',
@@ -92,7 +99,7 @@ export default function InstitutionCreateDream() {
   }, [id, isEditing, preferredManagedPatientId]);
 
   const handleDescChange = (value: string) => {
-    setWarning(checkForMoney(value) ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem. 🚫' : '');
+    setWarning(getDescriptionWarning(value.trim()));
     setForm((current) => ({ ...current, description: value }));
   };
 
@@ -113,12 +120,21 @@ export default function InstitutionCreateDream() {
       return;
     }
 
+    const trimmedDescription = form.description.trim();
+    const descriptionWarning = getDescriptionWarning(trimmedDescription);
+    setWarning(descriptionWarning);
+    if (descriptionWarning) {
+      setPublishError('Revise a descrição do sonho antes de publicar.');
+      setStep(0);
+      return;
+    }
+
     setPublishing(true);
     setPublishError('');
     try {
       const payload = {
         title: form.title.trim(),
-        description: form.description.trim(),
+        description: trimmedDescription,
         category: form.category,
         format: form.format as 'remoto' | 'presencial' | 'ambos',
         urgency: form.urgency as 'baixa' | 'media' | 'alta',

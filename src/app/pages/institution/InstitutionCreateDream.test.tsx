@@ -190,4 +190,49 @@ describe('InstitutionCreateDream', () => {
     expect(screen.getByLabelText(/paciente acompanhado/i)).toHaveValue('');
     expect(screen.queryByText(/beneficiário do caso/i)).not.toBeInTheDocument();
   });
+
+  it('flags blocked descriptions from the backend before the user interacts', async () => {
+    listPatientsMock.mockResolvedValue([
+      {
+        id: 'managed-1',
+        institutionId: 'institution-1',
+        name: 'Maria das Dores',
+        state: 'PE',
+        city: 'Recife',
+        locationLabel: 'Recife, PE',
+        createdAt: '2026-04-19T10:00:00.000Z',
+        updatedAt: '2026-04-19T10:00:00.000Z',
+      },
+    ]);
+    getDreamByIdMock.mockResolvedValue({
+      id: 'dream-blocked',
+      title: 'Sonho com texto bloqueado',
+      description: 'Preciso de PIX para realizar esse sonho.',
+      category: 'Arte e Música',
+      format: 'presencial',
+      urgency: 'media',
+      privacy: 'publico',
+      status: 'publicado',
+      patientId: 'managed-1',
+      managedPatientId: 'managed-1',
+      managedByInstitution: true,
+      patientName: 'Maria das Dores',
+      patientCity: 'Recife, PE',
+      institutionName: 'Casa Esperanca',
+      createdAt: '2026-04-19T10:00:00.000Z',
+      updatedAt: '2026-04-19T10:00:00.000Z',
+    });
+
+    render(
+      <MemoryRouter>
+        <InstitutionCreateDream />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByDisplayValue('Sonho com texto bloqueado')).toBeInTheDocument();
+    expect(
+      screen.getByText(/o nextdream não permite pedidos de dinheiro, pix ou doações/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continuar/i })).toBeDisabled();
+  });
 });
