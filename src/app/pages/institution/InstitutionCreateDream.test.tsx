@@ -101,6 +101,8 @@ describe('InstitutionCreateDream', () => {
     );
 
     expect(await screen.findByDisplayValue('Oficina de musica suave')).toBeInTheDocument();
+    expect(screen.queryByText(/imagem de capa/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/o que você precisa\?/i)).not.toBeInTheDocument();
     expect(screen.getAllByText('Conte seu sonho').length).toBeGreaterThan(0);
     expect(screen.getByText('Preferências')).toBeInTheDocument();
     expect(screen.getByText('Privacidade')).toBeInTheDocument();
@@ -112,6 +114,10 @@ describe('InstitutionCreateDream', () => {
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
 
     expect(screen.getByRole('heading', { name: /preferências de apoio/i })).toBeInTheDocument();
+    expect(screen.queryByText(/dias preferidos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cidade \/ região/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/restrições ou necessidades especiais/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^idioma$/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /ambos/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
 

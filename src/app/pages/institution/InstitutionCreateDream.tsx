@@ -5,20 +5,12 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle,
-  ChevronDown,
-  Globe,
-  Image as ImageIcon,
-  Lock,
-  MapPin,
-  Pencil,
-  Shield,
   Star,
-  X,
+  Globe,
+  Lock,
+  Shield,
 } from 'lucide-react';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
-import { ImagePickerModal, type StockImage } from '../../components/shared/ImagePickerModal';
-import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
-import { BRAZIL_STATES } from '../../data/brazilCities';
 import { ApiError, dreamsApi, institutionApi, type ManagedPatient } from '../../lib/api';
 import { formatLocationLabel } from '../../lib/location';
 
@@ -42,28 +34,16 @@ export default function InstitutionCreateDream() {
     title: '',
     description: '',
     category: '',
-    type: [] as string[],
     format: '',
-    days: [] as string[],
-    state: '',
-    city: '',
-    restrictions: '',
-    language: 'Português',
     privacy: 'publico',
-    hideName: false,
     urgency: 'media',
-    verifiedOnly: false,
-    coverImage: null as StockImage | null,
   });
   const [warning, setWarning] = useState('');
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
-  const [showImagePicker, setShowImagePicker] = useState(false);
 
   const preferredManagedPatientId = (location.state as { managedPatientId?: string } | null)?.managedPatientId;
-  const selectedState = BRAZIL_STATES.find((state) => state.uf === form.state);
-  const cities = selectedState?.cities ?? [];
   const selectedPatient = patients.find((patient) => patient.id === managedPatientId) ?? null;
 
   useEffect(() => {
@@ -113,18 +93,6 @@ export default function InstitutionCreateDream() {
     setWarning(checkForMoney(value) ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem. 🚫' : '');
     setForm((current) => ({ ...current, description: value }));
   };
-
-  const toggleType = (type: string) =>
-    setForm((current) => ({
-      ...current,
-      type: current.type.includes(type) ? current.type.filter((item) => item !== type) : [...current.type, type],
-    }));
-
-  const toggleDay = (day: string) =>
-    setForm((current) => ({
-      ...current,
-      days: current.days.includes(day) ? current.days.filter((item) => item !== day) : [...current.days, day],
-    }));
 
   const canNext = () => {
     if (step === 0) {
@@ -257,52 +225,6 @@ export default function InstitutionCreateDream() {
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
-                    Imagem de capa <span className="text-gray-400">(opcional)</span>
-                  </label>
-                  {form.coverImage ? (
-                    <div className="relative rounded-xl overflow-hidden h-40 group">
-                      <ImageWithFallback src={form.coverImage.url} alt={form.coverImage.alt} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowImagePicker(true)}
-                          className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs px-3 py-2 rounded-xl transition-colors"
-                          style={{ fontWeight: 600 }}
-                        >
-                          <Pencil className="w-3.5 h-3.5" /> Trocar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setForm((current) => ({ ...current, coverImage: null }))}
-                          className="flex items-center gap-1.5 bg-red-500/90 hover:bg-red-500 text-white text-xs px-3 py-2 rounded-xl transition-colors"
-                          style={{ fontWeight: 600 }}
-                        >
-                          <X className="w-3.5 h-3.5" /> Remover
-                        </button>
-                      </div>
-                      <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-lg">
-                        {form.coverImage.alt}
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowImagePicker(true)}
-                      className="w-full h-32 border-2 border-dashed border-pink-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-pink-400 hover:bg-pink-50/50 transition-all group"
-                    >
-                      <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center group-hover:bg-pink-200 transition-colors">
-                        <ImageIcon className="w-5 h-5 text-pink-500" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-pink-600" style={{ fontWeight: 600 }}>Escolher do banco de imagens</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Fotos gratuitas do Unsplash por categoria</p>
-                      </div>
-                    </button>
-                  )}
-                </div>
-
-                <div>
                   <label htmlFor="institution-dream-title" className="text-sm text-gray-700 block mb-1.5" style={{ fontWeight: 500 }}>
                     Título do sonho <span className="text-red-500">*</span>
                   </label>
@@ -353,32 +275,6 @@ export default function InstitutionCreateDream() {
                         }`}
                       >
                         {category}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
-                    O que você precisa? <span className="text-gray-400 text-xs">(pode marcar vários)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { id: 'companhia', label: '🤝 Companhia' },
-                      { id: 'experiencia', label: '✨ Experiência' },
-                      { id: 'aprendizado', label: '📚 Aprendizado' },
-                      { id: 'conversa', label: '💬 Conversa' },
-                      { id: 'presenca', label: '🏠 Presença' },
-                    ].map((type) => (
-                      <button
-                        type="button"
-                        key={type.id}
-                        onClick={() => toggleType(type.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs border transition-all ${
-                          form.type.includes(type.id) ? 'bg-pink-600 text-white border-pink-600' : 'border-pink-200 text-pink-700 hover:bg-pink-50'
-                        }`}
-                      >
-                        {type.label}
                       </button>
                     ))}
                   </div>
@@ -440,142 +336,6 @@ export default function InstitutionCreateDream() {
                     ))}
                   </div>
                 </div>
-
-                <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Dias preferidos</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: 'Seg', label: 'Seg' },
-                      { key: 'Ter', label: 'Ter' },
-                      { key: 'Qua', label: 'Qua' },
-                      { key: 'Qui', label: 'Qui' },
-                      { key: 'Sex', label: 'Sex' },
-                      { key: 'Sáb', label: 'Sáb' },
-                      { key: 'Dom', label: 'Dom' },
-                    ].map((day) => {
-                      const selected = form.days.includes(day.key);
-                      return (
-                        <button
-                          type="button"
-                          key={day.key}
-                          onClick={() => toggleDay(day.key)}
-                          className={`w-11 h-11 rounded-xl text-xs border-2 transition-all ${
-                            selected ? 'bg-pink-600 text-white border-pink-600 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-pink-300 hover:text-pink-600'
-                          }`}
-                          style={{ fontWeight: selected ? 700 : 400 }}
-                        >
-                          {day.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {form.days.length > 0 && (
-                    <p className="text-xs text-pink-600 mt-1.5">Selecionado: {form.days.join(', ')}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-pink-500" />
-                      Cidade / Região <span className="text-gray-400 text-xs">(opcional)</span>
-                    </span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="relative">
-                      <select
-                        value={form.state}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setForm((current) => ({ ...current, state: value, city: '' }));
-                        }}
-                        className="w-full pl-4 pr-9 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-                        style={{
-                          WebkitAppearance: 'none',
-                          MozAppearance: 'none',
-                          appearance: 'none',
-                          backgroundColor: '#fdf2f8',
-                          border: '1px solid #fce7f3',
-                          color: form.state ? '#374151' : '#9ca3af',
-                        }}
-                      >
-                        <option value="">Selecione o estado</option>
-                        {BRAZIL_STATES.map((state) => (
-                          <option key={state.uf} value={state.uf}>
-                            {state.uf} — {state.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-
-                    <div className="relative">
-                      <select
-                        value={form.city}
-                        onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
-                        disabled={!form.state}
-                        className="w-full pl-4 pr-9 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-                        style={{
-                          WebkitAppearance: 'none',
-                          MozAppearance: 'none',
-                          appearance: 'none',
-                          backgroundColor: form.state ? '#fdf2f8' : '#f9fafb',
-                          border: `1px solid ${form.state ? '#fce7f3' : '#e5e7eb'}`,
-                          color: form.city ? '#374151' : '#9ca3af',
-                          cursor: form.state ? 'pointer' : 'not-allowed',
-                          opacity: form.state ? 1 : 0.7,
-                        }}
-                      >
-                        <option value="">{form.state ? 'Selecione a cidade' : 'Selecione o estado primeiro'}</option>
-                        {cities.map((city) => (
-                          <option key={city} value={city}>
-                            {city}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${!form.state ? 'text-gray-300' : 'text-gray-400'}`} />
-                    </div>
-                  </div>
-
-                  {form.state && form.city && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="flex items-center gap-1.5 bg-pink-100 text-pink-700 text-xs px-3 py-1 rounded-full" style={{ fontWeight: 500 }}>
-                        <MapPin className="w-3 h-3" />
-                        {form.city}, {form.state}
-                      </span>
-                      <button type="button" onClick={() => setForm((current) => ({ ...current, state: '', city: '' }))} className="text-gray-400 hover:text-gray-600 transition-colors">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
-                    Restrições ou necessidades especiais <span className="text-gray-400 text-xs">(opcional)</span>
-                  </label>
-                  <textarea
-                    value={form.restrictions}
-                    onChange={(event) => setForm((current) => ({ ...current, restrictions: event.target.value }))}
-                    placeholder="Ex: Uso cadeira de rodas, prefiro tarde, tenho acompanhante..."
-                    rows={2}
-                    className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Idioma</label>
-                  <select
-                    value={form.language}
-                    onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
-                    className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none"
-                  >
-                    <option>Português</option>
-                    <option>Inglês</option>
-                    <option>Espanhol</option>
-                    <option>Outro</option>
-                  </select>
-                </div>
               </div>
             )}
 
@@ -627,17 +387,6 @@ export default function InstitutionCreateDream() {
                   <p className="text-gray-500 text-sm">Confira tudo antes de publicar. A instituição pode editar depois.</p>
                 </div>
 
-                {form.coverImage && (
-                  <div className="relative rounded-xl overflow-hidden h-36">
-                    <ImageWithFallback src={form.coverImage.url} alt={form.coverImage.alt} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-2 left-3">
-                      <p className="text-white text-xs opacity-80">Imagem de capa</p>
-                      <p className="text-white text-sm" style={{ fontWeight: 600 }}>{form.coverImage.alt}</p>
-                    </div>
-                  </div>
-                )}
-
                 <div className="bg-pink-50 rounded-xl p-5 space-y-3">
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">Beneficiário</p>
@@ -668,18 +417,6 @@ export default function InstitutionCreateDream() {
                       <p className="text-xs text-gray-400 mb-0.5">Urgência</p>
                       <p className="text-xs text-gray-700 capitalize">{form.urgency}</p>
                     </div>
-                    {form.days.length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-400 mb-0.5">Dias</p>
-                        <p className="text-xs text-gray-700">{form.days.join(', ')}</p>
-                      </div>
-                    )}
-                    {form.city && (
-                      <div>
-                        <p className="text-xs text-gray-400 mb-0.5">Localização</p>
-                        <p className="text-xs text-gray-700">{form.city}, {form.state}</p>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -745,14 +482,6 @@ export default function InstitutionCreateDream() {
           </button>
         )}
       </div>
-
-      {showImagePicker && (
-        <ImagePickerModal
-          currentUrl={form.coverImage?.url}
-          onSelect={(image) => setForm((current) => ({ ...current, coverImage: image }))}
-          onClose={() => setShowImagePicker(false)}
-        />
-      )}
     </div>
   );
 }
