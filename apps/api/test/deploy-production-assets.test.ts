@@ -109,12 +109,18 @@ describe('production deploy hardening assets', () => {
     expect(sandboxScript).toContain('.env.sandbox');
     expect(sandboxScript).toContain('nextdream-sandbox-api');
     expect(sandboxScript).toContain('.sandbox-release-state.json');
+    expect(sandboxScript).not.toContain('docker image prune -f');
+    expect(sandboxScript).not.toContain('docker builder prune -f');
+    expect(sandboxScript).toContain("response_file=\"$(mktemp)\"");
 
     expect(sandboxWorkflow).toContain('name: Deploy Sandbox');
     expect(sandboxWorkflow).toContain("APP_DIR: ${{ vars.SANDBOX_APP_DIR || '/home/actions/nextdream-sandbox' }}");
     expect(sandboxWorkflow).toContain('SANDBOX_JWT_ACCESS_SECRET');
     expect(sandboxWorkflow).toContain('SANDBOX_JWT_REFRESH_SECRET');
     expect(sandboxWorkflow).toContain('docker-compose.sandbox.yml');
+    expect(sandboxWorkflow).toContain('normalized_trust_proxy');
+    expect(sandboxWorkflow).toContain('normalized_auth_cookie_secure');
+    expect(sandboxWorkflow).toContain('normalized_proxy_trusted_ips');
 
     expect(sandboxNginxVhost).toContain('server_name sandbox.nextdream.ong.br;');
     expect(sandboxNginxVhost).toContain('proxy_pass http://127.0.0.1:4001/;');
@@ -136,6 +142,7 @@ describe('production deploy hardening assets', () => {
     expect(webService).toMatch(/cap_drop:[\s\S]*-\s*ALL/);
     expect(apiService).toMatch(/healthcheck:[\s\S]*127\.0\.0\.1:4000\/health/);
     expect(webService).toMatch(/healthcheck:/);
+    expect(composeFile).not.toContain('--spider');
   });
 
   it('extracts service blocks without bleeding hardening fields across services', () => {

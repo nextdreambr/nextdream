@@ -35,15 +35,39 @@ function useHighlightTarget(step: SandboxTourStep | null, enabled: boolean) {
   useEffect(() => {
     if (!enabled || !step) return;
 
-    let cleanup = () => {};
-    const timeoutId = window.setTimeout(() => {
-      const element = document.querySelector<HTMLElement>(`[data-sandbox-tour-id="${step.targetId}"]`);
-      if (!element) return;
+    let cleanupHighlight = () => {};
+    let observer: MutationObserver | null = null;
+    let intervalId: number | null = null;
+    let attempts = 0;
+    const maxAttempts = 20;
+    const targetSelector = `[data-sandbox-tour-id="${step.targetId}"]`;
 
-      element.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth',
-      });
+    const stopWatching = () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+      observer?.disconnect();
+      observer = null;
+    };
+
+    const highlightTarget = () => {
+      const element = document.querySelector<HTMLElement>(targetSelector);
+      if (!element) {
+        attempts += 1;
+        if (attempts >= maxAttempts) {
+          stopWatching();
+        }
+        return false;
+      }
+
+      stopWatching();
+      if (typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView({
+          block: 'center',
+          behavior: 'smooth',
+        });
+      }
 
       const previous = {
         position: element.style.position,
@@ -62,18 +86,34 @@ function useHighlightTarget(step: SandboxTourStep | null, enabled: boolean) {
       element.style.borderRadius = '24px';
       element.style.transition = 'box-shadow 160ms ease';
 
-      cleanup = () => {
+      cleanupHighlight = () => {
         element.style.position = previous.position;
         element.style.zIndex = previous.zIndex;
         element.style.boxShadow = previous.boxShadow;
         element.style.borderRadius = previous.borderRadius;
         element.style.transition = previous.transition;
       };
-    }, 120);
+
+      return true;
+    };
+
+    if (!highlightTarget()) {
+      intervalId = window.setInterval(() => {
+        highlightTarget();
+      }, 120);
+
+      observer = new MutationObserver(() => {
+        highlightTarget();
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
 
     return () => {
-      window.clearTimeout(timeoutId);
-      cleanup();
+      stopWatching();
+      cleanupHighlight();
     };
   }, [enabled, location.pathname, step]);
 }
@@ -204,7 +244,7 @@ export function SandboxTourProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!activeTour || !currentStep) return;
     if (location.pathname === currentStep.route) return;
-    navigate(currentStep.route);
+    navigate(currentStep.route, { replace: true });
   }, [activeTour, currentStep, location.pathname, navigate]);
 
   useHighlightTarget(currentStep, Boolean(activeTour && currentStep));

@@ -16,23 +16,23 @@ function getSecondaryStorage() {
 function readStoredSession(raw: string | null): AuthSession | null {
   if (!raw) return null;
 
-  const parsed = JSON.parse(raw) as Partial<AuthSession>;
-  if (!parsed.user) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<AuthSession>;
+    if (!parsed.user) return null;
 
-  return parsed as AuthSession;
+    return parsed as AuthSession;
+  } catch {
+    return null;
+  }
 }
 
 export function loadStoredSession(): AuthSession | null {
   if (typeof window === 'undefined') return null;
 
-  try {
-    return (
-      readStoredSession(getPrimaryStorage()?.getItem(AUTH_STORAGE_KEY) ?? null) ??
-      readStoredSession(getSecondaryStorage()?.getItem(AUTH_STORAGE_KEY) ?? null)
-    );
-  } catch {
-    return null;
-  }
+  return (
+    readStoredSession(getPrimaryStorage()?.getItem(AUTH_STORAGE_KEY) ?? null) ??
+    readStoredSession(getSecondaryStorage()?.getItem(AUTH_STORAGE_KEY) ?? null)
+  );
 }
 
 export function persistStoredSession(session: AuthSession) {

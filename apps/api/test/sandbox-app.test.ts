@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
@@ -16,6 +17,8 @@ describe('Sandbox API', () => {
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
     JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN,
     JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN,
+    LOGIN_THROTTLE_LIMIT: process.env.LOGIN_THROTTLE_LIMIT,
+    LOGIN_THROTTLE_TTL_MS: process.env.LOGIN_THROTTLE_TTL_MS,
     DATABASE_URL: process.env.DATABASE_URL,
     SENTRY_DSN: process.env.SENTRY_DSN,
     SMTP_HOST: process.env.SMTP_HOST,
@@ -30,6 +33,8 @@ describe('Sandbox API', () => {
     process.env.JWT_REFRESH_SECRET = 'sandbox-refresh-secret';
     process.env.JWT_ACCESS_EXPIRES_IN = '1h';
     process.env.JWT_REFRESH_EXPIRES_IN = '7d';
+    process.env.LOGIN_THROTTLE_LIMIT = '100';
+    process.env.LOGIN_THROTTLE_TTL_MS = '60000';
     delete process.env.DATABASE_URL;
     delete process.env.SENTRY_DSN;
     delete process.env.SMTP_HOST;
@@ -90,6 +95,27 @@ describe('Sandbox API', () => {
     expect(refresh.body.user.role).toBe('paciente');
     expect(refresh.body.accessToken).toEqual(expect.any(String));
     expect(refresh.body.refreshToken).toEqual(expect.any(String));
+  });
+
+  it('rejects refresh tokens that omit the sandbox session id', async () => {
+    const jwtService = app.get(JwtService);
+    const refreshToken = await jwtService.signAsync(
+      {
+        sub: 'paciente-1',
+        role: 'paciente',
+      },
+      {
+        secret: 'sandbox-refresh-secret',
+        expiresIn: '7d',
+      },
+    );
+
+    const refresh = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken });
+
+    expect(refresh.status).toBe(401);
+    expect(refresh.body.message).toMatch(/invalid refresh token/i);
   });
 
   it('rejects public registration in sandbox mode and requires demo access', async () => {
@@ -165,6 +191,115 @@ describe('Sandbox API', () => {
         (conversation: { id: string }) => conversation.id === acceptedProposal.body.conversationId,
       ),
     ).toBe(true);
+  });
+
+  it('rejects whitespace-only sandbox payloads and keeps proposal acceptance idempotent', async () => {
+    const patientSession = await demoLogin('paciente');
+    const patientAuthHeader = { Authorization: `Bearer ${patientSession.accessToken}` };
+
+    const invalidDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set(patientAuthHeader)
+      .send({
+        title: '   ',
+        description: 'Descricao valida',
+        category: 'Experiencia',
+        format: 'presencial',
+        urgency: 'media',
+        privacy: 'publico',
+      });
+
+    expect(invalidDream.status).toBe(400);
+    expect(invalidDream.body.message).toMatch(/dream title/i);
+
+    const validDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set(patientAuthHeader)
+      .send({
+        title: 'Passeio no parque',
+        description: 'Quero um passeio tranquilo com a familia.',
+        category: 'Lazer',
+        format: 'presencial',
+        urgency: 'baixa',
+        privacy: 'publico',
+      });
+
+    expect(validDream.status).toBe(201);
+
+    const invalidUpdate = await request(app.getHttpServer())
+      .patch(`/dreams/${validDream.body.id}`)
+      .set(patientAuthHeader)
+      .send({
+        description: '   ',
+      });
+
+    expect(invalidUpdate.status).toBe(400);
+    expect(invalidUpdate.body.message).toMatch(/dream description/i);
+
+    const supporterSession = await demoLogin('apoiador');
+    const supporterAuthHeader = { Authorization: `Bearer ${supporterSession.accessToken}` };
+
+    const invalidProposal = await request(app.getHttpServer())
+      .post('/dreams/dream-patient-public/proposals')
+      .set(supporterAuthHeader)
+      .send({
+        message: '   ',
+        offering: 'Companhia',
+        availability: 'Sabado',
+        duration: '2 horas',
+      });
+
+    expect(invalidProposal.status).toBe(400);
+    expect(invalidProposal.body.message).toMatch(/proposal message/i);
+
+    const proposals = await request(app.getHttpServer())
+      .get('/proposals/received')
+      .set(patientAuthHeader);
+
+    expect(proposals.status).toBe(200);
+
+    const pendingProposal = proposals.body.find(
+      (proposal: { status: string }) => proposal.status === 'enviada',
+    );
+    expect(pendingProposal).toBeDefined();
+
+    const acceptedProposal = await request(app.getHttpServer())
+      .post(`/proposals/${pendingProposal.id}/accept`)
+      .set(patientAuthHeader);
+
+    expect(acceptedProposal.status).toBe(200);
+
+    const acceptedAgain = await request(app.getHttpServer())
+      .post(`/proposals/${pendingProposal.id}/accept`)
+      .set(patientAuthHeader);
+
+    expect(acceptedAgain.status).toBe(409);
+
+    const invalidMessage = await request(app.getHttpServer())
+      .post(`/conversations/${acceptedProposal.body.conversationId}/messages`)
+      .set(patientAuthHeader)
+      .send({
+        body: '   ',
+      });
+
+    expect(invalidMessage.status).toBe(400);
+    expect(invalidMessage.body.message).toMatch(/message body/i);
+
+    const firstClose = await request(app.getHttpServer())
+      .post(`/conversations/${acceptedProposal.body.conversationId}/close`)
+      .set(patientAuthHeader)
+      .send({});
+
+    expect(firstClose.status).toBe(200);
+    expect(firstClose.body.status).toBe('encerrada');
+
+    const secondClose = await request(app.getHttpServer())
+      .post(`/conversations/${acceptedProposal.body.conversationId}/close`)
+      .set(patientAuthHeader)
+      .send({});
+
+    expect(secondClose.status).toBe(200);
+    expect(secondClose.body.status).toBe('encerrada');
   });
 
   it('lets the supporter demo submit proposals and reuse the seeded chat', async () => {

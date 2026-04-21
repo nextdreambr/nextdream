@@ -65,6 +65,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Validate required sandbox deployment variables
+        id: validate_deploy
         env:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
@@ -82,15 +83,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          validate_boolean_env() {
+          normalize_boolean_env() {
             local key="$1"
             local value="$2"
             local normalized
             normalized="$(echo "$value" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
 
             case "$normalized" in
-              true|1|yes|false|0|no)
-                return 0
+              true|1|yes)
+                printf 'true'
+                ;;
+              false|0|no)
+                printf 'false'
                 ;;
               *)
                 echo "Invalid $key value: expected one of [true, 1, yes, false, 0, no]"
@@ -120,27 +124,18 @@ jobs:
             fi
           done
 
-          normalized_trust_proxy="$(echo "$TRUST_PROXY" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-          case "$normalized_trust_proxy" in
-            true|1|yes)
-              normalized_trust_proxy="true"
-              ;;
-            false|0|no)
-              normalized_trust_proxy="false"
-              ;;
-            *)
-              echo "Invalid TRUST_PROXY value: expected true or false"
-              exit 1
-              ;;
-          esac
-
-          validate_boolean_env "AUTH_COOKIE_SECURE" "$AUTH_COOKIE_SECURE"
+          normalized_trust_proxy="$(normalize_boolean_env "TRUST_PROXY" "$TRUST_PROXY")"
+          normalized_auth_cookie_secure="$(normalize_boolean_env "AUTH_COOKIE_SECURE" "$AUTH_COOKIE_SECURE")"
 
           normalized_proxy_trusted_ips="$(echo "${PROXY_TRUSTED_IPS:-}" | tr -d '[:space:]')"
           if [[ "$normalized_trust_proxy" == "true" && -z "$normalized_proxy_trusted_ips" ]]; then
             echo "Missing required value: PROXY_TRUSTED_IPS (required when TRUST_PROXY=true)"
             exit 1
           fi
+
+          echo "normalized_trust_proxy=${normalized_trust_proxy}" >> "$GITHUB_OUTPUT"
+          echo "normalized_auth_cookie_secure=${normalized_auth_cookie_secure}" >> "$GITHUB_OUTPUT"
+          echo "normalized_proxy_trusted_ips=${normalized_proxy_trusted_ips}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare SSH configuration
         env:
@@ -195,10 +190,10 @@ jobs:
         env:
           APP_URL: ${{ vars.SANDBOX_APP_URL || 'https://sandbox.nextdream.ong.br' }}
           CORS_ORIGIN: ${{ vars.SANDBOX_CORS_ORIGIN || 'https://sandbox.nextdream.ong.br' }}
-          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
-          PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          TRUST_PROXY: ${{ steps.validate_deploy.outputs.normalized_trust_proxy }}
+          PROXY_TRUSTED_IPS: ${{ steps.validate_deploy.outputs.normalized_proxy_trusted_ips }}
           AUTH_COOKIE_DOMAIN: ${{ vars.SANDBOX_AUTH_COOKIE_DOMAIN }}
-          AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE || 'true' }}
+          AUTH_COOKIE_SECURE: ${{ steps.validate_deploy.outputs.normalized_auth_cookie_secure }}
           THROTTLE_TTL_MS: ${{ vars.THROTTLE_TTL_MS || '60000' }}
           THROTTLE_LIMIT: ${{ vars.THROTTLE_LIMIT || '120' }}
           LOGIN_THROTTLE_TTL_MS: ${{ vars.LOGIN_THROTTLE_TTL_MS || '60000' }}

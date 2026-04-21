@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -56,6 +57,7 @@ export class SandboxConversationsService {
   async sendMessage(currentUser: JwtPayload, conversationId: string, dto: CreateMessageDto) {
     const session = this.getSession(currentUser);
     const { conversation, linkedViewer } = this.requireConversationAccess(session, currentUser, conversationId);
+    const body = dto.body.trim();
 
     if (conversation.status !== 'ativa') {
       throw new ForbiddenException('Conversation is closed');
@@ -63,12 +65,15 @@ export class SandboxConversationsService {
     if (linkedViewer) {
       throw new ForbiddenException('Patient can follow this conversation, but the institution operates the case');
     }
+    if (body.length === 0) {
+      throw new BadRequestException('Message body cannot be empty');
+    }
 
     const message: SandboxMessage = {
       id: crypto.randomUUID(),
       conversationId,
       senderId: currentUser.sub,
-      body: dto.body.trim(),
+      body,
       moderated: false,
       createdAt: new Date(),
     };
@@ -101,6 +106,10 @@ export class SandboxConversationsService {
     void dto;
     const session = this.getSession(currentUser);
     const { conversation } = this.requireConversationAccess(session, currentUser, conversationId);
+
+    if (conversation.status === 'encerrada') {
+      return (await this.serializeConversations(session, [conversation]))[0];
+    }
 
     conversation.status = 'encerrada';
     await this.notificationsService.createNotification(session.id, {

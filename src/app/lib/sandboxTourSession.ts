@@ -42,7 +42,11 @@ export function loadSandboxTourState(): SandboxTourSessionState {
 export function saveSandboxTourState(nextState: SandboxTourSessionState) {
   const storage = getSandboxTourStorage();
   if (!storage) return;
-  storage.setItem(SANDBOX_TOUR_STORAGE_KEY, JSON.stringify(nextState));
+  try {
+    storage.setItem(SANDBOX_TOUR_STORAGE_KEY, JSON.stringify(nextState));
+  } catch {
+    return;
+  }
 }
 
 export function queueSandboxTourLaunch(persona: SandboxPersona) {

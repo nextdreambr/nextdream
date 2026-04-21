@@ -12,10 +12,11 @@ NextDream needs a commercial sandbox that stays functionally aligned with produc
 
 We will run production and sandbox from the same repository and the same application routes, promoting the same commit to both environments.
 
-The only runtime switch is environment configuration:
+The runtime switch is environment configuration on the API plus hostname-aware gating on the web:
 
 - `APP_ENV=production` or `APP_ENV=sandbox` on the API
-- `VITE_APP_ENV=production` or `VITE_APP_ENV=sandbox` on the web
+- `VITE_SANDBOX_HOSTNAME=sandbox.nextdream.ong.br` on the web for the shared production bundle
+- `VITE_APP_ENV=sandbox` only as a localhost and automated-test fallback for the web
 
 In sandbox mode:
 
@@ -27,6 +28,19 @@ In sandbox mode:
 - Sentry/analytics startup hooks are disabled
 - the web stores auth in `sessionStorage` instead of durable `localStorage`
 - the UI shows a persistent sandbox banner and a public `/sandbox` entry screen
+
+Web sandbox activation follows this precedence:
+
+1. If the current browser hostname matches `VITE_SANDBOX_HOSTNAME`, the UI behaves as sandbox even when `VITE_APP_ENV=production`.
+2. Otherwise, the UI only behaves as sandbox when `VITE_APP_ENV=sandbox` and the hostname is local (`localhost`, `127.0.0.1`) or the code is running under automated tests.
+
+Example:
+
+- `VITE_SANDBOX_HOSTNAME=sandbox.nextdream.ong.br`
+- `VITE_APP_ENV=production`
+- `window.location.hostname=sandbox.nextdream.ong.br`
+
+Result: the same production web bundle activates sandbox-only UI on the sandbox subdomain without affecting `nextdream.ong.br`.
 
 ## Consequences
 

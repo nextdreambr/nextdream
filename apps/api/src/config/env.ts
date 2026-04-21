@@ -27,9 +27,18 @@ export function getEnvOrDefault(name: string, fallback: string): string {
 }
 
 export function getAppEnvironment(): AppEnvironment {
-  return process.env.APP_ENV?.trim().toLowerCase() === 'sandbox'
-    ? 'sandbox'
-    : 'production';
+  const raw = process.env.APP_ENV?.trim().toLowerCase();
+  if (!raw || raw === 'production') {
+    return 'production';
+  }
+
+  if (raw === 'sandbox') {
+    return 'sandbox';
+  }
+
+  throw new InternalServerErrorException(
+    `Invalid APP_ENV value: "${process.env.APP_ENV}". Expected "production" or "sandbox".`,
+  );
 }
 
 export function isSandboxEnvironment() {

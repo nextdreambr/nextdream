@@ -73,9 +73,9 @@ export class SandboxDreamsService {
 
     const dream: SandboxDream = {
       id: randomUUID(),
-      title: dto.title.trim(),
-      description: dto.description.trim(),
-      category: dto.category.trim(),
+      title: this.requireNonEmptyText(dto.title, 'Dream title'),
+      description: this.requireNonEmptyText(dto.description, 'Dream description'),
+      category: this.requireNonEmptyText(dto.category, 'Dream category'),
       format: dto.format,
       urgency: dto.urgency,
       privacy: dto.privacy,
@@ -214,13 +214,13 @@ export class SandboxDreamsService {
     }
 
     if (dto.title !== undefined) {
-      dream.title = dto.title.trim();
+      dream.title = this.requireNonEmptyText(dto.title, 'Dream title');
     }
     if (dto.description !== undefined) {
-      dream.description = dto.description.trim();
+      dream.description = this.requireNonEmptyText(dto.description, 'Dream description');
     }
     if (dto.category !== undefined) {
-      dream.category = dto.category.trim();
+      dream.category = this.requireNonEmptyText(dto.category, 'Dream category');
     }
     if (dto.format !== undefined) {
       dream.format = dto.format;
@@ -285,10 +285,10 @@ export class SandboxDreamsService {
       id: randomUUID(),
       dreamId: dream.id,
       supporterId: supporter.id,
-      message: dto.message.trim(),
-      offering: dto.offering.trim(),
-      availability: dto.availability.trim(),
-      duration: dto.duration.trim(),
+      message: this.requireNonEmptyText(dto.message, 'Proposal message'),
+      offering: this.requireNonEmptyText(dto.offering, 'Proposal offering'),
+      availability: this.requireNonEmptyText(dto.availability, 'Proposal availability'),
+      duration: this.requireNonEmptyText(dto.duration, 'Proposal duration'),
       status: 'enviada',
       createdAt: new Date(),
     };
@@ -316,6 +316,12 @@ export class SandboxDreamsService {
     }
     if (currentUser.role === 'instituicao' && dream.managedPatientId) {
       this.getManagedPatientOrThrow(session, currentUser.sub, dream.managedPatientId);
+    }
+    if (proposal.status !== 'enviada') {
+      throw new ConflictException('Only pending proposals can be accepted');
+    }
+    if (dream.status !== 'publicado') {
+      throw new ConflictException('This dream is not available for proposal acceptance');
     }
 
     proposal.status = 'aceita';
@@ -516,6 +522,14 @@ export class SandboxDreamsService {
     return session.managedPatients
       .filter((patient) => patient.linkedUserId === userId)
       .map((patient) => patient.id);
+  }
+
+  private requireNonEmptyText(value: string, fieldName: string) {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      throw new BadRequestException(`${fieldName} cannot be empty`);
+    }
+    return trimmed;
   }
 
   private serializeDream(session: SandboxSessionState, dream: SandboxDream, currentUser?: JwtPayload) {

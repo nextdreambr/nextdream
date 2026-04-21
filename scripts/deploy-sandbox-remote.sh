@@ -78,9 +78,15 @@ check_free_disk() {
 }
 
 light_cleanup() {
-  docker container prune -f >/dev/null 2>&1 || true
-  docker image prune -f >/dev/null 2>&1 || true
-  docker builder prune -f >/dev/null 2>&1 || true
+  local sandbox_container_ids=()
+
+  while IFS= read -r container_id; do
+    [[ -n "$container_id" ]] && sandbox_container_ids+=("$container_id")
+  done < <(docker ps -aq --filter 'name=^nextdream-sandbox-api$' --filter 'status=exited')
+
+  if [[ "${#sandbox_container_ids[@]}" -gt 0 ]]; then
+    docker rm -f "${sandbox_container_ids[@]}" >/dev/null 2>&1 || true
+  fi
 }
 
 login_ghcr() {
@@ -105,26 +111,31 @@ verify_running_image() {
 
 run_internal_smoke_checks() {
   local base_url
+  local response_file
   local status_code
 
   base_url="http://${SANDBOX_API_BIND_ADDRESS:-127.0.0.1}:${SANDBOX_API_HOST_PORT:-4001}"
+  response_file="$(mktemp)"
 
   if ! curl -fsS --max-time 10 "${base_url}/health" >/dev/null 2>&1; then
+    rm -f "$response_file"
     echo "Internal health check failed at ${base_url}/health"
     return 1
   fi
 
-  status_code="$(curl -sS --max-time 10 -o /tmp/sandbox-demo-login.json -w '%{http_code}' \
+  status_code="$(curl -sS --max-time 10 -o "$response_file" -w '%{http_code}' \
     -X POST "${base_url}/auth/demo-login" \
     -H 'Content-Type: application/json' \
     --data '{"persona":"paciente"}')"
 
   if [[ "$status_code" != "200" ]]; then
     echo "Sandbox demo login smoke failed with status ${status_code}"
-    cat /tmp/sandbox-demo-login.json || true
+    cat "$response_file" || true
+    rm -f "$response_file"
     return 1
   fi
 
+  rm -f "$response_file"
   return 0
 }
 

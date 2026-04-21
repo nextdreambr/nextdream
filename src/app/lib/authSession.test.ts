@@ -56,4 +56,18 @@ describe('authSession storage selection', () => {
     expect(window.sessionStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
     expect(loadStoredSession()).toEqual(sandboxSession);
   });
+
+  it('falls back to the secondary storage when the primary entry is invalid JSON', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    vi.stubEnv('VITE_SANDBOX_HOSTNAME', 'sandbox.nextdream.ong.br');
+    const {
+      AUTH_STORAGE_KEY,
+      loadStoredSession,
+    } = await import('./authSession');
+
+    window.localStorage.setItem(AUTH_STORAGE_KEY, '{');
+    window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sandboxSession));
+
+    expect(loadStoredSession()).toEqual(sandboxSession);
+  });
 });
