@@ -173,12 +173,14 @@ export class AuthService {
     let payload: {
       sub: string;
       role: User['role'];
+      sessionVersion?: number;
     };
 
     try {
       payload = await this.jwtService.verifyAsync<{
         sub: string;
         role: User['role'];
+        sessionVersion?: number;
       }>(refreshToken, {
         secret: getRequiredEnv('JWT_REFRESH_SECRET'),
       });
@@ -193,10 +195,21 @@ export class AuthService {
       where: { id: payload.sub },
     });
 
-    if (!user || user.suspended) {
+    const currentSessionVersion = user?.sessionVersion ?? 0;
+    if (!user || user.suspended || payload.sessionVersion !== currentSessionVersion) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    const nextSessionVersion = currentSessionVersion + 1;
+    const rotatedSession = await this.usersRepository.update(
+      { id: user.id, sessionVersion: currentSessionVersion },
+      { sessionVersion: nextSessionVersion },
+    );
+    if (rotatedSession.affected !== 1) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    user.sessionVersion = nextSessionVersion;
     return this.buildAuthResponse(user);
   }
 
@@ -308,7 +321,10 @@ export class AuthService {
         expiresIn: this.accessTokenExpiresIn,
         jwtid: randomUUID(),
       }),
-      refreshToken: await this.jwtService.signAsync(payload, {
+      refreshToken: await this.jwtService.signAsync({
+        ...payload,
+        sessionVersion: user.sessionVersion ?? 0,
+      }, {
         secret: getRequiredEnv('JWT_REFRESH_SECRET'),
         expiresIn: this.refreshTokenExpiresIn,
         jwtid: randomUUID(),

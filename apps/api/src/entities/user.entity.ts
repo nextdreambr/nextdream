@@ -57,6 +57,9 @@ export class User {
   @Column({ type: 'boolean', default: false })
   emailNotificationsEnabled!: boolean;
 
+  @Column({ type: 'integer', default: 0 })
+  sessionVersion!: number;
+
   @Column({ type: 'text', nullable: true })
   suspensionReason?: string;
 
