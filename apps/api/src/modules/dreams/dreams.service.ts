@@ -135,10 +135,7 @@ export class DreamsService {
     }
 
     if (currentUser.role === 'instituicao' && dream.patientId === currentUser.sub) {
-      await this.institutionService.ensureManagedPatientForInstitution(
-        currentUser.sub,
-        dream.managedPatientId ?? '',
-      );
+      await this.ensureInstitutionManagedPatientAccess(currentUser, dream);
       return this.serializeDream(dream, currentUser);
     }
 
@@ -254,10 +251,7 @@ export class DreamsService {
     }
 
     if (currentUser.role === 'instituicao') {
-      await this.institutionService.ensureManagedPatientForInstitution(
-        currentUser.sub,
-        dream.managedPatientId ?? '',
-      );
+      await this.ensureInstitutionManagedPatientAccess(currentUser, dream);
 
       if (dto.managedPatientId !== undefined) {
         const managedPatient = await this.institutionService.ensureManagedPatientForInstitution(
@@ -303,10 +297,7 @@ export class DreamsService {
       if (dream.patientId !== currentUser.sub) {
         throw new ForbiddenException('Only the dream owner can view proposals');
       }
-      await this.institutionService.ensureManagedPatientForInstitution(
-        currentUser.sub,
-        dream.managedPatientId ?? '',
-      );
+      await this.ensureInstitutionManagedPatientAccess(currentUser, dream);
     } else if (currentUser.role === 'paciente') {
       const canSeeLinkedCase = await this.institutionService.isLinkedManagedPatient(
         currentUser.sub,
@@ -383,10 +374,7 @@ export class DreamsService {
       throw new ForbiddenException('Only the dream owner can accept proposals');
     }
     if (currentUser.role === 'instituicao') {
-      await this.institutionService.ensureManagedPatientForInstitution(
-        currentUser.sub,
-        dream.managedPatientId ?? '',
-      );
+      await this.ensureInstitutionManagedPatientAccess(currentUser, dream);
     }
 
     proposal.status = 'aceita';
@@ -438,10 +426,7 @@ export class DreamsService {
       throw new ForbiddenException('Only the dream owner can reject proposals');
     }
     if (currentUser.role === 'instituicao') {
-      await this.institutionService.ensureManagedPatientForInstitution(
-        currentUser.sub,
-        dream.managedPatientId ?? '',
-      );
+      await this.ensureInstitutionManagedPatientAccess(currentUser, dream);
     }
     if (proposal.status === 'aceita') {
       throw new ConflictException('Accepted proposals cannot be rejected');
@@ -619,5 +604,16 @@ export class DreamsService {
       status: proposal.status,
       createdAt: proposal.createdAt,
     };
+  }
+
+  private async ensureInstitutionManagedPatientAccess(currentUser: JwtPayload, dream: Dream) {
+    if (currentUser.role !== 'instituicao' || dream.managedPatientId == null) {
+      return;
+    }
+
+    await this.institutionService.ensureManagedPatientForInstitution(
+      currentUser.sub,
+      dream.managedPatientId,
+    );
   }
 }
