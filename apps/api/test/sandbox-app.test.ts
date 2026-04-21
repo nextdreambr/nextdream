@@ -166,6 +166,25 @@ describe('Sandbox API', () => {
 
     expect(missingSessionRefresh.status).toBe(401);
     expect(missingSessionRefresh.body.message).toBe('Invalid refresh token');
+
+    const invalidTypeRefreshToken = await jwtService.signAsync(
+      {
+        sub: refreshPayload.sub,
+        role: refreshPayload.role,
+        sandboxSessionId: 42,
+      },
+      {
+        secret: 'sandbox-refresh-secret',
+        expiresIn: '7d',
+      },
+    );
+
+    const invalidTypeRefresh = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: invalidTypeRefreshToken });
+
+    expect(invalidTypeRefresh.status).toBe(401);
+    expect(invalidTypeRefresh.body.message).toBe('Invalid refresh token');
   });
 
   it('rejects public registration in sandbox mode and requires demo access', async () => {

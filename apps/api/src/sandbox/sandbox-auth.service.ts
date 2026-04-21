@@ -63,7 +63,7 @@ export class SandboxAuthService {
     let payload: {
       sub: string;
       role: SandboxUser['role'];
-      sandboxSessionId?: string;
+      sandboxSessionId?: unknown;
     };
 
     try {
@@ -77,7 +77,11 @@ export class SandboxAuthService {
       throw error;
     }
 
-    const sessionId = payload.sandboxSessionId?.trim();
+    if (typeof payload.sandboxSessionId !== 'string') {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const sessionId = payload.sandboxSessionId.trim();
     if (!sessionId) {
       throw new UnauthorizedException('Invalid refresh token');
     }
