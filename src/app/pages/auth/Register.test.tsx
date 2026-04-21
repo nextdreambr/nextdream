@@ -109,4 +109,32 @@ describe('Register', () => {
       expect(navigateMock).toHaveBeenCalledWith('/instituicao/dashboard');
     });
   });
+
+  it('shows a clearer institution onboarding layout and keeps the CTA disabled until the key institution fields are filled', () => {
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /hospital \/ ong/i }));
+
+    expect(screen.getAllByText(/cadastro institucional/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: /dados da instituição/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /responsável pela conta/i })).toBeInTheDocument();
+    expect(screen.getByText(/como funciona para hospital ou ong/i)).toBeInTheDocument();
+
+    const submitButton = screen.getByRole('button', { name: /criar conta institucional/i });
+    expect(submitButton).toBeDisabled();
+    expect(screen.getByText(/preencha os dados principais da instituição para continuar/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/nome da instituição/i), { target: { value: 'Casa Esperanca' } });
+    fireEvent.change(screen.getByLabelText(/nome do responsável/i), { target: { value: 'Ana Souza' } });
+    fireEvent.change(screen.getByLabelText(/tipo da instituição/i), { target: { value: 'ONG' } });
+    fireEvent.change(screen.getByLabelText(/telefone ou whatsapp do responsável/i), { target: { value: '(81) 99999-0000' } });
+    fireEvent.change(screen.getByLabelText(/e-mail institucional/i), { target: { value: 'casa@example.com' } });
+    fireEvent.change(screen.getByLabelText(/senha/i), { target: { value: 'Secret123!' } });
+
+    expect(submitButton).not.toBeDisabled();
+  });
 });
