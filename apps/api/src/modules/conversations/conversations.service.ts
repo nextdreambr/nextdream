@@ -268,13 +268,18 @@ export class ConversationsService {
       const managedPatient = conversation.managedPatientId
         ? managedPatientsById.get(conversation.managedPatientId)
         : undefined;
+      const dreamPath = dream
+        ? dream.managedPatientId
+          ? `/instituicao/sonhos/editar/${dream.id}`
+          : `/paciente/sonhos/${dream.id}`
+        : undefined;
 
       return {
         id: conversation.id,
         dreamId: conversation.dreamId,
         dreamTitle: dream?.title,
         dreamStatus: dream?.status,
-        dreamPath: dream?.managedPatientId ? `/instituicao/sonhos/editar/${dream.id}` : `/paciente/sonhos/${dream?.id}`,
+        dreamPath,
         patientId: conversation.patientId,
         operatorUserId: conversation.patientId,
         managedPatientId: conversation.managedPatientId,

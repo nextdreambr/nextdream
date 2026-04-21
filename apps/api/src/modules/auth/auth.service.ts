@@ -5,9 +5,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { AdminInvite } from '../../entities/admin-invite.entity';
 import { ManagedPatient } from '../../entities/managed-patient.entity';
@@ -50,6 +50,7 @@ export class AuthService {
   private readonly managedPatientsRepository: Repository<ManagedPatient>;
   private readonly jwtService: JwtService;
   private readonly mailService: MailService;
+  private readonly dataSource: DataSource;
 
   constructor(
     @InjectRepository(User) usersRepository: Repository<User>,
@@ -58,6 +59,7 @@ export class AuthService {
     @InjectRepository(ManagedPatient) managedPatientsRepository: Repository<ManagedPatient>,
     @Inject(JwtService) jwtService: JwtService,
     @Inject(MailService) mailService: MailService,
+    @InjectDataSource() dataSource: DataSource,
   ) {
     this.usersRepository = usersRepository;
     this.adminInvitesRepository = adminInvitesRepository;
@@ -65,6 +67,7 @@ export class AuthService {
     this.managedPatientsRepository = managedPatientsRepository;
     this.jwtService = jwtService;
     this.mailService = mailService;
+    this.dataSource = dataSource;
   }
 
   async register(dto: RegisterDto): Promise<AuthSessionPayload> {
@@ -203,13 +206,20 @@ export class AuthService {
       approvedAt: new Date(),
       suspended: false,
     });
-    const saved = await this.usersRepository.save(user);
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const txUsersRepository = manager.getRepository(User);
+      const txManagedPatientsRepository = manager.getRepository(ManagedPatient);
+      const txPatientInvitesRepository = manager.getRepository(PatientInvite);
+      const transactionSavedUser = await txUsersRepository.save(user);
 
-    managedPatient.linkedUserId = saved.id;
-    await this.managedPatientsRepository.save(managedPatient);
+      managedPatient.linkedUserId = transactionSavedUser.id;
+      await txManagedPatientsRepository.save(managedPatient);
 
-    invite.usedAt = new Date();
-    await this.patientInvitesRepository.save(invite);
+      invite.usedAt = new Date();
+      await txPatientInvitesRepository.save(invite);
+
+      return transactionSavedUser;
+    });
 
     await this.mailService.sendWelcomeEmail({
       to: saved.email,

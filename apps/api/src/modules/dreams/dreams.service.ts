@@ -135,12 +135,10 @@ export class DreamsService {
     }
 
     if (currentUser.role === 'instituicao' && dream.patientId === currentUser.sub) {
-      if (currentUser.role === 'instituicao') {
-        await this.institutionService.ensureManagedPatientForInstitution(
-          currentUser.sub,
-          dream.managedPatientId ?? '',
-        );
-      }
+      await this.institutionService.ensureManagedPatientForInstitution(
+        currentUser.sub,
+        dream.managedPatientId ?? '',
+      );
       return this.serializeDream(dream, currentUser);
     }
 
