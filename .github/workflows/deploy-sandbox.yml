@@ -1,0 +1,326 @@
+name: Deploy Sandbox
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Required tag to deploy to sandbox. Use the same tag currently active in production."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  resolve-release:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      repo_lc: ${{ steps.resolve.outputs.repo_lc }}
+    steps:
+      - name: Resolve release metadata
+        id: resolve
+        env:
+          IMAGE_TAG_INPUT: ${{ github.event.inputs.image_tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${IMAGE_TAG_INPUT:-}" ]]; then
+            echo "workflow_dispatch sandbox deploy requires image_tag"
+            exit 1
+          fi
+
+          echo "image_tag=${IMAGE_TAG_INPUT}" >> "$GITHUB_OUTPUT"
+          echo "repo_lc=${REPO,,}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: resolve-release
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-sandbox
+      cancel-in-progress: true
+    env:
+      IMAGE_TAG: ${{ needs.resolve-release.outputs.image_tag }}
+      IMAGE_REPO_BASE: ghcr.io/${{ needs.resolve-release.outputs.repo_lc }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR for deploy image resolution
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Validate required sandbox deployment variables
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
+          APP_DIR: ${{ vars.SANDBOX_APP_DIR || '/home/actions/nextdream-sandbox' }}
+          APP_URL: ${{ vars.SANDBOX_APP_URL || 'https://sandbox.nextdream.ong.br' }}
+          CORS_ORIGIN: ${{ vars.SANDBOX_CORS_ORIGIN || 'https://sandbox.nextdream.ong.br' }}
+          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
+          PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE || 'true' }}
+          SANDBOX_JWT_ACCESS_SECRET: ${{ secrets.SANDBOX_JWT_ACCESS_SECRET }}
+          SANDBOX_JWT_REFRESH_SECRET: ${{ secrets.SANDBOX_JWT_REFRESH_SECRET }}
+        run: |
+          set -euo pipefail
+
+          validate_boolean_env() {
+            local key="$1"
+            local value="$2"
+            local normalized
+            normalized="$(echo "$value" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+
+            case "$normalized" in
+              true|1|yes|false|0|no)
+                return 0
+                ;;
+              *)
+                echo "Invalid $key value: expected one of [true, 1, yes, false, 0, no]"
+                exit 1
+                ;;
+            esac
+          }
+
+          required=(
+            OCI_HOST
+            OCI_USER
+            OCI_PORT
+            OCI_SSH_KEY
+            OCI_KNOWN_HOSTS
+            APP_DIR
+            APP_URL
+            CORS_ORIGIN
+            TRUST_PROXY
+            AUTH_COOKIE_SECURE
+            SANDBOX_JWT_ACCESS_SECRET
+            SANDBOX_JWT_REFRESH_SECRET
+          )
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required value: $key"
+              exit 1
+            fi
+          done
+
+          normalized_trust_proxy="$(echo "$TRUST_PROXY" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          case "$normalized_trust_proxy" in
+            true|1|yes)
+              normalized_trust_proxy="true"
+              ;;
+            false|0|no)
+              normalized_trust_proxy="false"
+              ;;
+            *)
+              echo "Invalid TRUST_PROXY value: expected true or false"
+              exit 1
+              ;;
+          esac
+
+          validate_boolean_env "AUTH_COOKIE_SECURE" "$AUTH_COOKIE_SECURE"
+
+          normalized_proxy_trusted_ips="$(echo "${PROXY_TRUSTED_IPS:-}" | tr -d '[:space:]')"
+          if [[ "$normalized_trust_proxy" == "true" && -z "$normalized_proxy_trusted_ips" ]]; then
+            echo "Missing required value: PROXY_TRUSTED_IPS (required when TRUST_PROXY=true)"
+            exit 1
+          fi
+
+      - name: Prepare SSH configuration
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$OCI_SSH_KEY" > ~/.ssh/oci_key
+          chmod 600 ~/.ssh/oci_key
+          printf '%s\n' "$OCI_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Resolve immutable API image reference
+        id: image_refs
+        run: |
+          set -euo pipefail
+
+          resolve_image() {
+            local tag_ref="$1"
+            local digest=""
+
+            for attempt in $(seq 1 5); do
+              digest="$(docker buildx imagetools inspect "$tag_ref" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')"
+              if [[ -n "$digest" && "$digest" != "null" ]]; then
+                printf '%s@%s' "${tag_ref%%:*}" "$digest"
+                return 0
+              fi
+              sleep 5
+            done
+
+            echo "Unable to resolve digest for $tag_ref"
+            exit 1
+          }
+
+          api_tag_ref="${IMAGE_REPO_BASE}-api:${IMAGE_TAG}"
+          echo "api_image=$(resolve_image "$api_tag_ref")" >> "$GITHUB_OUTPUT"
+
+      - name: Install Cosign for deploy verification
+        uses: sigstore/cosign-installer@v3.8.1
+
+      - name: Verify signed API image reference
+        run: |
+          set -euo pipefail
+          cosign verify \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp '^https://github\.com/nextdreambr/nextdream/\.github/workflows/deploy-prod\.yml@.*$' \
+            "${{ steps.image_refs.outputs.api_image }}" >/dev/null
+
+      - name: Prepare sandbox deployment bundle
+        id: deploy_bundle
+        env:
+          APP_URL: ${{ vars.SANDBOX_APP_URL || 'https://sandbox.nextdream.ong.br' }}
+          CORS_ORIGIN: ${{ vars.SANDBOX_CORS_ORIGIN || 'https://sandbox.nextdream.ong.br' }}
+          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
+          PROXY_TRUSTED_IPS: ${{ vars.PROXY_TRUSTED_IPS }}
+          AUTH_COOKIE_DOMAIN: ${{ vars.SANDBOX_AUTH_COOKIE_DOMAIN }}
+          AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE || 'true' }}
+          THROTTLE_TTL_MS: ${{ vars.THROTTLE_TTL_MS || '60000' }}
+          THROTTLE_LIMIT: ${{ vars.THROTTLE_LIMIT || '120' }}
+          LOGIN_THROTTLE_TTL_MS: ${{ vars.LOGIN_THROTTLE_TTL_MS || '60000' }}
+          LOGIN_THROTTLE_LIMIT: ${{ vars.LOGIN_THROTTLE_LIMIT || '5' }}
+          SANDBOX_SESSION_TTL_MINUTES: ${{ vars.SANDBOX_SESSION_TTL_MINUTES || '120' }}
+          SANDBOX_API_BIND_ADDRESS: ${{ vars.SANDBOX_API_BIND_ADDRESS || '127.0.0.1' }}
+          SANDBOX_API_HOST_PORT: ${{ vars.SANDBOX_API_HOST_PORT || '4001' }}
+          SANDBOX_DOCKER_NETWORK: ${{ vars.SANDBOX_DOCKER_NETWORK || 'nextdream-sandbox' }}
+          MIN_FREE_DISK_MB: ${{ vars.MIN_FREE_DISK_MB || '2048' }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+          API_IMAGE: ${{ steps.image_refs.outputs.api_image }}
+          SANDBOX_JWT_ACCESS_SECRET: ${{ secrets.SANDBOX_JWT_ACCESS_SECRET }}
+          SANDBOX_JWT_REFRESH_SECRET: ${{ secrets.SANDBOX_JWT_REFRESH_SECRET }}
+        run: |
+          set -euo pipefail
+
+          bundle_dir="$(mktemp -d)"
+          chmod 700 "$bundle_dir"
+
+          cat > "$bundle_dir/.env.sandbox" <<EOF
+          APP_ENV=sandbox
+          NODE_ENV=production
+          APP_URL=${APP_URL}
+          CORS_ORIGIN=${CORS_ORIGIN}
+          TRUST_PROXY=${TRUST_PROXY}
+          PROXY_TRUSTED_IPS=${PROXY_TRUSTED_IPS}
+          AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN}
+          AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
+          THROTTLE_TTL_MS=${THROTTLE_TTL_MS}
+          THROTTLE_LIMIT=${THROTTLE_LIMIT}
+          LOGIN_THROTTLE_TTL_MS=${LOGIN_THROTTLE_TTL_MS}
+          LOGIN_THROTTLE_LIMIT=${LOGIN_THROTTLE_LIMIT}
+          SANDBOX_SESSION_TTL_MINUTES=${SANDBOX_SESSION_TTL_MINUTES}
+          JWT_ACCESS_SECRET=${SANDBOX_JWT_ACCESS_SECRET}
+          JWT_REFRESH_SECRET=${SANDBOX_JWT_REFRESH_SECRET}
+          SANDBOX_API_BIND_ADDRESS=${SANDBOX_API_BIND_ADDRESS}
+          SANDBOX_API_HOST_PORT=${SANDBOX_API_HOST_PORT}
+          SANDBOX_DOCKER_NETWORK=${SANDBOX_DOCKER_NETWORK}
+          EOF
+
+          cat > "$bundle_dir/.deploy-runtime.env" <<EOF
+          DEPLOY_ACTION=deploy
+          API_IMAGE=${API_IMAGE}
+          IMAGE_TAG=${IMAGE_TAG}
+          GHCR_USERNAME=${GHCR_USERNAME}
+          GHCR_TOKEN=${GHCR_TOKEN}
+          MIN_FREE_DISK_MB=${MIN_FREE_DISK_MB}
+          EOF
+
+          chmod 600 "$bundle_dir/.env.sandbox" "$bundle_dir/.deploy-runtime.env"
+          cp docker-compose.sandbox.yml scripts/deploy-sandbox-remote.sh "$bundle_dir/"
+          echo "bundle_dir=$bundle_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy sandbox API
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_DIR: ${{ vars.SANDBOX_APP_DIR || '/home/actions/nextdream-sandbox' }}
+          BUNDLE_DIR: ${{ steps.deploy_bundle.outputs.bundle_dir }}
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "sudo mkdir -p '$APP_DIR' && sudo chown -R '$OCI_USER:$OCI_USER' '$APP_DIR'"
+
+          scp -i ~/.ssh/oci_key -P "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$BUNDLE_DIR/docker-compose.sandbox.yml" \
+            "$BUNDLE_DIR/.env.sandbox" \
+            "$BUNDLE_DIR/.deploy-runtime.env" \
+            "$BUNDLE_DIR/deploy-sandbox-remote.sh" \
+            "$OCI_USER@$OCI_HOST:$APP_DIR/"
+
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "chmod 700 '$APP_DIR/deploy-sandbox-remote.sh' && APP_DIR='$APP_DIR' '$APP_DIR/deploy-sandbox-remote.sh'"
+
+      - name: Verify sandbox endpoints
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_URL: ${{ vars.SANDBOX_APP_URL || 'https://sandbox.nextdream.ong.br' }}
+          SANDBOX_API_HOST_PORT: ${{ vars.SANDBOX_API_HOST_PORT || '4001' }}
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "curl -fsS http://127.0.0.1:${SANDBOX_API_HOST_PORT}/health >/dev/null && curl -fsS -X POST http://127.0.0.1:${SANDBOX_API_HOST_PORT}/auth/demo-login -H 'Content-Type: application/json' --data '{\"persona\":\"paciente\"}' >/dev/null"
+
+          base_url="${APP_URL%/}"
+          curl -fsS --max-time 10 "$base_url/" >/dev/null
+          curl -fsS --max-time 10 "$base_url/api/health" >/dev/null
+
+      - name: Sandbox deploy summary
+        run: |
+          {
+            echo "## Sandbox deploy"
+            echo ""
+            echo "- Deployed tag: ${IMAGE_TAG}"
+            echo "- API image: ${{ steps.image_refs.outputs.api_image }}"
+            echo "- App dir: ${{ vars.SANDBOX_APP_DIR || '/home/actions/nextdream-sandbox' }}"
+            echo "- URL: ${{ vars.SANDBOX_APP_URL || 'https://sandbox.nextdream.ong.br' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dump sandbox diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        env:
+          OCI_HOST: ${{ vars.OCI_HOST }}
+          OCI_USER: ${{ vars.OCI_USER }}
+          OCI_PORT: ${{ vars.OCI_PORT || '22' }}
+          APP_DIR: ${{ vars.SANDBOX_APP_DIR || '/home/actions/nextdream-sandbox' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" \
+            "APP_DIR='$APP_DIR' bash -s" <<'EOS'
+          set -euo pipefail
+          cd "$APP_DIR" || exit 0
+          docker compose --project-name nextdream-sandbox --env-file .env.sandbox -f docker-compose.sandbox.yml ps || true
+          docker compose --project-name nextdream-sandbox --env-file .env.sandbox -f docker-compose.sandbox.yml logs --tail 200 api || true
+          docker inspect nextdream-sandbox-api --format '{{json .Config.Image}} {{json .NetworkSettings.Networks}}' || true
+          cat "$APP_DIR/.sandbox-release-state.json" 2>/dev/null || true
+          cat "$APP_DIR/.sandbox-release-tag" 2>/dev/null || true
+          EOS

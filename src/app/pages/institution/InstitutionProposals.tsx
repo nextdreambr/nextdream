@@ -86,7 +86,7 @@ export default function InstitutionProposals() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div data-sandbox-tour-id="institution-proposals-panel" className="max-w-5xl mx-auto space-y-5">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Propostas recebidas</h1>
         <p className="text-gray-500 text-sm">

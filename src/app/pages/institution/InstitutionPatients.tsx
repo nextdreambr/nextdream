@@ -125,7 +125,7 @@ export default function InstitutionPatients() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div data-sandbox-tour-id="institution-patients-panel" className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Pacientes acompanhados</h1>

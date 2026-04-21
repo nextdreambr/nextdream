@@ -43,7 +43,7 @@ export default function MyProposals() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div data-sandbox-tour-id="supporter-proposals-panel" className="max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Minhas Propostas</h1>
         <p className="text-gray-500 text-sm">{myProposals.length} propostas enviadas</p>

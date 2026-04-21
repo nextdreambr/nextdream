@@ -1,5 +1,7 @@
 import { Outlet, useLocation } from 'react-router';
 import { AppProvider } from '../../context/AppContext';
+import { SandboxTourProvider } from '../../context/SandboxTourContext';
+import { SandboxEnvironmentBanner } from '../shared/SandboxEnvironmentBanner';
 import { useSeoMetadata } from '../../seo/useSeoMetadata';
 
 export function RootLayout() {
@@ -8,7 +10,10 @@ export function RootLayout() {
 
   return (
     <AppProvider>
-      <Outlet />
+      <SandboxTourProvider>
+        <SandboxEnvironmentBanner />
+        <Outlet />
+      </SandboxTourProvider>
     </AppProvider>
   );
 }

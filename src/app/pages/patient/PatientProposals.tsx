@@ -56,7 +56,7 @@ export default function PatientProposals() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div data-sandbox-tour-id="patient-proposals-panel" className="max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Propostas recebidas</h1>
         <p className="text-gray-500 text-sm">{pending.length} aguardando sua decisão</p>

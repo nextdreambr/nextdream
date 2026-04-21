@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Notification } from '../../entities/notification.entity';
 import { User } from '../../entities/user.entity';
 import { MailService } from '../mail/mail.service';
+import { JwtPayload } from '../auth/jwt-auth.guard';
 
 @Injectable()
 export class NotificationsService {
@@ -19,6 +20,10 @@ export class NotificationsService {
     this.notificationsRepository = notificationsRepository;
     this.usersRepository = usersRepository;
     this.mailService = mailService;
+  }
+
+  private resolveUserId(actor: string | JwtPayload) {
+    return typeof actor === 'string' ? actor : actor.sub;
   }
 
   async createNotification(input: {
@@ -52,7 +57,8 @@ export class NotificationsService {
     return this.serialize(saved);
   }
 
-  async listMine(userId: string) {
+  async listMine(actor: string | JwtPayload) {
+    const userId = this.resolveUserId(actor);
     const notifications = await this.notificationsRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -61,7 +67,8 @@ export class NotificationsService {
     return notifications.map((notification) => this.serialize(notification));
   }
 
-  async markRead(userId: string, notificationId: string) {
+  async markRead(actor: string | JwtPayload, notificationId: string) {
+    const userId = this.resolveUserId(actor);
     const notification = await this.notificationsRepository.findOneBy({
       id: notificationId,
       userId,
@@ -79,7 +86,8 @@ export class NotificationsService {
     return this.serialize(notification);
   }
 
-  async markAllRead(userId: string) {
+  async markAllRead(actor: string | JwtPayload) {
+    const userId = this.resolveUserId(actor);
     await this.notificationsRepository
       .createQueryBuilder()
       .update(Notification)
@@ -91,7 +99,8 @@ export class NotificationsService {
     return { ok: true };
   }
 
-  async getPreferences(userId: string) {
+  async getPreferences(actor: string | JwtPayload) {
+    const userId = this.resolveUserId(actor);
     const user = await this.usersRepository.findOneBy({ id: userId });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -102,7 +111,8 @@ export class NotificationsService {
     };
   }
 
-  async updatePreferences(userId: string, emailEnabled: boolean) {
+  async updatePreferences(actor: string | JwtPayload, emailEnabled: boolean) {
+    const userId = this.resolveUserId(actor);
     const user = await this.usersRepository.findOneBy({ id: userId });
     if (!user) {
       throw new NotFoundException('User not found');

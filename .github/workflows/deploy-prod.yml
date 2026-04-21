@@ -106,6 +106,7 @@ jobs:
         if: ${{ matrix.name == 'web' }}
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_SANDBOX_HOSTNAME: ${{ vars.VITE_SANDBOX_HOSTNAME }}
           SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
           SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
           VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID }}
@@ -113,6 +114,7 @@ jobs:
           set -euo pipefail
           required=(
             VITE_API_URL
+            VITE_SANDBOX_HOSTNAME
             SENTRY_DSN_WEB
             SENTRY_TRACES_SAMPLE_RATE
             VITE_GA_MEASUREMENT_ID
@@ -151,6 +153,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_SANDBOX_HOSTNAME=${{ vars.VITE_SANDBOX_HOSTNAME }}
             VITE_SENTRY_DSN=${{ vars.SENTRY_DSN_WEB }}
             VITE_SENTRY_TRACES_SAMPLE_RATE=${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
             VITE_SENTRY_RELEASE=${{ needs.resolve-release.outputs.image_tag }}
@@ -243,7 +246,7 @@ jobs:
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
           OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
           OCI_KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
-          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}
           NODE_ENV: ${{ vars.NODE_ENV }}
           APP_URL: ${{ vars.APP_URL }}
           CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
@@ -395,7 +398,7 @@ jobs:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
-          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}
         run: |
           set -euo pipefail
           previous_tag="$(ssh -i ~/.ssh/oci_key -p "$OCI_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$OCI_USER@$OCI_HOST" "cat '$APP_DIR/.release-tag' 2>/dev/null || true")"
@@ -407,7 +410,7 @@ jobs:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
-          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}
         run: |
           set -euo pipefail
 
@@ -469,6 +472,7 @@ jobs:
           chmod 700 "$bundle_dir"
 
           cat > "$bundle_dir/.env.production" <<EOF
+          APP_ENV=production
           NODE_ENV=${NODE_ENV}
           API_BIND_ADDRESS=${API_BIND_ADDRESS}
           WEB_BIND_ADDRESS=${WEB_BIND_ADDRESS}
@@ -519,7 +523,7 @@ jobs:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
-          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}
           BUNDLE_DIR: ${{ steps.deploy_bundle.outputs.bundle_dir }}
         run: |
           set -euo pipefail
@@ -615,7 +619,7 @@ jobs:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
-          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}
           PREVIOUS_API_IMAGE: ${{ steps.previous_state.outputs.previous_api_image }}
           PREVIOUS_WEB_IMAGE: ${{ steps.previous_state.outputs.previous_web_image }}
           PREVIOUS_TAG: ${{ steps.previous_state.outputs.previous_tag || steps.previous.outputs.previous_tag }}
@@ -788,7 +792,7 @@ jobs:
           OCI_HOST: ${{ vars.OCI_HOST }}
           OCI_USER: ${{ vars.OCI_USER }}
           OCI_PORT: ${{ vars.OCI_PORT || '22' }}
-          APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}
+          APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}
           API_IMAGE: ${{ env.IMAGE_REPO_BASE }}-api:${{ env.IMAGE_TAG }}
           WEB_IMAGE: ${{ env.IMAGE_REPO_BASE }}-web:${{ env.IMAGE_TAG }}
         run: |

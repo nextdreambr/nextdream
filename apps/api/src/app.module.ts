@@ -17,7 +17,11 @@ import { Dream } from './entities/dream.entity';
 import { Proposal } from './entities/proposal.entity';
 import { Conversation } from './entities/conversation.entity';
 import { ManagedPatient } from './entities/managed-patient.entity';
-import { getRateLimitConfig, getRequiredEnv } from './config/env';
+import {
+  getRateLimitConfig,
+  getRequiredEnv,
+  isSandboxEnvironment,
+} from './config/env';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
@@ -27,6 +31,60 @@ import { HealthModule } from './modules/health/health.module';
 import { InstitutionModule } from './modules/institution/institution.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SentryTunnelModule } from './observability/sentry-tunnel.module';
+import { SandboxModule } from './sandbox/sandbox.module';
+
+const databaseModule = TypeOrmModule.forRootAsync({
+  useFactory: () => {
+    const common = {
+      entities: [
+        User,
+        Dream,
+        Proposal,
+        Conversation,
+        ManagedPatient,
+        Message,
+        Notification,
+        AdminContactMessage,
+        AdminInvite,
+        PatientInvite,
+        AdminReport,
+        AuditLog,
+      ],
+      synchronize: process.env.NODE_ENV !== 'production',
+    };
+
+    if (process.env.NODE_ENV === 'test') {
+      return {
+        type: 'sqljs' as const,
+        autoSave: false,
+        ...common,
+      };
+    }
+
+    return {
+      type: 'postgres' as const,
+      url: getRequiredEnv('DATABASE_URL'),
+      ...common,
+    };
+  },
+});
+
+const runtimeImports = isSandboxEnvironment()
+  ? [
+      SandboxModule,
+    ]
+  : [
+      databaseModule,
+      HealthModule,
+      AuthModule,
+      DreamsModule,
+      ProposalsModule,
+      ConversationsModule,
+      InstitutionModule,
+      NotificationsModule,
+      SentryTunnelModule,
+      AdminModule,
+    ];
 
 @Module({
   imports: [
@@ -40,56 +98,13 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
         '.env',
       ],
     }),
-    TypeOrmModule.forRootAsync({
-      useFactory: () => {
-        const common = {
-          entities: [
-            User,
-            Dream,
-            Proposal,
-            Conversation,
-            ManagedPatient,
-            Message,
-            Notification,
-            AdminContactMessage,
-            AdminInvite,
-            PatientInvite,
-            AdminReport,
-            AuditLog,
-          ],
-          synchronize: process.env.NODE_ENV !== 'production',
-        };
-
-        if (process.env.NODE_ENV === 'test') {
-          return {
-            type: 'sqljs' as const,
-            autoSave: false,
-            ...common,
-          };
-        }
-
-        return {
-          type: 'postgres' as const,
-          url: getRequiredEnv('DATABASE_URL'),
-          ...common,
-        };
-      },
-    }),
     ThrottlerModule.forRoot([
       {
         name: 'default',
         ...getRateLimitConfig(),
       },
     ]),
-    HealthModule,
-    AuthModule,
-    DreamsModule,
-    ProposalsModule,
-    ConversationsModule,
-    InstitutionModule,
-    NotificationsModule,
-    SentryTunnelModule,
-    AdminModule,
+    ...runtimeImports,
   ],
   providers: [
     {

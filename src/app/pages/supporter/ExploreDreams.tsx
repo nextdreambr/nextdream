@@ -90,7 +90,7 @@ export default function ExploreDreams() {
   const hasFilters = filters.categories.length > 0 || filters.format || filters.urgency;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div data-sandbox-tour-id="supporter-explore-panel" className="max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Explorar Sonhos</h1>
         <p className="text-gray-500 text-sm">

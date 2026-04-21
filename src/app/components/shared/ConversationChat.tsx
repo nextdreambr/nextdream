@@ -7,9 +7,10 @@ import { ApiError, ChatMessage, Conversation, conversationsApi } from '../../lib
 interface ConversationChatProps {
   emptyActionTo: string;
   emptyActionLabel: string;
+  tourTargetId?: string;
 }
 
-export function ConversationChat({ emptyActionTo, emptyActionLabel }: ConversationChatProps) {
+export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId }: ConversationChatProps) {
   const { currentUser } = useApp();
   const location = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -117,12 +118,19 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
   }
 
   if (loadingConversations) {
-    return <div className="py-8 text-sm text-gray-500">Carregando conversas...</div>;
+    return (
+      <div data-sandbox-tour-id={tourTargetId} className="py-8 text-sm text-gray-500">
+        Carregando conversas...
+      </div>
+    );
   }
 
   if (conversations.length === 0) {
     return (
-      <div className="bg-white border border-pink-100 rounded-2xl p-8 text-center space-y-3">
+      <div
+        data-sandbox-tour-id={tourTargetId}
+        className="bg-white border border-pink-100 rounded-2xl p-8 text-center space-y-3"
+      >
         <div className="w-12 h-12 mx-auto bg-pink-50 rounded-2xl flex items-center justify-center">
           <MessageCircle className="w-5 h-5 text-pink-600" />
         </div>
@@ -136,7 +144,10 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel }: Conversati
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)] gap-4">
+    <div
+      data-sandbox-tour-id={tourTargetId}
+      className="grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)] gap-4"
+    >
       <aside className="bg-white border border-pink-100 rounded-2xl p-3 space-y-2 max-h-[70vh] overflow-auto">
         {conversations.map((conversation) => (
           <button

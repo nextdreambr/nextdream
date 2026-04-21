@@ -43,7 +43,10 @@ export default function InstitutionDashboard() {
   if (!currentUser.approved) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="bg-gradient-to-r from-indigo-600 to-sky-600 rounded-2xl p-6 text-white">
+        <div
+          data-sandbox-tour-id="institution-dashboard-hero"
+          className="bg-gradient-to-r from-indigo-600 to-sky-600 rounded-2xl p-6 text-white"
+        >
           <p className="text-indigo-100 text-sm mb-1">Olá, {currentUser.name.split(' ')[0]}</p>
           <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Conta em análise</h1>
           <p className="text-indigo-100 text-sm leading-relaxed">
@@ -80,7 +83,10 @@ export default function InstitutionDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="bg-gradient-to-r from-indigo-600 to-sky-600 rounded-2xl p-6 text-white">
+      <div
+        data-sandbox-tour-id="institution-dashboard-hero"
+        className="bg-gradient-to-r from-indigo-600 to-sky-600 rounded-2xl p-6 text-white"
+      >
         <p className="text-indigo-100 text-sm mb-1">Olá, {currentUser.name.split(' ')[0]}</p>
         <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Operação institucional</h1>
         <p className="text-indigo-100 text-sm leading-relaxed mb-4">

@@ -1,0 +1,35 @@
+services:
+  api:
+    image: ${API_IMAGE:?API_IMAGE is required}
+    container_name: nextdream-sandbox-api
+    restart: unless-stopped
+    user: node
+    env_file:
+      - .env.sandbox
+    environment:
+      NODE_ENV: production
+      APP_ENV: sandbox
+      API_PORT: 4000
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "${SANDBOX_API_BIND_ADDRESS:-127.0.0.1}:${SANDBOX_API_HOST_PORT:-4001}:4000"
+    expose:
+      - "4000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:4000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - default
+
+networks:
+  default:
+    name: ${SANDBOX_DOCKER_NETWORK:-nextdream-sandbox}
