@@ -5,7 +5,6 @@ import { useApp } from '../../context/AppContext';
 import { ApiError, ApiUserRole, authApi } from '../../lib/api';
 import { BRAZIL_STATES } from '../../data/brazilCities';
 import { getCitiesForState } from '../../lib/location';
-import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 type LocationState = {
   role?: ApiUserRole;
@@ -281,7 +280,6 @@ export default function Register() {
     <div className={`min-h-screen flex items-center justify-center px-4 py-12 ${theme.pageBg}`}>
       <div className="w-full max-w-5xl">
         <div className="mb-8 text-center xl:text-left">
-          <img src={logoImg} alt="NextDream" className="h-12 w-auto mx-auto mb-4" />
           <h1 className="text-gray-800" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Criar conta no NextDream</h1>
           <p className="text-gray-500 text-sm mt-1">{copy.profileDescription}</p>
         </div>
