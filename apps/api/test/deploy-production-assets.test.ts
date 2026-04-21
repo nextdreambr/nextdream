@@ -60,11 +60,19 @@ describe('production deploy hardening assets', () => {
     expect(dockerfile).toMatch(/USER\s+node/);
   });
 
+  it('installs production-only API workspace dependencies in the runtime image', () => {
+    const dockerfile = readRepoFile('Dockerfile.api');
+
+    expect(dockerfile).toMatch(/npm ci --omit=dev --workspace apps\/api --include-workspace-root=false/);
+    expect(dockerfile).toMatch(/rm -rf \/usr\/local\/lib\/node_modules\/npm/);
+    expect(dockerfile).not.toMatch(/COPY --from=builder \/app\/node_modules \/app\/node_modules/);
+  });
+
   it('uses an unprivileged web image and serves on an unprivileged port', () => {
     const dockerfile = readRepoFile('Dockerfile.web');
     const nginxConfig = readRepoFile('deploy/nginx/default.conf');
 
-    expect(dockerfile).toMatch(/nginx.*unprivileged/i);
+    expect(dockerfile).toMatch(/nginxinc\/nginx-unprivileged:1\.29.*-alpine/i);
     expect(dockerfile).toMatch(/EXPOSE\s+8080/);
     expect(nginxConfig).toMatch(/listen\s+8080;/);
   });
