@@ -16,7 +16,7 @@ export default function AdminAdmins() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editRole, setEditRole] = useState<'paciente' | 'apoiador' | 'admin'>('admin');
+  const [editRole, setEditRole] = useState<'paciente' | 'apoiador' | 'instituicao' | 'admin'>('admin');
   const [editActive, setEditActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -209,11 +209,12 @@ export default function AdminAdmins() {
             />
             <select
               value={editRole}
-              onChange={(event) => setEditRole(event.target.value as 'paciente' | 'apoiador' | 'admin')}
+              onChange={(event) => setEditRole(event.target.value as 'paciente' | 'apoiador' | 'instituicao' | 'admin')}
               className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="admin">admin</option>
               <option value="apoiador">apoiador</option>
+              <option value="instituicao">instituicao</option>
               <option value="paciente">paciente</option>
             </select>
             <select

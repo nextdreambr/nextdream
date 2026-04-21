@@ -10,7 +10,7 @@ export function loadStoredSession(): AuthSession | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<AuthSession>;
-    if (!parsed.accessToken || !parsed.refreshToken || !parsed.user) return null;
+    if (!parsed.user) return null;
 
     return parsed as AuthSession;
   } catch {

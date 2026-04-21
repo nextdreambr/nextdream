@@ -1,4 +1,4 @@
-import { IsIn, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { DreamFormat, DreamPrivacy, DreamUrgency } from '../../../entities/dream.entity';
 
 export class CreateDreamDto {
@@ -19,4 +19,8 @@ export class CreateDreamDto {
 
   @IsIn(['publico', 'verificados', 'anonimo'])
   privacy!: DreamPrivacy;
+
+  @IsOptional()
+  @IsUUID('4')
+  managedPatientId?: string;
 }

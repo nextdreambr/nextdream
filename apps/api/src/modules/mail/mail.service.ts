@@ -96,7 +96,8 @@ export class MailService {
 
   private getTransporter(): Transporter | null {
     if (process.env.NODE_ENV === 'test') {
-      return null;
+      this.transporter ??= nodemailer.createTransport({ jsonTransport: true });
+      return this.transporter;
     }
 
     if (this.transporter) {
@@ -234,6 +235,50 @@ export class MailService {
         `Failed to send admin invite email to ${params.to}: ${message}`,
       );
       throw new Error(`Failed to send admin invite email to ${params.to}: ${message}`);
+    }
+  }
+
+  async sendPatientInviteEmail(params: {
+    to: string;
+    patientName: string;
+    institutionName: string;
+    inviteUrl: string;
+    expiresInHours: number;
+  }) {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      throw new Error('SMTP transporter is unavailable for patient invite email');
+    }
+
+    const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
+    const subject = 'Convite para acompanhar seu caso - NextDream';
+    const template = this.renderEmailTemplate({
+      preheader: 'Convite para acompanhar seu caso no NextDream',
+      title: 'Convite para acessar seu caso',
+      greeting: `Olá, ${params.patientName}!`,
+      intro: `${params.institutionName} criou um acesso para que você acompanhe seu caso no NextDream.`,
+      bodyLines: [
+        `Este convite expira em ${params.expiresInHours} horas e pode ser usado apenas uma vez.`,
+        'Ao concluir o cadastro, você poderá visualizar sonhos, propostas e conversas relacionadas ao seu caso.',
+      ],
+      ctaLabel: 'Criar meu acesso',
+      ctaUrl: params.inviteUrl,
+    });
+
+    try {
+      await transporter.sendMail({
+        from,
+        to: params.to,
+        subject,
+        text: template.text,
+        html: template.html,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      this.logger.warn(
+        `Failed to send patient invite email to ${params.to}: ${message}`,
+      );
+      throw new Error(`Failed to send patient invite email to ${params.to}: ${message}`);
     }
   }
 }

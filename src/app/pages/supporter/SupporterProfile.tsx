@@ -181,9 +181,9 @@ export default function SupporterProfile() {
                   <Shield className="w-3 h-3" />Verificado
                 </span>
               )}
-              {currentUser?.city && (
+              {(currentUser?.locationLabel ?? currentUser?.city) && (
                 <span className="text-xs text-gray-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />{currentUser.city}
+                  <MapPin className="w-3 h-3" />{currentUser.locationLabel ?? currentUser.city}
                 </span>
               )}
             </div>

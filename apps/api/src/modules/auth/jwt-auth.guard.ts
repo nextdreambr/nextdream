@@ -12,7 +12,7 @@ import { getAccessTokenFromCookies } from './auth-cookies';
 export interface JwtPayload {
   sub: string;
   email: string;
-  role: 'paciente' | 'apoiador' | 'admin';
+  role: 'paciente' | 'apoiador' | 'instituicao' | 'admin';
 }
 
 @Injectable()

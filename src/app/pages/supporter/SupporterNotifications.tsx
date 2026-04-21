@@ -2,6 +2,7 @@ import React from 'react';
 import { Bell, CheckCheck, Send, MessageCircle, Star, Shield, ChevronRight, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useApp } from '../../context/AppContext';
+import { formatRelativeDate } from '../../lib/relativeTime';
 
 const typeIcon: Record<string, React.ReactNode> = {
   aceito: <Star className="w-4 h-4 text-amber-500" />,
@@ -20,17 +21,6 @@ const typeBg: Record<string, string> = {
   seguranca: 'bg-red-50',
   dica: 'bg-pink-50',
 };
-
-function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date('2026-02-25');
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Hoje';
-  if (diffDays === 1) return 'Ontem';
-  if (diffDays < 7) return `${diffDays} dias atrás`;
-  return dateStr.split(' ')[0];
-}
 
 export default function SupporterNotifications() {
   const navigate = useNavigate();
@@ -105,7 +95,7 @@ export default function SupporterNotifications() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.message}</p>
                 <div className="flex items-center justify-between mt-1.5">
-                  <span className="text-xs text-gray-400">{timeAgo(notif.createdAt)}</span>
+                  <span className="text-xs text-gray-400">{formatRelativeDate(notif.createdAt)}</span>
                   {notif.actionPath && (
                     <span className="flex items-center gap-1 text-xs text-teal-600 font-medium">
                       Ver <ChevronRight className="w-3 h-3" />

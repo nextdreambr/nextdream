@@ -11,7 +11,7 @@ export class UpdateAdminDto {
   email?: string;
 
   @IsOptional()
-  @IsIn(['paciente', 'apoiador', 'admin'])
+  @IsIn(['paciente', 'apoiador', 'instituicao', 'admin'])
   role?: UserRole;
 
   @IsOptional()

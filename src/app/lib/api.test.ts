@@ -60,7 +60,7 @@ describe('apiRequest', () => {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
       accessToken: 'persisted-token',
       refreshToken: 'refresh-token',
-      user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true },
+      user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true, approved: true },
     }));
 
     await apiRequest<{ id: string }>('/proposals/mine');
@@ -68,6 +68,21 @@ describe('apiRequest', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer persisted-token');
+  });
+
+  it('includes credentials so cookie-based auth works across local web and API origins', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ user: { id: 'u1' } }),
+    } as Response);
+
+    await apiRequest<{ user: { id: string } }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'instituicao1@nextdream.local', password: 'Seed123!' }),
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.credentials).toBe('include');
   });
 
   it('refreshes the session and retries the original request after a 401', async () => {
@@ -87,7 +102,7 @@ describe('apiRequest', () => {
         text: async () => JSON.stringify({
           accessToken: 'new-access-token',
           refreshToken: 'new-refresh-token',
-          user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true },
+          user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true, approved: true },
         }),
       } as Response)
       .mockResolvedValueOnce({
@@ -154,5 +169,30 @@ describe('apiRequest', () => {
         message: 'Invalid credentials',
       }),
     );
+  });
+
+  it('dispatches an auth-expired event when a protected request loses its auth token', async () => {
+    const listener = vi.fn();
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ message: 'Missing authentication token' }),
+    } as Response);
+
+    try {
+      await expect(apiRequest('/institution/patients')).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Missing authentication token',
+        }),
+      );
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
   });
 });

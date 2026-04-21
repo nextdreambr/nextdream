@@ -7,6 +7,7 @@ import { RootLayout } from './components/layout/RootLayout';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { PatientLayout } from './components/layout/PatientLayout';
 import { SupporterLayout } from './components/layout/SupporterLayout';
+import { InstitutionLayout } from './components/layout/InstitutionLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
 
 // Public pages
@@ -22,6 +23,7 @@ import Register from './pages/auth/Register';
 import ProfileSelect from './pages/auth/ProfileSelect';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import AcceptAdminInvite from './pages/auth/AcceptAdminInvite';
+import AcceptPatientInvite from './pages/auth/AcceptPatientInvite';
 import NotFound from './pages/NotFound';
 import PublicDreamDetail from './pages/PublicDreamDetail';
 import Contact from './pages/Contact';
@@ -51,6 +53,17 @@ import MyProposals from './pages/supporter/MyProposals';
 import SupporterChat from './pages/supporter/SupporterChat';
 import SupporterProfile from './pages/supporter/SupporterProfile';
 import SupporterNotifications from './pages/supporter/SupporterNotifications';
+
+// Institution pages
+import InstitutionDashboard from './pages/institution/InstitutionDashboard';
+import InstitutionPatients from './pages/institution/InstitutionPatients';
+import InstitutionPatientDetail from './pages/institution/InstitutionPatientDetail';
+import InstitutionDreams from './pages/institution/InstitutionDreams';
+import InstitutionCreateDream from './pages/institution/InstitutionCreateDream';
+import InstitutionProposals from './pages/institution/InstitutionProposals';
+import InstitutionChat from './pages/institution/InstitutionChat';
+import InstitutionNotifications from './pages/institution/InstitutionNotifications';
+import InstitutionProfile from './pages/institution/InstitutionProfile';
 
 // Admin pages
 import AdminOverview from './pages/admin/AdminOverview';
@@ -86,6 +99,7 @@ export const router = createBrowserRouter([
           { path: 'selecionar-perfil', Component: ProfileSelect },
           { path: 'esqueci-senha', Component: ForgotPassword },
           { path: 'aceitar-convite-admin', Component: AcceptAdminInvite },
+          { path: 'aceitar-convite-paciente', Component: AcceptPatientInvite },
           { path: 'sonhos/:id', Component: PublicDreamDetail },
           { path: 'contato', Component: Contact },
           { path: 'parcerias', Component: Partnerships },
@@ -128,6 +142,25 @@ export const router = createBrowserRouter([
           { path: 'chat', Component: SupporterChat },
           { path: 'perfil', Component: SupporterProfile },
           { path: 'notificacoes', Component: SupporterNotifications },
+          { path: '*', Component: NotFound },
+        ],
+      },
+      // Institution routes
+      {
+        path: '/instituicao',
+        Component: InstitutionLayout,
+        children: [
+          { index: true, Component: InstitutionDashboard },
+          { path: 'dashboard', Component: InstitutionDashboard },
+          { path: 'pacientes', Component: InstitutionPatients },
+          { path: 'pacientes/:managedPatientId', Component: InstitutionPatientDetail },
+          { path: 'sonhos', Component: InstitutionDreams },
+          { path: 'sonhos/criar', Component: InstitutionCreateDream },
+          { path: 'sonhos/editar/:id', Component: InstitutionCreateDream },
+          { path: 'propostas', Component: InstitutionProposals },
+          { path: 'chat', Component: InstitutionChat },
+          { path: 'notificacoes', Component: InstitutionNotifications },
+          { path: 'perfil', Component: InstitutionProfile },
           { path: '*', Component: NotFound },
         ],
       },
