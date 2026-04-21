@@ -41,6 +41,21 @@ describe('apiRequest', () => {
     expect(headers.Authorization).toBe('Bearer token-123');
   });
 
+  it('includes credentials so cookie-based auth works across local web and API origins', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ user: { id: 'u1' } }),
+    } as Response);
+
+    await apiRequest<{ user: { id: string } }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'instituicao1@nextdream.local', password: 'Seed123!' }),
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.credentials).toBe('include');
+  });
+
   it('throws ApiError with API message on non-2xx response', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
@@ -55,5 +70,30 @@ describe('apiRequest', () => {
         message: 'Invalid credentials',
       }),
     );
+  });
+
+  it('dispatches an auth-expired event when a protected request loses its auth token', async () => {
+    const listener = vi.fn();
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ message: 'Missing authentication token' }),
+    } as Response);
+
+    try {
+      await expect(apiRequest('/institution/patients')).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Missing authentication token',
+        }),
+      );
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
   });
 });

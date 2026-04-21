@@ -11,6 +11,9 @@ export class Conversation {
   @Column({ type: 'varchar' })
   patientId!: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  managedPatientId?: string;
+
   @Column({ type: 'varchar' })
   supporterId!: string;
 

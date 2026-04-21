@@ -69,6 +69,38 @@ describe('NextDream API', () => {
     return isolatedApp;
   }
 
+  async function registerApprovedInstitution(input: {
+    name: string;
+    email: string;
+    password: string;
+    state?: string;
+    city?: string;
+    adminEmail: string;
+  }) {
+    const institutionRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: input.name,
+        email: input.email,
+        password: input.password,
+        role: 'instituicao',
+        state: input.state,
+        city: input.city,
+      });
+
+    expect(institutionRegister.status).toBe(201);
+
+    const institution = await usersRepository.findOneByOrFail({ id: institutionRegister.body.user.id });
+    institution.approved = true;
+    institution.approvedAt = new Date();
+    await usersRepository.save(institution);
+
+    return {
+      institutionRegister,
+      institutionToken: getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"]),
+    };
+  }
+
   afterAll(async () => {
     if (app) {
       await app.close();
@@ -325,6 +357,580 @@ describe('NextDream API', () => {
 
     expect(duplicateProposal.status).toBe(409);
     expect(duplicateProposal.body.message).toBe('Você já enviou uma proposta para este sonho.');
+  });
+
+  it('lets an approved institution manage a beneficiary and operate the patient-side flow', async () => {
+    const password = 'Secret123!';
+    const adminEmail = 'admin-institutions@example.com';
+    const institutionEmail = 'casa-esperanca@example.com';
+    const supporterEmail = 'supporter-institutions@example.com';
+
+    const institutionRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Casa Esperanca',
+        email: institutionEmail,
+        password,
+        role: 'instituicao',
+        state: 'PE',
+        city: 'Recife',
+      });
+
+    expect(institutionRegister.status).toBe(201);
+    expect(institutionRegister.body.user.role).toBe('instituicao');
+    expect(institutionRegister.body.user.approved).toBe(false);
+    expect(institutionRegister.body.user.state).toBe('PE');
+    expect(institutionRegister.body.user.city).toBe('Recife');
+    expect(institutionRegister.body.user.locationLabel).toBe('Recife, PE');
+
+    const pendingInstitutionPatient = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`)
+      .send({
+        name: 'Maria das Dores',
+        state: 'PE',
+        city: 'Recife',
+      });
+
+    expect(pendingInstitutionPatient.status).toBe(403);
+
+    await usersRepository.save(usersRepository.create({
+      name: 'Admin Institucional',
+      email: adminEmail,
+      passwordHash: await bcrypt.hash(password, 10),
+      role: 'admin',
+      verified: true,
+      approved: true,
+      approvedAt: new Date(),
+    }));
+
+    const adminLogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: adminEmail,
+        password,
+      });
+
+    expect(adminLogin.status).toBe(200);
+
+    const approveInstitution = await request(app.getHttpServer())
+      .post(`/admin/users/${institutionRegister.body.user.id}/approve`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
+
+    expect(approveInstitution.status).toBe(200);
+    expect(approveInstitution.body.approved).toBe(true);
+
+    const createManagedPatientWithBlankName = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`)
+      .send({
+        name: '   ',
+      });
+
+    expect(createManagedPatientWithBlankName.status).toBe(400);
+
+    const createManagedPatient = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`)
+      .send({
+        name: 'Maria das Dores',
+        state: 'PE',
+        city: 'Recife',
+      });
+
+    expect(createManagedPatient.status).toBe(201);
+    expect(createManagedPatient.body.name).toBe('Maria das Dores');
+    expect(createManagedPatient.body.state).toBe('PE');
+    expect(createManagedPatient.body.city).toBe('Recife');
+    expect(createManagedPatient.body.locationLabel).toBe('Recife, PE');
+
+    const createInstitutionDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`)
+      .send({
+        title: 'Passeio no jardim botanico',
+        description: 'Uma tarde tranquila em contato com a natureza.',
+        category: 'Experiência ao ar livre',
+        format: 'presencial',
+        urgency: 'media',
+        privacy: 'publico',
+        managedPatientId: createManagedPatient.body.id,
+      });
+
+    expect(createInstitutionDream.status).toBe(201);
+    expect(createInstitutionDream.body.patientName).toBe('Maria das Dores');
+    expect(createInstitutionDream.body.patientCity).toBe('Recife, PE');
+    expect(createInstitutionDream.body.managedByInstitution).toBe(true);
+    expect(createInstitutionDream.body.institutionName).toBe('Casa Esperanca');
+
+    const supporterRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Pedro Oliveira',
+        email: supporterEmail,
+        password,
+        role: 'apoiador',
+        city: 'Recife, PE',
+      });
+
+    expect(supporterRegister.status).toBe(201);
+
+    const createProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createInstitutionDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`)
+      .send({
+        message: 'Posso acompanhar o passeio e organizar o deslocamento.',
+        offering: 'Companhia e organizacao',
+        availability: 'Quintas à tarde',
+        duration: '2 horas',
+      });
+
+    expect(createProposal.status).toBe(201);
+
+    const receivedByInstitution = await request(app.getHttpServer())
+      .get('/proposals/received')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`);
+
+    expect(receivedByInstitution.status).toBe(200);
+    expect(receivedByInstitution.body).toHaveLength(1);
+    expect(receivedByInstitution.body[0].id).toBe(createProposal.body.id);
+
+    const acceptedProposal = await request(app.getHttpServer())
+      .post(`/proposals/${createProposal.body.id}/accept`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`);
+
+    expect(acceptedProposal.status).toBe(200);
+    expect(acceptedProposal.body.conversationId).toEqual(expect.any(String));
+
+    const institutionConversations = await request(app.getHttpServer())
+      .get('/conversations/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`);
+
+    expect(institutionConversations.status).toBe(200);
+    expect(institutionConversations.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: acceptedProposal.body.conversationId,
+          operatorUserId: institutionRegister.body.user.id,
+        }),
+      ]),
+    );
+
+    const institutionMessage = await request(app.getHttpServer())
+      .post(`/conversations/${acceptedProposal.body.conversationId}/messages`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(institutionRegister.headers["set-cookie"])}`)
+      .send({
+        body: 'Estamos alinhando os detalhes do passeio com a equipe.',
+      });
+
+    expect(institutionMessage.status).toBe(201);
+
+    const supporterMessages = await request(app.getHttpServer())
+      .get(`/conversations/${acceptedProposal.body.conversationId}/messages`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
+
+    expect(supporterMessages.status).toBe(200);
+    expect(supporterMessages.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          body: 'Estamos alinhando os detalhes do passeio com a equipe.',
+        }),
+      ]),
+    );
+  });
+
+  it('paginates, filters and updates managed patients for institutions', async () => {
+    const password = 'Secret123!';
+    const { institutionToken } = await registerApprovedInstitution({
+      name: 'Instituicao Gestora',
+      email: 'instituicao-gestora@example.com',
+      password,
+      state: 'PE',
+      city: 'Recife',
+      adminEmail: 'admin-gestora@example.com',
+    });
+
+    const createMaria = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        name: 'Maria das Dores',
+        state: 'PE',
+        city: 'Olinda',
+      });
+    expect(createMaria.status).toBe(201);
+
+    const createJose = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        name: 'Jose Carlos',
+        state: 'PE',
+        city: 'Recife',
+      });
+    expect(createJose.status).toBe(201);
+
+    const createAna = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        name: 'Ana Lucia',
+        state: 'PE',
+        city: 'Paulista',
+      });
+    expect(createAna.status).toBe(201);
+
+    const paginatedPatients = await request(app.getHttpServer())
+      .get('/institution/patients?page=1&pageSize=2')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(paginatedPatients.status).toBe(200);
+    expect(paginatedPatients.body).toMatchObject({
+      page: 1,
+      pageSize: 2,
+      total: 3,
+      totalPages: 2,
+    });
+    expect(paginatedPatients.body.items).toHaveLength(2);
+
+    const filteredPatients = await request(app.getHttpServer())
+      .get('/institution/patients?page=1&pageSize=10&query=jose')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(filteredPatients.status).toBe(200);
+    expect(filteredPatients.body).toMatchObject({
+      total: 1,
+      totalPages: 1,
+    });
+    expect(filteredPatients.body.items).toEqual([
+      expect.objectContaining({
+        id: createJose.body.id,
+        name: 'Jose Carlos',
+        locationLabel: 'Recife, PE',
+      }),
+    ]);
+
+    const updateJose = await request(app.getHttpServer())
+      .patch(`/institution/patients/${createJose.body.id}`)
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        name: 'Jose Carlos Atualizado',
+        state: 'PE',
+        city: 'Jaboatão dos Guararapes',
+      });
+
+    expect(updateJose.status).toBe(200);
+    expect(updateJose.body).toMatchObject({
+      id: createJose.body.id,
+      name: 'Jose Carlos Atualizado',
+      state: 'PE',
+      city: 'Jaboatão dos Guararapes',
+      locationLabel: 'Jaboatão dos Guararapes, PE',
+    });
+  });
+
+  it('paginates institution dreams, supports dream editing and persists proposal rejection', async () => {
+    const password = 'Secret123!';
+    const { institutionToken } = await registerApprovedInstitution({
+      name: 'Casa Sonhos',
+      email: 'casa-sonhos@example.com',
+      password,
+      state: 'PE',
+      city: 'Recife',
+      adminEmail: 'admin-casa-sonhos@example.com',
+    });
+
+    const managedPatientOne = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({ name: 'Beatriz Demo', state: 'PE', city: 'Recife' });
+    expect(managedPatientOne.status).toBe(201);
+
+    const managedPatientTwo = await request(app.getHttpServer())
+      .post('/institution/patients')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({ name: 'Claudia Demo', state: 'PE', city: 'Olinda' });
+    expect(managedPatientTwo.status).toBe(201);
+
+    const dreamOne = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        title: 'Passeio no jardim botanico',
+        description: 'Uma tarde tranquila em contato com a natureza.',
+        category: 'Experiência ao ar livre',
+        format: 'presencial',
+        urgency: 'media',
+        privacy: 'publico',
+        managedPatientId: managedPatientOne.body.id,
+      });
+    expect(dreamOne.status).toBe(201);
+
+    const dreamTwo = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        title: 'Oficina de musica suave',
+        description: 'A instituicao quer organizar uma tarde musical.',
+        category: 'Arte e Música',
+        format: 'presencial',
+        urgency: 'baixa',
+        privacy: 'publico',
+        managedPatientId: managedPatientOne.body.id,
+      });
+    expect(dreamTwo.status).toBe(201);
+
+    const dreamThree = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        title: 'Sessao de leitura compartilhada',
+        description: 'Leituras leves com conversa acolhedora.',
+        category: 'Literatura e Cultura',
+        format: 'remoto',
+        urgency: 'media',
+        privacy: 'publico',
+        managedPatientId: managedPatientOne.body.id,
+      });
+    expect(dreamThree.status).toBe(201);
+
+    const supporterOne = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiador Um',
+        email: 'apoiador-um-sonhos@example.com',
+        password,
+        role: 'apoiador',
+        state: 'PE',
+        city: 'Recife',
+      });
+    expect(supporterOne.status).toBe(201);
+
+    const supporterTwo = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Apoiador Dois',
+        email: 'apoiador-dois-sonhos@example.com',
+        password,
+        role: 'apoiador',
+        state: 'PE',
+        city: 'Olinda',
+      });
+    expect(supporterTwo.status).toBe(201);
+
+    const proposalOne = await request(app.getHttpServer())
+      .post(`/dreams/${dreamOne.body.id}/proposals`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterOne.headers["set-cookie"])}`)
+      .send({
+        message: 'Posso organizar o deslocamento para o passeio.',
+        offering: 'Companhia e deslocamento',
+        availability: 'Segundas à tarde',
+        duration: '2 horas',
+      });
+    expect(proposalOne.status).toBe(201);
+
+    const proposalTwo = await request(app.getHttpServer())
+      .post(`/dreams/${dreamTwo.body.id}/proposals`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterTwo.headers["set-cookie"])}`)
+      .send({
+        message: 'Posso levar repertorio e acompanhar a oficina.',
+        offering: 'Oficina musical guiada',
+        availability: 'Quartas de manhã',
+        duration: '1 hora',
+      });
+    expect(proposalTwo.status).toBe(201);
+
+    const proposalThree = await request(app.getHttpServer())
+      .post(`/dreams/${dreamThree.body.id}/proposals`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterOne.headers["set-cookie"])}`)
+      .send({
+        message: 'Posso conduzir a leitura com textos curtos.',
+        offering: 'Leitura mediada',
+        availability: 'Sextas à tarde',
+        duration: '45 minutos',
+      });
+    expect(proposalThree.status).toBe(201);
+
+    const acceptFirstProposal = await request(app.getHttpServer())
+      .post(`/proposals/${proposalOne.body.id}/accept`)
+      .set('Authorization', `Bearer ${institutionToken}`);
+    expect(acceptFirstProposal.status).toBe(200);
+
+    const paginatedDreams = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=2')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(paginatedDreams.status).toBe(200);
+    expect(paginatedDreams.body).toMatchObject({
+      page: 1,
+      pageSize: 2,
+      total: 3,
+      totalPages: 2,
+    });
+    expect(paginatedDreams.body.items).toHaveLength(2);
+
+    const filteredDreams = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=10&status=publicado&query=oficina')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(filteredDreams.status).toBe(200);
+    expect(filteredDreams.body).toMatchObject({
+      total: 1,
+      totalPages: 1,
+    });
+    expect(filteredDreams.body.items).toEqual([
+      expect.objectContaining({
+        id: dreamTwo.body.id,
+        title: 'Oficina de musica suave',
+        status: 'publicado',
+      }),
+    ]);
+
+    const updateDream = await request(app.getHttpServer())
+      .patch(`/dreams/${dreamThree.body.id}`)
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        title: 'Sessao de leitura e pintura',
+        description: 'Leitura compartilhada com atividade artistica leve.',
+        category: 'Arte e Música',
+        format: 'ambos',
+        urgency: 'alta',
+        privacy: 'verificados',
+        managedPatientId: managedPatientTwo.body.id,
+      });
+
+    expect(updateDream.status).toBe(200);
+    expect(updateDream.body).toMatchObject({
+      id: dreamThree.body.id,
+      title: 'Sessao de leitura e pintura',
+      category: 'Arte e Música',
+      format: 'ambos',
+      urgency: 'alta',
+      privacy: 'verificados',
+      managedPatientId: managedPatientTwo.body.id,
+      patientName: 'Claudia Demo',
+      patientCity: 'Olinda, PE',
+    });
+
+    const paginatedReceivedProposals = await request(app.getHttpServer())
+      .get('/proposals/received?page=1&pageSize=1&status=enviada')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(paginatedReceivedProposals.status).toBe(200);
+    expect(paginatedReceivedProposals.body).toMatchObject({
+      page: 1,
+      pageSize: 1,
+      total: 2,
+      totalPages: 2,
+    });
+    expect(paginatedReceivedProposals.body.items).toHaveLength(1);
+
+    const rejectProposal = await request(app.getHttpServer())
+      .post(`/proposals/${proposalTwo.body.id}/reject`)
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(rejectProposal.status).toBe(200);
+    expect(rejectProposal.body.status).toBe('recusada');
+
+    const rejectedProposals = await request(app.getHttpServer())
+      .get('/proposals/received?page=1&pageSize=10&status=recusada&query=oficina')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(rejectedProposals.status).toBe(200);
+    expect(rejectedProposals.body).toMatchObject({
+      total: 1,
+      totalPages: 1,
+    });
+    expect(rejectedProposals.body.items).toEqual([
+      expect.objectContaining({
+        id: proposalTwo.body.id,
+        status: 'recusada',
+        dreamTitle: 'Oficina de musica suave',
+      }),
+    ]);
+  });
+
+  it('allows an institution to update its profile and change its password', async () => {
+    const password = 'Secret123!';
+    const { institutionRegister, institutionToken } = await registerApprovedInstitution({
+      name: 'Instituicao Perfil',
+      email: 'instituicao-perfil@example.com',
+      password,
+      state: 'PE',
+      city: 'Recife',
+      adminEmail: 'admin-instituicao-perfil@example.com',
+    });
+
+    const getProfile = await request(app.getHttpServer())
+      .get('/institution/profile')
+      .set('Authorization', `Bearer ${institutionToken}`);
+
+    expect(getProfile.status).toBe(200);
+    expect(getProfile.body).toMatchObject({
+      id: institutionRegister.body.user.id,
+      name: 'Instituicao Perfil',
+      email: 'instituicao-perfil@example.com',
+      locationLabel: 'Recife, PE',
+    });
+
+    const updateProfile = await request(app.getHttpServer())
+      .patch('/institution/profile')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        name: 'Instituicao Perfil Atualizada',
+        email: 'instituicao-perfil-atualizada@example.com',
+        state: 'PE',
+        city: 'Olinda',
+        institutionType: 'ONG',
+        institutionDescription: 'Instituicao focada em acompanhamento humanizado.',
+      });
+
+    expect(updateProfile.status).toBe(200);
+    expect(updateProfile.body).toMatchObject({
+      id: institutionRegister.body.user.id,
+      name: 'Instituicao Perfil Atualizada',
+      email: 'instituicao-perfil-atualizada@example.com',
+      state: 'PE',
+      city: 'Olinda',
+      locationLabel: 'Olinda, PE',
+      institutionType: 'ONG',
+      institutionDescription: 'Instituicao focada em acompanhamento humanizado.',
+    });
+
+    const invalidPasswordChange = await request(app.getHttpServer())
+      .post('/institution/profile/password')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        currentPassword: 'SenhaErrada123!',
+        newPassword: 'NovaSenhaSegura123!',
+      });
+
+    expect(invalidPasswordChange.status).toBe(401);
+
+    const validPasswordChange = await request(app.getHttpServer())
+      .post('/institution/profile/password')
+      .set('Authorization', `Bearer ${institutionToken}`)
+      .send({
+        currentPassword: password,
+        newPassword: 'NovaSenhaSegura123!',
+      });
+
+    expect(validPasswordChange.status).toBe(200);
+
+    const relogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'instituicao-perfil-atualizada@example.com',
+        password: 'NovaSenhaSegura123!',
+      });
+
+    expect(relogin.status).toBe(200);
+    expect(relogin.body.user).toMatchObject({
+      role: 'instituicao',
+      institutionType: 'ONG',
+      institutionDescription: 'Instituicao focada em acompanhamento humanizado.',
+      locationLabel: 'Olinda, PE',
+    });
   });
 
   it('accepts HttpOnly access token cookie as auth fallback', async () => {
@@ -690,6 +1296,8 @@ describe('NextDream API', () => {
         passwordHash: await bcrypt.hash(password, 10),
         role: 'admin',
         verified: true,
+        approved: true,
+        approvedAt: new Date(),
         suspended: false,
       }),
     );
@@ -786,11 +1394,51 @@ describe('NextDream API', () => {
       .send({ body: 'Combinado, estarei lá no horário.' });
     expect(postSupporterMessage.status).toBe(201);
 
+    const patientNotificationsBeforeAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
+    expect(patientNotificationsBeforeAdminMessage.status).toBe(200);
+
+    const supporterNotificationsBeforeAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
+    expect(supporterNotificationsBeforeAdminMessage.status).toBe(200);
+
+    const patientMessageNotificationsBeforeAdmin = patientNotificationsBeforeAdminMessage.body.filter(
+      (item: { type: string }) => item.type === 'mensagem',
+    ).length;
+    const supporterMessageNotificationsBeforeAdmin = supporterNotificationsBeforeAdminMessage.body.filter(
+      (item: { type: string }) => item.type === 'mensagem',
+    ).length;
+
+    const postAdminMessage = await request(app.getHttpServer())
+      .post(`/conversations/${conversationId}/messages`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
+      .send({ body: 'Mensagem da moderação para os dois lados.' });
+    expect(postAdminMessage.status).toBe(201);
+
+    const patientNotificationsAfterAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])}`);
+    expect(patientNotificationsAfterAdminMessage.status).toBe(200);
+
+    const supporterNotificationsAfterAdminMessage = await request(app.getHttpServer())
+      .get('/notifications/mine')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
+    expect(supporterNotificationsAfterAdminMessage.status).toBe(200);
+
+    expect(
+      patientNotificationsAfterAdminMessage.body.filter((item: { type: string }) => item.type === 'mensagem').length,
+    ).toBe(patientMessageNotificationsBeforeAdmin + 1);
+    expect(
+      supporterNotificationsAfterAdminMessage.body.filter((item: { type: string }) => item.type === 'mensagem').length,
+    ).toBe(supporterMessageNotificationsBeforeAdmin + 1);
+
     const listMessages = await request(app.getHttpServer())
       .get(`/conversations/${conversationId}/messages`)
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"])}`);
     expect(listMessages.status).toBe(200);
-    expect(listMessages.body).toHaveLength(2);
+    expect(listMessages.body).toHaveLength(3);
 
     const closeConversation = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/close`)
@@ -837,6 +1485,8 @@ describe('NextDream API', () => {
         passwordHash: await bcrypt.hash(password, 10),
         role: 'admin',
         verified: true,
+        approved: true,
+        approvedAt: new Date(),
         suspended: false,
       }),
     );

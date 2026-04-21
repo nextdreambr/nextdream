@@ -6,6 +6,7 @@ import { Conversation } from '../../entities/conversation.entity';
 import { Message } from '../../entities/message.entity';
 import { User } from '../../entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
+import { InstitutionModule } from '../institution/institution.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
@@ -14,6 +15,7 @@ import { ConversationsService } from './conversations.service';
   imports: [
     TypeOrmModule.forFeature([Conversation, Message, User, AuditLog, AdminReport]),
     AuthModule,
+    InstitutionModule,
     NotificationsModule,
   ],
   controllers: [ConversationsController],

@@ -16,9 +16,10 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get('tipo');
 
-  const routeByRole = (role: 'paciente' | 'apoiador' | 'admin') => {
+  const routeByRole = (role: 'paciente' | 'apoiador' | 'instituicao' | 'admin') => {
     if (role === 'paciente') return '/paciente/dashboard';
     if (role === 'apoiador') return '/apoiador/dashboard';
+    if (role === 'instituicao') return '/instituicao/dashboard';
     return '/admin';
   };
 

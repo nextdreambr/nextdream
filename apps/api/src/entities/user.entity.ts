@@ -8,9 +8,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Dream } from './dream.entity';
+import { ManagedPatient } from './managed-patient.entity';
 import { Proposal } from './proposal.entity';
 
-export type UserRole = 'paciente' | 'apoiador' | 'admin';
+export type UserRole = 'paciente' | 'apoiador' | 'instituicao' | 'admin';
 
 @Entity('users')
 export class User {
@@ -30,10 +31,25 @@ export class User {
   role!: UserRole;
 
   @Column({ type: 'varchar', nullable: true })
+  state?: string;
+
+  @Column({ type: 'varchar', nullable: true })
   city?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  institutionType?: string;
+
+  @Column({ type: 'text', nullable: true })
+  institutionDescription?: string;
 
   @Column({ type: 'boolean', default: true })
   verified!: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  approved!: boolean;
+
+  @Column({ type: process.env.NODE_ENV === 'test' ? 'datetime' : 'timestamp', nullable: true })
+  approvedAt?: Date;
 
   @Column({ type: 'boolean', default: false })
   suspended!: boolean;
@@ -55,6 +71,9 @@ export class User {
 
   @OneToMany(() => Dream, (dream) => dream.patient)
   dreams!: Dream[];
+
+  @OneToMany(() => ManagedPatient, (managedPatient) => managedPatient.institution)
+  managedPatients!: ManagedPatient[];
 
   @OneToMany(() => Proposal, (proposal) => proposal.supporter)
   proposals!: Proposal[];

@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { AppNotification, AuthSession, notificationsApi, setAccessTokenGetter } from '../lib/api';
 
-export type AppRole = 'public' | 'paciente' | 'apoiador' | 'admin';
+export type AppRole = 'public' | 'paciente' | 'apoiador' | 'instituicao' | 'admin';
 
 export interface AppUser {
   id: string;
@@ -9,8 +9,13 @@ export interface AppUser {
   email: string;
   role: AppRole;
   avatar?: string;
+  state?: string;
   city?: string;
+  locationLabel?: string;
+  institutionType?: string;
+  institutionDescription?: string;
   verified: boolean;
+  approved: boolean;
   emailNotificationsEnabled?: boolean;
 }
 
@@ -24,12 +29,14 @@ interface AppContextType {
   unreadCount: number;
   login: (session: AuthSession) => void;
   logout: () => void;
+  updateCurrentUser: (nextUser: Partial<AuthSession['user']>) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   reloadNotifications: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'nextdream.auth.session';
+const AUTH_EXPIRED_EVENT = 'nextdream:auth-expired';
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -38,7 +45,7 @@ function loadStoredSession(): AuthSession | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed.accessToken || !parsed.refreshToken || !parsed.user) return null;
+    if (!parsed.user) return null;
     return parsed;
   } catch {
     return null;
@@ -52,8 +59,13 @@ function toAppUser(session: AuthSession | null): AppUser | null {
     name: session.user.name,
     email: session.user.email,
     role: session.user.role,
+    state: session.user.state,
     city: session.user.city,
+    locationLabel: session.user.locationLabel,
+    institutionType: session.user.institutionType,
+    institutionDescription: session.user.institutionDescription,
     verified: session.user.verified,
+    approved: session.user.approved,
     emailNotificationsEnabled: session.user.emailNotificationsEnabled,
   };
 }
@@ -66,7 +78,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const currentRole: AppRole = currentUser?.role ?? 'public';
   const accessToken = session?.accessToken ?? null;
   const refreshToken = session?.refreshToken ?? null;
-  const isAuthenticated = Boolean(session?.accessToken && session?.user);
+  const isAuthenticated = Boolean(session?.user);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -78,6 +90,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setNotifications([]);
     localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  const updateCurrentUser = useCallback((nextUser: Partial<AuthSession['user']>) => {
+    setSession((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        user: {
+          ...current.user,
+          ...nextUser,
+        },
+      };
+    });
   }, []);
 
   const markNotificationRead = useCallback((id: string) => {
@@ -105,6 +131,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setAccessTokenGetter(() => accessToken);
   }, [accessToken]);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      logout();
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    };
+  }, [logout]);
 
   const reloadNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -143,6 +180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unreadCount,
       login,
       logout,
+      updateCurrentUser,
       markNotificationRead,
       markAllNotificationsRead,
       reloadNotifications,

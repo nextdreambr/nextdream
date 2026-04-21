@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { DreamsService } from './dreams.service';
 import { CreateDreamDto } from './dto/create-dream.dto';
 import { CreateProposalDto } from './dto/create-proposal.dto';
+import { UpdateDreamDto } from './dto/update-dream.dto';
 
 @Controller('dreams')
 export class DreamsController {
@@ -20,14 +21,30 @@ export class DreamsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('mine')
-  listMyDreams(@CurrentUser() currentUser: JwtPayload) {
-    return this.dreamsService.listMyDreams(currentUser);
+  listMyDreams(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('query') query?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.dreamsService.listMyDreams(currentUser, { page, pageSize, query, status });
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
   createDream(@CurrentUser() currentUser: JwtPayload, @Body() dto: CreateDreamDto) {
     return this.dreamsService.createDream(currentUser, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':dreamId')
+  updateDream(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('dreamId') dreamId: string,
+    @Body() dto: UpdateDreamDto,
+  ) {
+    return this.dreamsService.updateDream(currentUser, dreamId, dto);
   }
 
   @UseGuards(JwtAuthGuard)

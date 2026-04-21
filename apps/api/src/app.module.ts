@@ -15,6 +15,7 @@ import { User } from './entities/user.entity';
 import { Dream } from './entities/dream.entity';
 import { Proposal } from './entities/proposal.entity';
 import { Conversation } from './entities/conversation.entity';
+import { ManagedPatient } from './entities/managed-patient.entity';
 import { getRateLimitConfig, getRequiredEnv } from './config/env';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -22,6 +23,7 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { DreamsModule } from './modules/dreams/dreams.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
 import { HealthModule } from './modules/health/health.module';
+import { InstitutionModule } from './modules/institution/institution.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SentryTunnelModule } from './observability/sentry-tunnel.module';
 
@@ -45,6 +47,7 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
             Dream,
             Proposal,
             Conversation,
+            ManagedPatient,
             Message,
             Notification,
             AdminContactMessage,
@@ -81,6 +84,7 @@ import { SentryTunnelModule } from './observability/sentry-tunnel.module';
     DreamsModule,
     ProposalsModule,
     ConversationsModule,
+    InstitutionModule,
     NotificationsModule,
     SentryTunnelModule,
     AdminModule,

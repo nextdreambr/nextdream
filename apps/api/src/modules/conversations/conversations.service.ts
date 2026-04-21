@@ -7,6 +7,7 @@ import { Conversation } from '../../entities/conversation.entity';
 import { Message } from '../../entities/message.entity';
 import { User } from '../../entities/user.entity';
 import { JwtPayload } from '../auth/jwt-auth.guard';
+import { InstitutionService } from '../institution/institution.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CloseConversationDto } from './dto/close-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -18,6 +19,7 @@ export class ConversationsService {
   private readonly usersRepository: Repository<User>;
   private readonly auditLogsRepository: Repository<AuditLog>;
   private readonly reportsRepository: Repository<AdminReport>;
+  private readonly institutionService: InstitutionService;
   private readonly notificationsService: NotificationsService;
 
   constructor(
@@ -26,6 +28,7 @@ export class ConversationsService {
     @InjectRepository(User) usersRepository: Repository<User>,
     @InjectRepository(AuditLog) auditLogsRepository: Repository<AuditLog>,
     @InjectRepository(AdminReport) reportsRepository: Repository<AdminReport>,
+    @Inject(InstitutionService) institutionService: InstitutionService,
     @Inject(NotificationsService) notificationsService: NotificationsService,
   ) {
     this.conversationsRepository = conversationsRepository;
@@ -33,6 +36,7 @@ export class ConversationsService {
     this.usersRepository = usersRepository;
     this.auditLogsRepository = auditLogsRepository;
     this.reportsRepository = reportsRepository;
+    this.institutionService = institutionService;
     this.notificationsService = notificationsService;
   }
 
@@ -40,6 +44,10 @@ export class ConversationsService {
     if (currentUser.role === 'admin') {
       const conversations = await this.conversationsRepository.find({ order: { createdAt: 'DESC' } });
       return conversations.map((conversation) => this.serializeConversation(conversation));
+    }
+
+    if (currentUser.role === 'instituicao') {
+      await this.institutionService.overview(currentUser);
     }
 
     const conversations = await this.conversationsRepository
@@ -54,6 +62,9 @@ export class ConversationsService {
   }
 
   async listMessages(currentUser: JwtPayload, conversationId: string) {
+    if (currentUser.role === 'instituicao') {
+      await this.institutionService.overview(currentUser);
+    }
     const conversation = await this.requireConversationAccess(currentUser, conversationId);
 
     const messages = await this.messagesRepository.find({
@@ -65,6 +76,9 @@ export class ConversationsService {
   }
 
   async sendMessage(currentUser: JwtPayload, conversationId: string, dto: CreateMessageDto) {
+    if (currentUser.role === 'instituicao') {
+      await this.institutionService.overview(currentUser);
+    }
     const conversation = await this.requireConversationAccess(currentUser, conversationId);
 
     if (conversation.status !== 'ativa') {
@@ -84,25 +98,34 @@ export class ConversationsService {
 
     const saved = await this.messagesRepository.save(message);
 
-    const receiverId = conversation.patientId === currentUser.sub
-      ? conversation.supporterId
-      : conversation.patientId;
-    const receiverPath = receiverId === conversation.patientId
-      ? `/paciente/chat?conversationId=${conversation.id}`
-      : `/apoiador/chat?conversationId=${conversation.id}`;
+    const receiverIds = currentUser.role === 'admin'
+      ? [conversation.patientId, conversation.supporterId]
+      : [conversation.patientId === currentUser.sub ? conversation.supporterId : conversation.patientId];
 
-    await this.notificationsService.createNotification({
-      userId: receiverId,
-      type: 'mensagem',
-      title: 'Nova mensagem no chat',
-      message: 'Você recebeu uma nova mensagem em uma conversa ativa.',
-      actionPath: receiverPath,
-    });
+    for (const receiverId of new Set(receiverIds)) {
+      const receiver = await this.usersRepository.findOneBy({ id: receiverId });
+      const receiverPath = receiver?.role === 'instituicao'
+        ? `/instituicao/chat?conversationId=${conversation.id}`
+        : receiverId === conversation.patientId
+          ? `/paciente/chat?conversationId=${conversation.id}`
+          : `/apoiador/chat?conversationId=${conversation.id}`;
+
+      await this.notificationsService.createNotification({
+        userId: receiverId,
+        type: 'mensagem',
+        title: 'Nova mensagem no chat',
+        message: 'Você recebeu uma nova mensagem em uma conversa ativa.',
+        actionPath: receiverPath,
+      });
+    }
 
     return this.serializeMessage(saved);
   }
 
   async closeConversation(currentUser: JwtPayload, conversationId: string, dto: CloseConversationDto) {
+    if (currentUser.role === 'instituicao') {
+      await this.institutionService.overview(currentUser);
+    }
     const conversation = await this.requireConversationAccess(currentUser, conversationId);
 
     if (conversation.status === 'encerrada') {
@@ -139,12 +162,15 @@ export class ConversationsService {
       );
     }
 
+    const operator = await this.usersRepository.findOneBy({ id: conversation.patientId });
+    const operatorChatPath = operator?.role === 'instituicao' ? '/instituicao/chat' : '/paciente/chat';
+
     await this.notificationsService.createNotification({
       userId: conversation.patientId,
       type: 'seguranca',
       title: 'Conversa encerrada',
       message: 'Uma conversa foi encerrada pela moderação.',
-      actionPath: '/paciente/chat',
+      actionPath: operatorChatPath,
     });
 
     await this.notificationsService.createNotification({
@@ -180,6 +206,8 @@ export class ConversationsService {
       id: conversation.id,
       dreamId: conversation.dreamId,
       patientId: conversation.patientId,
+      operatorUserId: conversation.patientId,
+      managedPatientId: conversation.managedPatientId,
       supporterId: conversation.supporterId,
       status: conversation.status,
       createdAt: conversation.createdAt,

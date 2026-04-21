@@ -11,6 +11,7 @@ export class ApiError extends Error {
 }
 
 type AccessTokenGetter = () => string | null;
+const AUTH_EXPIRED_EVENT = 'nextdream:auth-expired';
 
 let getAccessToken: AccessTokenGetter = () => null;
 
@@ -20,9 +21,25 @@ export function setAccessTokenGetter(getter: AccessTokenGetter) {
   getAccessToken = getter;
 }
 
+function notifyAuthExpired() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+}
+
 function buildUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${API_BASE_URL}${normalizedPath}`;
+}
+
+function buildQueryString(params: Record<string, string | number | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    search.set(key, String(value));
+  }
+
+  const query = search.toString();
+  return query ? `?${query}` : '';
 }
 
 function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
@@ -55,6 +72,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   const response = await fetch(buildUrl(path), {
     ...init,
+    credentials: init.credentials ?? 'include',
     headers,
   });
 
@@ -63,27 +81,44 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   if (!response.ok) {
     const fallback = `Request failed with status ${response.status}`;
-    throw new ApiError(extractMessage(payload, fallback), response.status, payload);
+    const message = extractMessage(payload, fallback);
+    if (response.status === 401 && (message === 'Missing authentication token' || message === 'Invalid token')) {
+      notifyAuthExpired();
+    }
+    throw new ApiError(message, response.status, payload);
   }
 
   return (payload ?? {}) as T;
 }
 
-export type ApiUserRole = 'paciente' | 'apoiador' | 'admin';
+export type ApiUserRole = 'paciente' | 'apoiador' | 'instituicao' | 'admin';
 
 export interface ApiUser {
   id: string;
   name: string;
   email: string;
   role: ApiUserRole;
+  state?: string;
   city?: string;
+  locationLabel?: string;
+  institutionType?: string;
+  institutionDescription?: string;
   verified: boolean;
+  approved: boolean;
   emailNotificationsEnabled?: boolean;
 }
 
+export interface PaginatedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface AuthSession {
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
   user: ApiUser;
 }
 
@@ -94,6 +129,7 @@ export interface CreateDreamInput {
   format: 'remoto' | 'presencial' | 'ambos';
   urgency: 'baixa' | 'media' | 'alta';
   privacy: 'publico' | 'verificados' | 'anonimo';
+  managedPatientId?: string;
 }
 
 export interface PublicDream {
@@ -106,6 +142,10 @@ export interface PublicDream {
   privacy: 'publico' | 'verificados' | 'anonimo';
   status: 'rascunho' | 'publicado' | 'em-conversa' | 'realizando' | 'concluido' | 'pausado' | 'cancelado';
   patientId: string;
+  operatorUserId?: string;
+  managedPatientId?: string;
+  managedByInstitution?: boolean;
+  institutionName?: string;
   patientName?: string;
   patientCity?: string;
   restrictions?: string;
@@ -136,6 +176,12 @@ export interface Proposal {
   createdAt: string;
 }
 
+export interface InstitutionProfile extends ApiUser {
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const authApi = {
   login(payload: { email: string; password: string }) {
     return apiRequest<AuthSession>('/auth/login', {
@@ -143,7 +189,7 @@ export const authApi = {
       body: JSON.stringify(payload),
     });
   },
-  register(payload: { name: string; email: string; password: string; role: ApiUserRole; city?: string }) {
+  register(payload: { name: string; email: string; password: string; role: ApiUserRole; state?: string; city?: string }) {
     return apiRequest<AuthSession>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -167,9 +213,18 @@ export const dreamsApi = {
   listMine() {
     return apiRequest<PublicDream[]>('/dreams/mine');
   },
+  listMinePage(params: { page?: number; pageSize?: number; query?: string; status?: PublicDream['status'] | '' }) {
+    return apiRequest<PaginatedResult<PublicDream>>(`/dreams/mine${buildQueryString(params)}`);
+  },
   create(payload: CreateDreamInput) {
     return apiRequest<PublicDream>('/dreams', {
       method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  update(dreamId: string, payload: Partial<CreateDreamInput>) {
+    return apiRequest<PublicDream>(`/dreams/${dreamId}`, {
+      method: 'PATCH',
       body: JSON.stringify(payload),
     });
   },
@@ -191,8 +246,16 @@ export const proposalsApi = {
   listReceived() {
     return apiRequest<Proposal[]>('/proposals/received');
   },
+  listReceivedPage(params: { page?: number; pageSize?: number; query?: string; status?: Proposal['status'] | '' }) {
+    return apiRequest<PaginatedResult<Proposal>>(`/proposals/received${buildQueryString(params)}`);
+  },
   accept(proposalId: string) {
     return apiRequest<Proposal & { conversationId: string }>(`/proposals/${proposalId}/accept`, {
+      method: 'POST',
+    });
+  },
+  reject(proposalId: string) {
+    return apiRequest<Proposal>(`/proposals/${proposalId}/reject`, {
       method: 'POST',
     });
   },
@@ -202,6 +265,8 @@ export interface Conversation {
   id: string;
   dreamId: string;
   patientId: string;
+  operatorUserId?: string;
+  managedPatientId?: string;
   supporterId: string;
   status: 'ativa' | 'encerrada';
   createdAt: string;
@@ -243,12 +308,35 @@ export interface AdminUser {
   name: string;
   email: string;
   role: ApiUserRole;
+  state?: string;
   city?: string;
+  locationLabel?: string;
   verified: boolean;
+  approved: boolean;
+  approvedAt?: string;
   suspended: boolean;
   suspensionReason?: string;
   suspendedAt?: string;
   createdAt: string;
+}
+
+export interface InstitutionOverview {
+  managedPatients: number;
+  dreams: number;
+  proposals: number;
+  activeConversations: number;
+}
+
+export interface ManagedPatient {
+  id: string;
+  institutionId: string;
+  linkedUserId?: string;
+  name: string;
+  state?: string;
+  city?: string;
+  locationLabel?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AdminInvite {
@@ -374,6 +462,11 @@ export const adminApi = {
       body: JSON.stringify({ reason }),
     });
   },
+  approveUser(userId: string) {
+    return apiRequest<{ id: string; role: ApiUserRole; approved: boolean; approvedAt?: string }>(`/admin/users/${userId}/approve`, {
+      method: 'POST',
+    });
+  },
   updateAdmin(
     userId: string,
     payload: {
@@ -440,5 +533,51 @@ export const adminApi = {
   },
   listEmailTemplates() {
     return apiRequest<AdminEmailTemplateMeta[]>('/admin/email-templates');
+  },
+};
+
+export const institutionApi = {
+  overview() {
+    return apiRequest<InstitutionOverview>('/institution/overview');
+  },
+  listPatients() {
+    return apiRequest<ManagedPatient[]>('/institution/patients');
+  },
+  listPatientsPage(params: { page?: number; pageSize?: number; query?: string }) {
+    return apiRequest<PaginatedResult<ManagedPatient>>(`/institution/patients${buildQueryString(params)}`);
+  },
+  createPatient(payload: { name: string; state?: string; city?: string }) {
+    return apiRequest<ManagedPatient>('/institution/patients', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  updatePatient(managedPatientId: string, payload: { name?: string; state?: string; city?: string }) {
+    return apiRequest<ManagedPatient>(`/institution/patients/${managedPatientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+  getProfile() {
+    return apiRequest<InstitutionProfile>('/institution/profile');
+  },
+  updateProfile(payload: {
+    name?: string;
+    email?: string;
+    state?: string;
+    city?: string;
+    institutionType?: string;
+    institutionDescription?: string;
+  }) {
+    return apiRequest<InstitutionProfile>('/institution/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+  changePassword(payload: { currentPassword: string; newPassword: string }) {
+    return apiRequest<{ ok: true }>('/institution/profile/password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   },
 };

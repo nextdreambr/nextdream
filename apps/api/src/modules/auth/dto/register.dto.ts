@@ -14,8 +14,12 @@ export class RegisterDto {
   @MinLength(8)
   password!: string;
 
-  @IsIn(['paciente', 'apoiador'])
+  @IsIn(['paciente', 'apoiador', 'instituicao'])
   role!: PublicRegisterRole;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
 
   @IsOptional()
   @IsString()
