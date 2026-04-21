@@ -348,6 +348,11 @@ export class AuthService {
 
   private readJwtTtl(name: string, fallback: StringValue): StringValue {
     const value = getEnvOrDefault(name, fallback);
+    if (/^\d+$/.test(value)) {
+      throw new InternalServerErrorException(
+        `Invalid JWT TTL value for ${name}: "${value}". Add a time unit suffix such as "1h" or "3600s".`,
+      );
+    }
     if (ms(value as StringValue) === undefined) {
       throw new InternalServerErrorException(
         `Invalid JWT TTL value for ${name}: "${value}"`,

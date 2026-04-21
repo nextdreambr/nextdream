@@ -1,6 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { ManagedPatient } from '../src/entities/managed-patient.entity';
@@ -40,6 +40,26 @@ describe('AuthService.acceptPatientInvite', () => {
     vi.clearAllMocks();
     process.env.JWT_ACCESS_SECRET = 'test-access-secret';
     process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
+    process.env.JWT_ACCESS_EXPIRES_IN = '1h';
+    process.env.JWT_REFRESH_EXPIRES_IN = '7d';
+  });
+
+  it('rejects numeric-only JWT TTL values that omit a time unit', () => {
+    process.env.JWT_REFRESH_EXPIRES_IN = '3600';
+
+    expect(() => new (AuthService as any)(
+      usersRepository,
+      adminInvitesRepository,
+      patientInvitesRepository,
+      managedPatientsRepository,
+      jwtService as unknown as JwtService,
+      mailService as unknown as MailService,
+      {} as DataSource,
+    )).toThrowError(
+      new InternalServerErrorException(
+        'Invalid JWT TTL value for JWT_REFRESH_EXPIRES_IN: "3600". Add a time unit suffix such as "1h" or "3600s".',
+      ),
+    );
   });
 
   it('rotates refresh session version before issuing a new token pair', async () => {
