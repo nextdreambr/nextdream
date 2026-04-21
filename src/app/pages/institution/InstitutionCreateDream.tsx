@@ -61,7 +61,9 @@ export default function InstitutionCreateDream() {
         if (!mounted) return;
         setPatients(patientList);
 
-        const nextManagedPatientId = dream?.managedPatientId ?? preferredManagedPatientId ?? patientList[0]?.id ?? '';
+        const nextManagedPatientId = isEditing
+          ? dream?.managedPatientId ?? preferredManagedPatientId ?? ''
+          : dream?.managedPatientId ?? preferredManagedPatientId ?? patientList[0]?.id ?? '';
         setManagedPatientId(nextManagedPatientId);
         setForm((current) => ({
           ...current,
@@ -87,7 +89,7 @@ export default function InstitutionCreateDream() {
     return () => {
       mounted = false;
     };
-  }, [id, preferredManagedPatientId]);
+  }, [id, isEditing, preferredManagedPatientId]);
 
   const handleDescChange = (value: string) => {
     setWarning(checkForMoney(value) ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem. 🚫' : '');

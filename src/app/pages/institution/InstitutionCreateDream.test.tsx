@@ -137,4 +137,57 @@ describe('InstitutionCreateDream', () => {
       }));
     });
   });
+
+  it('does not auto-select the first patient when editing a legacy dream without managedPatientId', async () => {
+    listPatientsMock.mockResolvedValue([
+      {
+        id: 'managed-1',
+        institutionId: 'institution-1',
+        name: 'Maria das Dores',
+        state: 'PE',
+        city: 'Recife',
+        locationLabel: 'Recife, PE',
+        createdAt: '2026-04-19T10:00:00.000Z',
+        updatedAt: '2026-04-19T10:00:00.000Z',
+      },
+      {
+        id: 'managed-2',
+        institutionId: 'institution-1',
+        name: 'João Batista',
+        state: 'PE',
+        city: 'Olinda',
+        locationLabel: 'Olinda, PE',
+        createdAt: '2026-04-19T10:00:00.000Z',
+        updatedAt: '2026-04-19T10:00:00.000Z',
+      },
+    ]);
+    getDreamByIdMock.mockResolvedValue({
+      id: 'dream-legacy',
+      title: 'Sonho legado sem beneficiário',
+      description: 'Cadastro legado que ainda não aponta para um beneficiário gerido.',
+      category: 'Arte e Música',
+      format: 'presencial',
+      urgency: 'media',
+      privacy: 'publico',
+      status: 'publicado',
+      patientId: 'institution-1',
+      managedPatientId: undefined,
+      managedByInstitution: false,
+      patientName: 'Casa Esperanca',
+      patientCity: 'Recife, PE',
+      institutionName: undefined,
+      createdAt: '2026-04-19T10:00:00.000Z',
+      updatedAt: '2026-04-19T10:00:00.000Z',
+    });
+
+    render(
+      <MemoryRouter>
+        <InstitutionCreateDream />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByDisplayValue('Sonho legado sem beneficiário')).toBeInTheDocument();
+    expect(screen.getByLabelText(/paciente acompanhado/i)).toHaveValue('');
+    expect(screen.queryByText(/beneficiário do caso/i)).not.toBeInTheDocument();
+  });
 });
