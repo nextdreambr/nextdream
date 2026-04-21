@@ -10,6 +10,9 @@ export interface SandboxTourSessionState {
   progressByPersona: Partial<Record<SandboxPersona, SandboxTourProgress>>;
 }
 
+const SANDBOX_PERSONAS: SandboxPersona[] = ['paciente', 'apoiador', 'instituicao'];
+const SANDBOX_TOUR_PROGRESS_VALUES: SandboxTourProgress[] = ['dismissed', 'completed'];
+
 function createDefaultState(): SandboxTourSessionState {
   return {
     queuedLaunchPersona: null,
@@ -27,6 +30,31 @@ function getSandboxTourStorage() {
   }
 }
 
+function isSandboxPersona(value: unknown): value is SandboxPersona {
+  return typeof value === 'string' && SANDBOX_PERSONAS.includes(value as SandboxPersona);
+}
+
+function isSandboxTourProgress(value: unknown): value is SandboxTourProgress {
+  return typeof value === 'string' && SANDBOX_TOUR_PROGRESS_VALUES.includes(value as SandboxTourProgress);
+}
+
+function sanitizeProgressByPersona(
+  raw: unknown,
+): Partial<Record<SandboxPersona, SandboxTourProgress>> {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+
+  const sanitized: Partial<Record<SandboxPersona, SandboxTourProgress>> = {};
+  for (const [persona, progress] of Object.entries(raw)) {
+    if (isSandboxPersona(persona) && isSandboxTourProgress(progress)) {
+      sanitized[persona] = progress;
+    }
+  }
+
+  return sanitized;
+}
+
 export function loadSandboxTourState(): SandboxTourSessionState {
   const storage = getSandboxTourStorage();
   if (!storage) return createDefaultState();
@@ -37,10 +65,10 @@ export function loadSandboxTourState(): SandboxTourSessionState {
 
     const parsed = JSON.parse(raw) as Partial<SandboxTourSessionState>;
     return {
-      queuedLaunchPersona: parsed.queuedLaunchPersona ?? null,
-      progressByPersona: {
-        ...(parsed.progressByPersona ?? {}),
-      },
+      queuedLaunchPersona: isSandboxPersona(parsed.queuedLaunchPersona)
+        ? parsed.queuedLaunchPersona
+        : null,
+      progressByPersona: sanitizeProgressByPersona(parsed.progressByPersona),
     };
   } catch {
     return createDefaultState();

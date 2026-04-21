@@ -38,8 +38,8 @@ function useHighlightTarget(step: SandboxTourStep | null, enabled: boolean) {
     let cleanupHighlight = () => {};
     let observer: MutationObserver | null = null;
     let intervalId: number | null = null;
-    let attempts = 0;
-    const maxAttempts = 20;
+    const startedAt = Date.now();
+    const maxWatchMs = 5_000;
     const targetSelector = `[data-sandbox-tour-id="${step.targetId}"]`;
 
     const stopWatching = () => {
@@ -51,11 +51,10 @@ function useHighlightTarget(step: SandboxTourStep | null, enabled: boolean) {
       observer = null;
     };
 
-    const highlightTarget = () => {
+    const highlightTarget = (countFailure: boolean) => {
       const element = document.querySelector<HTMLElement>(targetSelector);
       if (!element) {
-        attempts += 1;
-        if (attempts >= maxAttempts) {
+        if (countFailure && Date.now() - startedAt >= maxWatchMs) {
           stopWatching();
         }
         return false;
@@ -97,13 +96,13 @@ function useHighlightTarget(step: SandboxTourStep | null, enabled: boolean) {
       return true;
     };
 
-    if (!highlightTarget()) {
+    if (!highlightTarget(true)) {
       intervalId = window.setInterval(() => {
-        highlightTarget();
+        highlightTarget(true);
       }, 120);
 
       observer = new MutationObserver(() => {
-        highlightTarget();
+        highlightTarget(false);
       });
       observer.observe(document.body, {
         childList: true,
@@ -144,7 +143,6 @@ function SandboxTourOverlay({
       <div className="fixed inset-x-0 bottom-0 z-[70] p-4 sm:bottom-4 sm:right-4 sm:left-auto sm:max-w-md">
         <div
           role="dialog"
-          aria-modal="true"
           aria-label={`Tour guiado do ${personaTitle}`}
           className="rounded-[2rem] border border-amber-100 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
         >

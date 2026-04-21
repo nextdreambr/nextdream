@@ -71,4 +71,29 @@ describe('sandboxTourSession', () => {
 
     expect(sessionStorageGetter).toHaveBeenCalled();
   });
+
+  it('sanitizes invalid tour state loaded from sessionStorage', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'sandbox');
+    vi.stubEnv('VITE_SANDBOX_HOSTNAME', 'sandbox.nextdream.ong.br');
+    window.sessionStorage.setItem(
+      'nextdream.sandbox.tour',
+      JSON.stringify({
+        queuedLaunchPersona: 'admin',
+        progressByPersona: {
+          paciente: 'completed',
+          admin: 'dismissed',
+          instituicao: 'weird',
+        },
+      }),
+    );
+
+    const { loadSandboxTourState } = await import('./sandboxTourSession');
+
+    expect(loadSandboxTourState()).toEqual({
+      queuedLaunchPersona: null,
+      progressByPersona: {
+        paciente: 'completed',
+      },
+    });
+  });
 });
