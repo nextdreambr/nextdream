@@ -1,6 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { ManagedPatient } from '../src/entities/managed-patient.entity';
@@ -14,6 +14,7 @@ describe('AuthService.acceptPatientInvite', () => {
     findOne: vi.fn(),
     create: vi.fn(),
     save: vi.fn(),
+    update: vi.fn(),
   };
   const adminInvitesRepository = {
     findOne: vi.fn(),
@@ -29,6 +30,7 @@ describe('AuthService.acceptPatientInvite', () => {
   };
   const jwtService = {
     signAsync: vi.fn(),
+    verifyAsync: vi.fn(),
   };
   const mailService = {
     sendWelcomeEmail: vi.fn(),
@@ -38,6 +40,108 @@ describe('AuthService.acceptPatientInvite', () => {
     vi.clearAllMocks();
     process.env.JWT_ACCESS_SECRET = 'test-access-secret';
     process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
+    process.env.JWT_ACCESS_EXPIRES_IN = '1h';
+    process.env.JWT_REFRESH_EXPIRES_IN = '7d';
+  });
+
+  it('rejects numeric-only JWT TTL values that omit a time unit', () => {
+    process.env.JWT_REFRESH_EXPIRES_IN = '3600';
+
+    expect(() => new (AuthService as any)(
+      usersRepository,
+      adminInvitesRepository,
+      patientInvitesRepository,
+      managedPatientsRepository,
+      jwtService as unknown as JwtService,
+      mailService as unknown as MailService,
+      {} as DataSource,
+    )).toThrowError(
+      new InternalServerErrorException(
+        'Invalid JWT TTL value for JWT_REFRESH_EXPIRES_IN: "3600". Add a time unit suffix such as "1h" or "3600s".',
+      ),
+    );
+  });
+
+  it('rotates refresh session version before issuing a new token pair', async () => {
+    const user = {
+      id: 'user-1',
+      name: 'Paciente Vinculado',
+      email: 'patient@example.com',
+      role: 'paciente',
+      sessionVersion: 4,
+      verified: true,
+      approved: true,
+      suspended: false,
+    } as User;
+
+    usersRepository.findOne.mockResolvedValue(user);
+    usersRepository.update.mockResolvedValue({ affected: 1 });
+    jwtService.verifyAsync = vi.fn().mockResolvedValue({
+      sub: 'user-1',
+      role: 'paciente',
+      sessionVersion: 4,
+    });
+    jwtService.signAsync.mockResolvedValueOnce('new-access-token').mockResolvedValueOnce('new-refresh-token');
+
+    const service = new (AuthService as any)(
+      usersRepository,
+      adminInvitesRepository,
+      patientInvitesRepository,
+      managedPatientsRepository,
+      jwtService as unknown as JwtService,
+      mailService as unknown as MailService,
+      {} as DataSource,
+    );
+
+    const result = await service.refresh('refresh-token');
+
+    expect(usersRepository.update).toHaveBeenCalledWith(
+      { id: 'user-1', sessionVersion: 4 },
+      { sessionVersion: 5 },
+    );
+    expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        sub: 'user-1',
+        role: 'paciente',
+        sessionVersion: 5,
+      }),
+      expect.any(Object),
+    );
+    expect(result.refreshToken).toBe('new-refresh-token');
+  });
+
+  it('rejects refresh when the stored session version no longer matches the token', async () => {
+    const user = {
+      id: 'user-1',
+      name: 'Paciente Vinculado',
+      email: 'patient@example.com',
+      role: 'paciente',
+      sessionVersion: 4,
+      verified: true,
+      approved: true,
+      suspended: false,
+    } as User;
+
+    usersRepository.findOne.mockResolvedValue(user);
+    usersRepository.update.mockResolvedValue({ affected: 0 });
+    jwtService.verifyAsync = vi.fn().mockResolvedValue({
+      sub: 'user-1',
+      role: 'paciente',
+      sessionVersion: 4,
+    });
+
+    const service = new (AuthService as any)(
+      usersRepository,
+      adminInvitesRepository,
+      patientInvitesRepository,
+      managedPatientsRepository,
+      jwtService as unknown as JwtService,
+      mailService as unknown as MailService,
+      {} as DataSource,
+    );
+
+    await expect(service.refresh('refresh-token')).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('revalidates invite state inside one transaction, marks it atomically and sends email after commit', async () => {

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiRequest, setAccessTokenGetter } from './api';
+import {
+  ApiError,
+  apiRequest,
+  setAccessTokenGetter,
+  setRefreshTokenGetter,
+  setSessionChangeHandler,
+} from './api';
+import { AUTH_STORAGE_KEY } from './authSession';
 
 describe('apiRequest', () => {
   const originalFetch = globalThis.fetch;
@@ -9,6 +16,9 @@ describe('apiRequest', () => {
     fetchMock.mockReset();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     setAccessTokenGetter(() => null);
+    setRefreshTokenGetter(() => null);
+    setSessionChangeHandler(() => {});
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -41,6 +51,25 @@ describe('apiRequest', () => {
     expect(headers.Authorization).toBe('Bearer token-123');
   });
 
+  it('falls back to the persisted session token when the in-memory getter is not ready yet', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ id: 'u1' }),
+    } as Response);
+
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      accessToken: 'persisted-token',
+      refreshToken: 'refresh-token',
+      user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true, approved: true },
+    }));
+
+    await apiRequest<{ id: string }>('/proposals/mine');
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer persisted-token');
+  });
+
   it('includes credentials so cookie-based auth works across local web and API origins', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
@@ -54,6 +83,209 @@ describe('apiRequest', () => {
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.credentials).toBe('include');
+  });
+
+  it('refreshes the session and retries the original request after a 401', async () => {
+    const handleSessionChange = vi.fn();
+    setRefreshTokenGetter(() => 'refresh-token');
+    setSessionChangeHandler(handleSessionChange);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          accessToken: 'new-access-token',
+          refreshToken: 'new-refresh-token',
+          user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true, approved: true },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify([{ id: 'p1' }]),
+      } as Response);
+
+    const result = await apiRequest<Array<{ id: string }>>('/proposals/mine', {
+      headers: {
+        Authorization: 'Bearer expired-token',
+      },
+    });
+
+    expect(result).toEqual([{ id: 'p1' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:4000/auth/refresh');
+    expect(handleSessionChange).toHaveBeenCalledWith(expect.objectContaining({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+    }));
+
+    const retryInit = fetchMock.mock.calls[2]?.[1] as RequestInit;
+    const retryHeaders = retryInit.headers as Record<string, string>;
+    expect(retryHeaders.Authorization).toBe('Bearer new-access-token');
+  });
+
+  it('ignores a stale successful refresh response after the refresh token changes', async () => {
+    const handleSessionChange = vi.fn();
+    const listener = vi.fn();
+    let currentRefreshToken = 'refresh-token-1';
+
+    setRefreshTokenGetter(() => currentRefreshToken);
+    setSessionChangeHandler(handleSessionChange);
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => {
+          currentRefreshToken = 'refresh-token-2';
+          return JSON.stringify({
+            accessToken: 'new-access-token',
+            refreshToken: 'new-refresh-token',
+            user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true, approved: true },
+          });
+        },
+      } as Response);
+
+    try {
+      await expect(apiRequest('/proposals/mine', {
+        headers: {
+          Authorization: 'Bearer expired-token',
+        },
+      })).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Invalid token',
+        }),
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(handleSessionChange).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
+  });
+
+  it('ignores a stale non-ok refresh response after the refresh token changes', async () => {
+    const handleSessionChange = vi.fn();
+    const listener = vi.fn();
+    let currentRefreshToken = 'refresh-token-1';
+
+    setRefreshTokenGetter(() => currentRefreshToken);
+    setSessionChangeHandler(handleSessionChange);
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => {
+          currentRefreshToken = 'refresh-token-2';
+          return JSON.stringify({ message: 'Invalid refresh token' });
+        },
+      } as Response);
+
+    try {
+      await expect(apiRequest('/proposals/mine', {
+        headers: {
+          Authorization: 'Bearer expired-token',
+        },
+      })).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Invalid token',
+        }),
+      );
+
+      expect(handleSessionChange).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
+  });
+
+  it('ignores a stale failed refresh request after the refresh token changes', async () => {
+    const handleSessionChange = vi.fn();
+    const listener = vi.fn();
+    let currentRefreshToken = 'refresh-token-1';
+
+    setRefreshTokenGetter(() => currentRefreshToken);
+    setSessionChangeHandler(handleSessionChange);
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockImplementationOnce(async () => {
+        currentRefreshToken = 'refresh-token-2';
+        throw new Error('network down');
+      });
+
+    try {
+      await expect(apiRequest('/proposals/mine', {
+        headers: {
+          Authorization: 'Bearer expired-token',
+        },
+      })).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Invalid token',
+        }),
+      );
+
+      expect(handleSessionChange).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
+  });
+
+  it('does not attempt token refresh or clear the session on auth-route 401 responses', async () => {
+    const handleSessionChange = vi.fn();
+    setRefreshTokenGetter(() => 'refresh-token');
+    setSessionChangeHandler(handleSessionChange);
+
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ message: 'Invalid invite token' }),
+    } as Response);
+
+    await expect(apiRequest('/auth/admin-invites/accept', {
+      method: 'POST',
+    })).rejects.toEqual(
+      expect.objectContaining<ApiError>({
+        name: 'ApiError',
+        status: 401,
+        message: 'Invalid invite token',
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(handleSessionChange).not.toHaveBeenCalled();
   });
 
   it('throws ApiError with API message on non-2xx response', async () => {

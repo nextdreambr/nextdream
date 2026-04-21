@@ -176,8 +176,8 @@ describe('NextDream API', () => {
 
     expect(patientRegister.status).toBe(201);
     expect(patientRegister.body.user.role).toBe('paciente');
-    expect(patientRegister.body).not.toHaveProperty('accessToken');
-    expect(patientRegister.body).not.toHaveProperty('refreshToken');
+    expect(patientRegister.body.accessToken).toEqual(expect.any(String));
+    expect(patientRegister.body.refreshToken).toEqual(expect.any(String));
     expect(getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"])).toEqual(expect.any(String));
 
     const supporterRegister = await request(app.getHttpServer())
@@ -201,8 +201,21 @@ describe('NextDream API', () => {
 
     expect(login.status).toBe(200);
     expect(login.body.user.email).toBe(patientEmail);
-    expect(login.body).not.toHaveProperty('accessToken');
-    expect(login.body).not.toHaveProperty('refreshToken');
+    expect(login.body.accessToken).toEqual(expect.any(String));
+    expect(login.body.refreshToken).toEqual(expect.any(String));
+
+    const refresh = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({
+        refreshToken: login.body.refreshToken,
+      });
+
+    expect(refresh.status).toBe(200);
+    expect(refresh.body.user.email).toBe(patientEmail);
+    expect(refresh.body.accessToken).toEqual(expect.any(String));
+    expect(refresh.body.refreshToken).toEqual(expect.any(String));
+    expect(refresh.body.accessToken).not.toBe(login.body.accessToken);
+    expect(refresh.body.refreshToken).not.toBe(login.body.refreshToken);
 
     const createDream = await request(app.getHttpServer())
       .post('/dreams')

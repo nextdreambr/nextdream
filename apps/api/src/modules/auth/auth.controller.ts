@@ -2,23 +2,14 @@ import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
 import { Response } from 'express';
 import { Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AuthService, AuthSessionPayload, AuthUserPayload } from './auth.service';
+import { AuthService, AuthSessionPayload } from './auth.service';
 import { getLoginRateLimitConfig } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
-
-interface PublicAuthResponse {
-  user: AuthUserPayload;
-}
-
-function toPublicAuthResponse(auth: AuthSessionPayload): PublicAuthResponse {
-  return {
-    user: auth.user,
-  };
-}
 
 const loginThrottle = {
   default: {
@@ -39,10 +30,10 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<PublicAuthResponse> {
+  ): Promise<AuthSessionPayload> {
     const auth = await this.authService.register(dto);
     setAuthCookies(response, auth);
-    return toPublicAuthResponse(auth);
+    return auth;
   }
 
   @Post('login')
@@ -51,10 +42,10 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<PublicAuthResponse> {
+  ): Promise<AuthSessionPayload> {
     const auth = await this.authService.login(dto);
     setAuthCookies(response, auth);
-    return toPublicAuthResponse(auth);
+    return auth;
   }
 
   @Post('admin-invites/accept')
@@ -63,10 +54,10 @@ export class AuthController {
   async acceptAdminInvite(
     @Body() dto: AcceptAdminInviteDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<PublicAuthResponse> {
+  ): Promise<AuthSessionPayload> {
     const auth = await this.authService.acceptAdminInvite(dto);
     setAuthCookies(response, auth);
-    return toPublicAuthResponse(auth);
+    return auth;
   }
 
   @Post('patient-invites/accept')
@@ -75,15 +66,26 @@ export class AuthController {
   async acceptPatientInvite(
     @Body() dto: AcceptPatientInviteDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<PublicAuthResponse> {
+  ): Promise<AuthSessionPayload> {
     const auth = await this.authService.acceptPatientInvite(dto);
     setAuthCookies(response, auth);
-    return toPublicAuthResponse(auth);
+    return auth;
   }
 
   @Post('logout')
   @HttpCode(204)
   logout(@Res({ passthrough: true }) response: Response) {
     clearAuthCookies(response);
+  }
+
+  @Post('refresh')
+  @HttpCode(200)
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthSessionPayload> {
+    const auth = await this.authService.refresh(dto.refreshToken);
+    setAuthCookies(response, auth);
+    return auth;
   }
 }

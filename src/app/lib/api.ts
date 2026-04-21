@@ -1,3 +1,5 @@
+import { loadStoredSession } from './authSession';
+
 export class ApiError extends Error {
   status: number;
   payload?: unknown;
@@ -11,14 +13,39 @@ export class ApiError extends Error {
 }
 
 type AccessTokenGetter = () => string | null;
+type RefreshTokenGetter = () => string | null;
+type SessionChangeHandler = (session: AuthSession | null) => void;
 const AUTH_EXPIRED_EVENT = 'nextdream:auth-expired';
 
 let getAccessToken: AccessTokenGetter = () => null;
+let getRefreshToken: RefreshTokenGetter = () => null;
+let handleSessionChange: SessionChangeHandler = () => {};
+let refreshSessionRequest: Promise<AuthSession | null> | null = null;
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
 export function setAccessTokenGetter(getter: AccessTokenGetter) {
   getAccessToken = getter;
+}
+
+export function setRefreshTokenGetter(getter: RefreshTokenGetter) {
+  getRefreshToken = getter;
+}
+
+export function setSessionChangeHandler(handler: SessionChangeHandler) {
+  handleSessionChange = handler;
+}
+
+function getAvailableAccessToken() {
+  return getAccessToken() ?? loadStoredSession()?.accessToken ?? null;
+}
+
+function getAvailableRefreshToken() {
+  return getRefreshToken() ?? loadStoredSession()?.refreshToken ?? null;
+}
+
+function isCurrentRefreshToken(initialRefreshToken: string | null) {
+  return getAvailableRefreshToken() === initialRefreshToken;
 }
 
 function notifyAuthExpired() {
@@ -60,13 +87,32 @@ function extractMessage(payload: unknown, fallback: string): string {
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return apiRequestInternal<T>(path, init, true);
+}
+
+async function apiRequestInternal<T>(
+  path: string,
+  init: RequestInit,
+  allowRefresh: boolean,
+  overrideAccessToken?: string,
+): Promise<T> {
   const headers = normalizeHeaders(init.headers);
-  const token = getAccessToken();
+  const token = overrideAccessToken ?? getAvailableAccessToken();
+  const authorizationHeaderKey = Object.keys(headers).find(
+    (key) => key.toLowerCase() === 'authorization',
+  );
+  const isAuthRoute = path.startsWith('/auth');
+  const requestRefreshToken = isAuthRoute ? null : getAvailableRefreshToken();
 
   if (!headers['Content-Type'] && init.body && !(init.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-  if (token && !headers.Authorization) {
+  if (overrideAccessToken) {
+    if (authorizationHeaderKey) {
+      delete headers[authorizationHeaderKey];
+    }
+    headers.Authorization = `Bearer ${overrideAccessToken}`;
+  } else if (token && !authorizationHeaderKey) {
     headers.Authorization = `Bearer ${token}`;
   }
 
@@ -79,16 +125,94 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const text = await response.text();
   const payload = text ? (JSON.parse(text) as unknown) : undefined;
 
+  if (
+    response.status === 401 &&
+    allowRefresh &&
+    !isAuthRoute
+  ) {
+    const refreshedSession = await refreshAuthSession();
+    if (refreshedSession?.accessToken) {
+      return apiRequestInternal<T>(path, init, false, refreshedSession.accessToken);
+    }
+  }
+
   if (!response.ok) {
+    const isCurrentAuthContext = isAuthRoute || isCurrentRefreshToken(requestRefreshToken);
+    if (response.status === 401 && !isAuthRoute && isCurrentAuthContext) {
+      handleSessionChange(null);
+    }
     const fallback = `Request failed with status ${response.status}`;
     const message = extractMessage(payload, fallback);
-    if (response.status === 401 && (message === 'Missing authentication token' || message === 'Invalid token')) {
+    if (
+      response.status === 401 &&
+      isCurrentAuthContext &&
+      (message === 'Missing authentication token' || message === 'Invalid token')
+    ) {
       notifyAuthExpired();
     }
     throw new ApiError(message, response.status, payload);
   }
 
   return (payload ?? {}) as T;
+}
+
+async function refreshAuthSession(): Promise<AuthSession | null> {
+  if (refreshSessionRequest) return refreshSessionRequest;
+
+  const initialRefreshToken = getAvailableRefreshToken();
+  if (!initialRefreshToken) {
+    if (isCurrentRefreshToken(initialRefreshToken)) {
+      handleSessionChange(null);
+    }
+    return null;
+  }
+
+  refreshSessionRequest = (async () => {
+    try {
+      const response = await fetch(buildUrl('/auth/refresh'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken: initialRefreshToken }),
+      });
+
+      const text = await response.text();
+      const payload = text ? (JSON.parse(text) as unknown) : undefined;
+
+      if (!response.ok) {
+        if (isCurrentRefreshToken(initialRefreshToken)) {
+          handleSessionChange(null);
+        }
+        return null;
+      }
+
+      const session = payload as Partial<AuthSession>;
+      if (!session.accessToken || !session.refreshToken || !session.user) {
+        if (isCurrentRefreshToken(initialRefreshToken)) {
+          handleSessionChange(null);
+        }
+        return null;
+      }
+
+      if (!isCurrentRefreshToken(initialRefreshToken)) {
+        return null;
+      }
+
+      handleSessionChange(session as AuthSession);
+      return session as AuthSession;
+    } catch {
+      if (isCurrentRefreshToken(initialRefreshToken)) {
+        handleSessionChange(null);
+      }
+      return null;
+    } finally {
+      refreshSessionRequest = null;
+    }
+  })();
+
+  return refreshSessionRequest;
 }
 
 export type ApiUserRole = 'paciente' | 'apoiador' | 'instituicao' | 'admin';
@@ -193,6 +317,12 @@ export interface InstitutionProfile extends ApiUser {
 export const authApi = {
   login(payload: { email: string; password: string }) {
     return apiRequest<AuthSession>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  refresh(payload: { refreshToken: string }) {
+    return apiRequest<AuthSession>('/auth/refresh', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

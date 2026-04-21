@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Inject,
+  InternalServerErrorException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,11 +10,13 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { AdminInvite } from '../../entities/admin-invite.entity';
+import ms, { type StringValue } from 'ms';
+import { getEnvOrDefault, getRequiredEnv } from '../../config/env';
 import { ManagedPatient } from '../../entities/managed-patient.entity';
 import { PatientInvite } from '../../entities/patient-invite.entity';
 import { User } from '../../entities/user.entity';
-import { getRequiredEnv } from '../../config/env';
 import { buildLocationLabel, normalizeLocationPart } from '../../lib/location';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
@@ -44,6 +47,8 @@ export interface AuthSessionPayload {
 
 @Injectable()
 export class AuthService {
+  private readonly accessTokenExpiresIn: StringValue = this.readJwtTtl('JWT_ACCESS_EXPIRES_IN', '1h');
+  private readonly refreshTokenExpiresIn: StringValue = this.readJwtTtl('JWT_REFRESH_EXPIRES_IN', '7d');
   private readonly usersRepository: Repository<User>;
   private readonly adminInvitesRepository: Repository<AdminInvite>;
   private readonly patientInvitesRepository: Repository<PatientInvite>;
@@ -164,6 +169,50 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
+  async refresh(refreshToken: string): Promise<AuthSessionPayload> {
+    let payload: {
+      sub: string;
+      role: User['role'];
+      sessionVersion?: number;
+    };
+
+    try {
+      payload = await this.jwtService.verifyAsync<{
+        sub: string;
+        role: User['role'];
+        sessionVersion?: number;
+      }>(refreshToken, {
+        secret: getRequiredEnv('JWT_REFRESH_SECRET'),
+      });
+    } catch (error) {
+      if (this.isJwtValidationError(error)) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      throw error;
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: payload.sub },
+    });
+
+    const currentSessionVersion = user?.sessionVersion ?? 0;
+    if (!user || user.suspended || payload.sessionVersion !== currentSessionVersion) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const nextSessionVersion = currentSessionVersion + 1;
+    const rotatedSession = await this.usersRepository.update(
+      { id: user.id, sessionVersion: currentSessionVersion },
+      { sessionVersion: nextSessionVersion },
+    );
+    if (rotatedSession.affected !== 1) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    user.sessionVersion = nextSessionVersion;
+    return this.buildAuthResponse(user);
+  }
+
   async acceptPatientInvite(dto: AcceptPatientInviteDto): Promise<AuthSessionPayload> {
     const normalizedEmail = dto.email.toLowerCase();
     const invite = await this.patientInvitesRepository.findOne({ where: { email: normalizedEmail } });
@@ -269,11 +318,16 @@ export class AuthService {
     return {
       accessToken: await this.jwtService.signAsync(payload, {
         secret: getRequiredEnv('JWT_ACCESS_SECRET'),
-        expiresIn: '1h',
+        expiresIn: this.accessTokenExpiresIn,
+        jwtid: randomUUID(),
       }),
-      refreshToken: await this.jwtService.signAsync(payload, {
+      refreshToken: await this.jwtService.signAsync({
+        ...payload,
+        sessionVersion: user.sessionVersion ?? 0,
+      }, {
         secret: getRequiredEnv('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
+        expiresIn: this.refreshTokenExpiresIn,
+        jwtid: randomUUID(),
       }),
       user: {
         id: user.id,
@@ -290,5 +344,33 @@ export class AuthService {
         emailNotificationsEnabled: user.emailNotificationsEnabled,
       },
     };
+  }
+
+  private readJwtTtl(name: string, fallback: StringValue): StringValue {
+    const value = getEnvOrDefault(name, fallback);
+    if (/^\d+$/.test(value)) {
+      throw new InternalServerErrorException(
+        `Invalid JWT TTL value for ${name}: "${value}". Add a time unit suffix such as "1h" or "3600s".`,
+      );
+    }
+    if (ms(value as StringValue) === undefined) {
+      throw new InternalServerErrorException(
+        `Invalid JWT TTL value for ${name}: "${value}"`,
+      );
+    }
+
+    return value as StringValue;
+  }
+
+  private isJwtValidationError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return [
+      'JsonWebTokenError',
+      'NotBeforeError',
+      'TokenExpiredError',
+    ].includes(error.name);
   }
 }

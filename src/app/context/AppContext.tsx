@@ -1,5 +1,17 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { AppNotification, AuthSession, notificationsApi, setAccessTokenGetter } from '../lib/api';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react';
+import {
+  AppNotification,
+  AuthSession,
+  notificationsApi,
+  setAccessTokenGetter,
+  setRefreshTokenGetter,
+  setSessionChangeHandler,
+} from '../lib/api';
+import {
+  clearStoredSession,
+  loadStoredSession,
+  persistStoredSession,
+} from '../lib/authSession';
 
 export type AppRole = 'public' | 'paciente' | 'apoiador' | 'instituicao' | 'admin';
 
@@ -35,23 +47,9 @@ interface AppContextType {
   reloadNotifications: () => Promise<void>;
 }
 
-const STORAGE_KEY = 'nextdream.auth.session';
 const AUTH_EXPIRED_EVENT = 'nextdream:auth-expired';
 
 const AppContext = createContext<AppContextType | null>(null);
-
-function loadStoredSession(): AuthSession | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed.user) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
 function toAppUser(session: AuthSession | null): AppUser | null {
   if (!session) return null;
   return {
@@ -89,7 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setSession(null);
     setNotifications([]);
-    localStorage.removeItem(STORAGE_KEY);
+    clearStoredSession();
   }, []);
 
   const updateCurrentUser = useCallback((nextUser: Partial<AuthSession['user']>) => {
@@ -122,15 +120,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!session) {
-      localStorage.removeItem(STORAGE_KEY);
+      clearStoredSession();
       return;
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    persistStoredSession(session);
   }, [session]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setAccessTokenGetter(() => accessToken);
-  }, [accessToken]);
+    setRefreshTokenGetter(() => refreshToken);
+    setSessionChangeHandler((nextSession) => {
+      setSession(nextSession);
+      if (!nextSession) {
+        setNotifications([]);
+      }
+    });
+  }, [accessToken, refreshToken]);
 
   useEffect(() => {
     const handleAuthExpired = () => {
