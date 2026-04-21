@@ -247,7 +247,7 @@ export class MailService {
   }) {
     const transporter = this.getTransporter();
     if (!transporter) {
-      return;
+      throw new Error('SMTP transporter is unavailable for patient invite email');
     }
 
     const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
@@ -274,11 +274,11 @@ export class MailService {
         html: template.html,
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
       this.logger.warn(
-        `Failed to send patient invite email to ${params.to}: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
+        `Failed to send patient invite email to ${params.to}: ${message}`,
       );
+      throw new Error(`Failed to send patient invite email to ${params.to}: ${message}`);
     }
   }
 }
