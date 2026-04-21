@@ -1,6 +1,7 @@
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
+import { isSandboxEnvironment } from '../../config/environment';
 import { useApp } from '../../context/AppContext';
 import { ApiError, authApi } from '../../lib/api';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
@@ -15,6 +16,15 @@ export default function Login() {
   const { login } = useApp();
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get('tipo');
+
+  if (isSandboxEnvironment()) {
+    const nextSearch = new URLSearchParams();
+    if (tipo) {
+      nextSearch.set('tipo', tipo);
+    }
+
+    return <Navigate to={`/sandbox${nextSearch.toString() ? `?${nextSearch.toString()}` : ''}`} replace />;
+  }
 
   const routeByRole = (role: 'paciente' | 'apoiador' | 'instituicao' | 'admin') => {
     if (role === 'paciente') return '/paciente/dashboard';

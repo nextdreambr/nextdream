@@ -1,6 +1,7 @@
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Building2, Eye, EyeOff, ArrowRight, CheckCircle, Heart, Mail, Lock, Star, User, Phone, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
+import { isSandboxEnvironment } from '../../config/environment';
 import { useApp } from '../../context/AppContext';
 import { ApiError, ApiUserRole, authApi } from '../../lib/api';
 import { BRAZIL_STATES } from '../../data/brazilCities';
@@ -205,6 +206,16 @@ export default function Register() {
   const location = useLocation();
   const { login } = useApp();
   const tipo = searchParams.get('tipo');
+
+  if (isSandboxEnvironment()) {
+    const nextSearch = new URLSearchParams();
+    if (tipo) {
+      nextSearch.set('tipo', tipo);
+    }
+
+    return <Navigate to={`/sandbox${nextSearch.toString() ? `?${nextSearch.toString()}` : ''}`} replace />;
+  }
+
   const stateRole = (location.state as LocationState | null)?.role;
   const initialRole: PublicRole =
     tipo === 'apoiador' || tipo === 'paciente' || tipo === 'instituicao'

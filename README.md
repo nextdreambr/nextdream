@@ -84,6 +84,20 @@ Credenciais padrão do seed (`password: Seed123!`):
 - `apoiador2@nextdream.local`
 - `admin@nextdream.local`
 
+### Sandbox comercial sem banco
+
+O repositório agora suporta um modo de execução separado para demo comercial:
+
+- API: `APP_ENV=sandbox`
+- Web em produção: `VITE_SANDBOX_HOSTNAME=sandbox.nextdream.ong.br`
+- Web local/teste: `VITE_APP_ENV=sandbox` apenas em `localhost`, `127.0.0.1` e testes automatizados
+- estado em memória por sessão
+- sem Postgres, sem e-mail real, sem storage real
+- entrada pública em `https://sandbox.nextdream.ong.br/sandbox` com acessos demo para paciente, apoiador e instituição
+- sessão isolada no sandbox removendo `AUTH_COOKIE_DOMAIN` do deploy desse subdomínio
+
+O deploy ideal publica produção e sandbox a partir do mesmo commit. Em produção, o contexto sandbox liga pelo hostname `sandbox.nextdream.ong.br`; no desenvolvimento local e nos testes, o fallback continua sendo `VITE_APP_ENV=sandbox`.
+
 ## ✅ Qualidade antes de concluir uma task
 
 ```bash

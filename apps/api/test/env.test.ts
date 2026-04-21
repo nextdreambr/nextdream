@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getAllowedSentryTunnelOrigins } from '../src/config/env';
+import { getAllowedSentryTunnelOrigins, getAppEnvironment } from '../src/config/env';
 
 const originalAppUrl = process.env.APP_URL;
 const originalCorsOrigin = process.env.CORS_ORIGIN;
+const originalAppEnv = process.env.APP_ENV;
 
 function restoreEnv() {
   if (originalAppUrl === undefined) {
@@ -16,6 +17,12 @@ function restoreEnv() {
   } else {
     process.env.CORS_ORIGIN = originalCorsOrigin;
   }
+
+  if (originalAppEnv === undefined) {
+    delete process.env.APP_ENV;
+  } else {
+    process.env.APP_ENV = originalAppEnv;
+  }
 }
 
 afterEach(() => {
@@ -23,6 +30,12 @@ afterEach(() => {
 });
 
 describe('getAllowedSentryTunnelOrigins', () => {
+  it('throws when APP_ENV contains an unsupported value', () => {
+    process.env.APP_ENV = 'staging';
+
+    expect(() => getAppEnvironment()).toThrow('Invalid APP_ENV value');
+  });
+
   it('returns an empty list when no origin env vars are configured', () => {
     delete process.env.APP_URL;
     delete process.env.CORS_ORIGIN;

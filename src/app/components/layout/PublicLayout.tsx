@@ -1,10 +1,13 @@
 import { Outlet, Link } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { isSandboxEnvironment } from '../../config/environment';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 export function PublicLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const sandbox = isSandboxEnvironment();
+
   return (
     <div className="min-h-screen bg-background flex flex-col pb-12">
       {/* Navbar */}
@@ -23,14 +26,16 @@ export function PublicLayout() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/login"
+            <Link to={sandbox ? '/sandbox' : '/login'}
               className="text-pink-700 hover:text-pink-800 text-sm font-medium px-4 py-2 rounded-xl hover:bg-pink-50 transition-colors">
-              Entrar
+              {sandbox ? 'Conhecer a plataforma' : 'Entrar'}
             </Link>
-            <Link to="/cadastro"
-              className="bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-              Criar conta
-            </Link>
+            {!sandbox && (
+              <Link to="/cadastro"
+                className="bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+                Criar conta
+              </Link>
+            )}
           </div>
 
           <button className="md:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>
@@ -46,8 +51,22 @@ export function PublicLayout() {
             <Link to="/faq"           className="block text-gray-600 text-sm py-2" onClick={() => setMobileOpen(false)}>FAQ</Link>
             <Link to="/contato"       className="block text-gray-600 text-sm py-2" onClick={() => setMobileOpen(false)}>Fale conosco</Link>
             <div className="flex gap-3 pt-2">
-              <Link to="/login"    className="flex-1 text-center border border-pink-300 text-pink-700 py-2 rounded-xl text-sm" onClick={() => setMobileOpen(false)}>Entrar</Link>
-              <Link to="/cadastro" className="flex-1 text-center bg-pink-600 text-white py-2 rounded-xl text-sm"               onClick={() => setMobileOpen(false)}>Criar conta</Link>
+              <Link
+                to={sandbox ? '/sandbox' : '/login'}
+                className="flex-1 text-center border border-pink-300 text-pink-700 py-2 rounded-xl text-sm"
+                onClick={() => setMobileOpen(false)}
+              >
+                {sandbox ? 'Conhecer a plataforma' : 'Entrar'}
+              </Link>
+              {!sandbox && (
+                <Link
+                  to="/cadastro"
+                  className="flex-1 text-center bg-pink-600 text-white py-2 rounded-xl text-sm"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Criar conta
+                </Link>
+              )}
             </div>
           </div>
         )}

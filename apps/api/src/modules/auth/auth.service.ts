@@ -20,6 +20,7 @@ import { User } from '../../entities/user.entity';
 import { buildLocationLabel, normalizeLocationPart } from '../../lib/location';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
+import { DemoLoginDto } from './dto/demo-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { MailService } from '../mail/mail.service';
@@ -135,6 +136,11 @@ export class AuthService {
     }
 
     return this.buildAuthResponse(user);
+  }
+
+  async demoLogin(dto: DemoLoginDto): Promise<AuthSessionPayload> {
+    void dto;
+    throw new BadRequestException('Demo access is only available in sandbox mode');
   }
 
   async acceptAdminInvite(dto: AcceptAdminInviteDto): Promise<AuthSessionPayload> {

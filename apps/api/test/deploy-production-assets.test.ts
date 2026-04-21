@@ -54,6 +54,13 @@ function extractComposeServiceBlock(composeFile: string, serviceName: 'api' | 'w
 }
 
 describe('production deploy hardening assets', () => {
+  it('defaults production deploys to /home/actions/nextdream on the existing host', () => {
+    const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
+
+    expect(workflow).toContain("APP_DIR: ${{ vars.APP_DIR || '/home/actions/nextdream' }}");
+    expect(workflow).not.toContain("APP_DIR: ${{ vars.APP_DIR || '/opt/nextdream' }}");
+  });
+
   it('runs the API container as a non-root user', () => {
     const dockerfile = readRepoFile('Dockerfile.api');
 
@@ -77,6 +84,50 @@ describe('production deploy hardening assets', () => {
     expect(nginxConfig).toMatch(/listen\s+8080;/);
   });
 
+  it('passes the sandbox hostname into the web image build', () => {
+    const dockerfile = readRepoFile('Dockerfile.web');
+    const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
+
+    expect(dockerfile).toMatch(/ARG\s+VITE_SANDBOX_HOSTNAME=/);
+    expect(dockerfile).toMatch(/ENV\s+VITE_SANDBOX_HOSTNAME=\$\{VITE_SANDBOX_HOSTNAME\}/);
+    expect(workflow).toContain('VITE_SANDBOX_HOSTNAME');
+    expect(workflow).toContain('VITE_SANDBOX_HOSTNAME=${{ vars.VITE_SANDBOX_HOSTNAME }}');
+  });
+
+  it('defines isolated sandbox deploy assets for the same VM', () => {
+    const sandboxCompose = readRepoFile('docker-compose.sandbox.yml');
+    const sandboxScript = readRepoFile('scripts/deploy-sandbox-remote.sh');
+    const sandboxWorkflow = readRepoFile('.github/workflows/deploy-sandbox.yml');
+    const sandboxNginxVhost = readRepoFile('deploy/nginx/sandbox.nextdream.ong.br.conf');
+
+    expect(sandboxCompose).toMatch(/container_name:\s*nextdream-sandbox-api/);
+    expect(sandboxCompose).toMatch(/127\.0\.0\.1}:?\$?\{?SANDBOX_API_HOST_PORT:-4001\}?:4000|SANDBOX_API_BIND_ADDRESS:-127\.0\.0\.1/);
+    expect(sandboxCompose).toMatch(/name:\s*\$\{SANDBOX_DOCKER_NETWORK:-nextdream-sandbox\}/);
+    expect(sandboxCompose).not.toMatch(/\bweb:\b/);
+
+    expect(sandboxScript).toContain('docker-compose.sandbox.yml');
+    expect(sandboxScript).toContain('.env.sandbox');
+    expect(sandboxScript).toContain('nextdream-sandbox-api');
+    expect(sandboxScript).toContain('.sandbox-release-state.json');
+    expect(sandboxScript).not.toContain('docker image prune -f');
+    expect(sandboxScript).not.toContain('docker builder prune -f');
+    expect(sandboxScript).toContain("response_file=\"$(mktemp)\"");
+
+    expect(sandboxWorkflow).toContain('name: Deploy Sandbox');
+    expect(sandboxWorkflow).toContain("APP_DIR: ${{ vars.SANDBOX_APP_DIR || '/home/actions/nextdream-sandbox' }}");
+    expect(sandboxWorkflow).toContain('SANDBOX_JWT_ACCESS_SECRET');
+    expect(sandboxWorkflow).toContain('SANDBOX_JWT_REFRESH_SECRET');
+    expect(sandboxWorkflow).toContain('docker-compose.sandbox.yml');
+    expect(sandboxWorkflow).toContain('normalized_trust_proxy');
+    expect(sandboxWorkflow).toContain('normalized_auth_cookie_secure');
+    expect(sandboxWorkflow).toContain('normalized_proxy_trusted_ips');
+
+    expect(sandboxNginxVhost).toContain('server_name sandbox.nextdream.ong.br;');
+    expect(sandboxNginxVhost).toContain('proxy_pass http://127.0.0.1:4001/;');
+    expect(sandboxNginxVhost).toContain('proxy_pass http://127.0.0.1:8080;');
+    expect(sandboxNginxVhost).toContain('/etc/letsencrypt/live/sandbox.nextdream.ong.br/fullchain.pem');
+  });
+
   it('hardens the production compose services and adds healthchecks', () => {
     const composeFile = readRepoFile('docker-compose.prod.yml');
     const apiService = extractComposeServiceBlock(composeFile, 'api');
@@ -91,6 +142,7 @@ describe('production deploy hardening assets', () => {
     expect(webService).toMatch(/cap_drop:[\s\S]*-\s*ALL/);
     expect(apiService).toMatch(/healthcheck:[\s\S]*127\.0\.0\.1:4000\/health/);
     expect(webService).toMatch(/healthcheck:/);
+    expect(composeFile).not.toContain('--spider');
   });
 
   it('extracts service blocks without bleeding hardening fields across services', () => {

@@ -48,7 +48,10 @@ export default function SupporterDashboard() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-6 text-white">
+      <div
+        data-sandbox-tour-id="supporter-dashboard-hero"
+        className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-6 text-white"
+      >
         <p className="text-teal-100 text-sm mb-1">Olá, {currentUser?.name?.split(' ')[0]} 💚</p>
         <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Você pode mudar uma vida hoje</h1>
         <p className="text-teal-100 text-sm leading-relaxed mb-4">

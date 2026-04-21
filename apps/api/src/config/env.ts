@@ -1,5 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 
+export type AppEnvironment = 'production' | 'sandbox';
+
 export function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (value && value.trim().length > 0) {
@@ -22,6 +24,25 @@ export function getEnvOrDefault(name: string, fallback: string): string {
   }
 
   return fallback;
+}
+
+export function getAppEnvironment(): AppEnvironment {
+  const raw = process.env.APP_ENV?.trim().toLowerCase();
+  if (!raw || raw === 'production') {
+    return 'production';
+  }
+
+  if (raw === 'sandbox') {
+    return 'sandbox';
+  }
+
+  throw new InternalServerErrorException(
+    `Invalid APP_ENV value: "${process.env.APP_ENV}". Expected "production" or "sandbox".`,
+  );
+}
+
+export function isSandboxEnvironment() {
+  return getAppEnvironment() === 'sandbox';
 }
 
 export function getCorsOrigins(): string[] {
@@ -51,6 +72,10 @@ function toOrigin(raw: string | undefined): string | null {
 function getPositiveNumberEnv(raw: string | undefined, fallback: number): number {
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+export function getSandboxSessionTtlMs() {
+  return getPositiveNumberEnv(process.env.SANDBOX_SESSION_TTL_MINUTES, 120) * 60_000;
 }
 
 export function getRateLimitConfig() {

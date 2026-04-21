@@ -216,6 +216,7 @@ async function refreshAuthSession(): Promise<AuthSession | null> {
 }
 
 export type ApiUserRole = 'paciente' | 'apoiador' | 'instituicao' | 'admin';
+export type SandboxPersona = Exclude<ApiUserRole, 'admin'>;
 
 export interface ApiUser {
   id: string;
@@ -319,6 +320,12 @@ export interface InstitutionProfile extends ApiUser {
 export const authApi = {
   login(payload: { email: string; password: string }) {
     return apiRequest<AuthSession>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  demoLogin(payload: { persona: SandboxPersona }) {
+    return apiRequest<AuthSession>('/auth/demo-login', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

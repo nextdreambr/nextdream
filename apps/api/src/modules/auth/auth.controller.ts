@@ -6,6 +6,7 @@ import { AuthService, AuthSessionPayload } from './auth.service';
 import { getLoginRateLimitConfig } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
+import { DemoLoginDto } from './dto/demo-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -44,6 +45,18 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionPayload> {
     const auth = await this.authService.login(dto);
+    setAuthCookies(response, auth);
+    return auth;
+  }
+
+  @Post('demo-login')
+  @HttpCode(200)
+  @Throttle(loginThrottle)
+  async demoLogin(
+    @Body() dto: DemoLoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthSessionPayload> {
+    const auth = await this.authService.demoLogin(dto);
     setAuthCookies(response, auth);
     return auth;
   }

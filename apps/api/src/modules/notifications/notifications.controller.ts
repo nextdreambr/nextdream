@@ -15,7 +15,7 @@ export class NotificationsController {
 
   @Get('mine')
   listMine(@CurrentUser() currentUser: JwtPayload) {
-    return this.notificationsService.listMine(currentUser.sub);
+    return this.notificationsService.listMine(currentUser);
   }
 
   @Post(':notificationId/read')
@@ -24,18 +24,18 @@ export class NotificationsController {
     @CurrentUser() currentUser: JwtPayload,
     @Param('notificationId') notificationId: string,
   ) {
-    return this.notificationsService.markRead(currentUser.sub, notificationId);
+    return this.notificationsService.markRead(currentUser, notificationId);
   }
 
   @Post('read-all')
   @HttpCode(200)
   markAllRead(@CurrentUser() currentUser: JwtPayload) {
-    return this.notificationsService.markAllRead(currentUser.sub);
+    return this.notificationsService.markAllRead(currentUser);
   }
 
   @Get('preferences')
   getPreferences(@CurrentUser() currentUser: JwtPayload) {
-    return this.notificationsService.getPreferences(currentUser.sub);
+    return this.notificationsService.getPreferences(currentUser);
   }
 
   @Post('preferences')
@@ -44,6 +44,6 @@ export class NotificationsController {
     @CurrentUser() currentUser: JwtPayload,
     @Body() dto: UpdateNotificationPreferencesDto,
   ) {
-    return this.notificationsService.updatePreferences(currentUser.sub, dto.emailEnabled);
+    return this.notificationsService.updatePreferences(currentUser, dto.emailEnabled);
   }
 }

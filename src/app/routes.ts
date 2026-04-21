@@ -18,6 +18,7 @@ import FAQ from './pages/FAQ';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Guidelines from './pages/Guidelines';
+import SandboxAccess from './pages/SandboxAccess';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ProfileSelect from './pages/auth/ProfileSelect';
@@ -94,6 +95,7 @@ export const router = createBrowserRouter([
           { path: 'termos', Component: Terms },
           { path: 'privacidade', Component: Privacy },
           { path: 'diretrizes', Component: Guidelines },
+          { path: 'sandbox', Component: SandboxAccess },
           { path: 'login', Component: Login },
           { path: 'cadastro', Component: Register },
           { path: 'selecionar-perfil', Component: ProfileSelect },

@@ -39,7 +39,10 @@ export default function PatientDashboard() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-pink-600 to-rose-500 rounded-2xl p-6 text-white">
+      <div
+        data-sandbox-tour-id="patient-dashboard-hero"
+        className="bg-gradient-to-r from-pink-600 to-rose-500 rounded-2xl p-6 text-white"
+      >
         <p className="text-pink-100 text-sm mb-1">Olá, {currentUser?.name?.split(' ')[0]} 💖</p>
         <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Seu espaço de sonhos</h1>
         <p className="text-pink-100 text-sm leading-relaxed mb-4">
