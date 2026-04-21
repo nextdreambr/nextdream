@@ -101,7 +101,7 @@ describe('InstitutionDashboard', () => {
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /pacientes acompanhados/i })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /propostas pendentes/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /apoiadores conectados/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /apoiadores com propostas/i })).toBeInTheDocument();
     });
   });
 

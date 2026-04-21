@@ -71,7 +71,7 @@ export default function InstitutionDashboard() {
     { label: 'Pacientes acompanhados', value: overview?.managedPatients ?? 0, icon: Users, to: '/instituicao/pacientes' },
     { label: 'Pacientes com acesso', value: overview?.linkedPatients ?? 0, icon: Users, to: '/instituicao/pacientes' },
     { label: 'Convites pendentes', value: overview?.pendingAccessInvites ?? 0, icon: Building2, to: '/instituicao/pacientes' },
-    { label: 'Apoiadores conectados', value: overview?.supporterConnections ?? 0, icon: MessageCircle, to: '/instituicao/propostas' },
+    { label: 'Apoiadores com propostas', value: overview?.supporterConnections ?? 0, icon: MessageCircle, to: '/instituicao/propostas' },
     { label: 'Sonhos ativos', value: overview?.dreams ?? 0, icon: Star, to: '/instituicao/sonhos' },
     { label: 'Sonhos publicados', value: overview?.dreamsPublished ?? 0, icon: Star, to: '/instituicao/sonhos' },
     { label: 'Propostas pendentes', value: overview?.pendingProposals ?? 0, icon: Inbox, to: '/instituicao/propostas' },
