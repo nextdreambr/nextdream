@@ -130,6 +130,139 @@ describe('apiRequest', () => {
     expect(retryHeaders.Authorization).toBe('Bearer new-access-token');
   });
 
+  it('ignores a stale successful refresh response after the refresh token changes', async () => {
+    const handleSessionChange = vi.fn();
+    const listener = vi.fn();
+    let currentRefreshToken = 'refresh-token-1';
+
+    setRefreshTokenGetter(() => currentRefreshToken);
+    setSessionChangeHandler(handleSessionChange);
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => {
+          currentRefreshToken = 'refresh-token-2';
+          return JSON.stringify({
+            accessToken: 'new-access-token',
+            refreshToken: 'new-refresh-token',
+            user: { id: 'u1', name: 'Ana', email: 'ana@example.com', role: 'apoiador', verified: true, approved: true },
+          });
+        },
+      } as Response);
+
+    try {
+      await expect(apiRequest('/proposals/mine', {
+        headers: {
+          Authorization: 'Bearer expired-token',
+        },
+      })).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Invalid token',
+        }),
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(handleSessionChange).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
+  });
+
+  it('ignores a stale non-ok refresh response after the refresh token changes', async () => {
+    const handleSessionChange = vi.fn();
+    const listener = vi.fn();
+    let currentRefreshToken = 'refresh-token-1';
+
+    setRefreshTokenGetter(() => currentRefreshToken);
+    setSessionChangeHandler(handleSessionChange);
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => {
+          currentRefreshToken = 'refresh-token-2';
+          return JSON.stringify({ message: 'Invalid refresh token' });
+        },
+      } as Response);
+
+    try {
+      await expect(apiRequest('/proposals/mine', {
+        headers: {
+          Authorization: 'Bearer expired-token',
+        },
+      })).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Invalid token',
+        }),
+      );
+
+      expect(handleSessionChange).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
+  });
+
+  it('ignores a stale failed refresh request after the refresh token changes', async () => {
+    const handleSessionChange = vi.fn();
+    const listener = vi.fn();
+    let currentRefreshToken = 'refresh-token-1';
+
+    setRefreshTokenGetter(() => currentRefreshToken);
+    setSessionChangeHandler(handleSessionChange);
+    window.addEventListener('nextdream:auth-expired', listener);
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ message: 'Invalid token' }),
+      } as Response)
+      .mockImplementationOnce(async () => {
+        currentRefreshToken = 'refresh-token-2';
+        throw new Error('network down');
+      });
+
+    try {
+      await expect(apiRequest('/proposals/mine', {
+        headers: {
+          Authorization: 'Bearer expired-token',
+        },
+      })).rejects.toEqual(
+        expect.objectContaining<ApiError>({
+          name: 'ApiError',
+          status: 401,
+          message: 'Invalid token',
+        }),
+      );
+
+      expect(handleSessionChange).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nextdream:auth-expired', listener);
+    }
+  });
+
   it('does not attempt token refresh or clear the session on auth-route 401 responses', async () => {
     const handleSessionChange = vi.fn();
     setRefreshTokenGetter(() => 'refresh-token');

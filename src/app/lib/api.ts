@@ -44,6 +44,10 @@ function getAvailableRefreshToken() {
   return getRefreshToken() ?? loadStoredSession()?.refreshToken ?? null;
 }
 
+function isCurrentRefreshToken(initialRefreshToken: string | null) {
+  return getAvailableRefreshToken() === initialRefreshToken;
+}
+
 function notifyAuthExpired() {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
@@ -98,6 +102,7 @@ async function apiRequestInternal<T>(
     (key) => key.toLowerCase() === 'authorization',
   );
   const isAuthRoute = path.startsWith('/auth');
+  const requestRefreshToken = isAuthRoute ? null : getAvailableRefreshToken();
 
   if (!headers['Content-Type'] && init.body && !(init.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
@@ -132,12 +137,17 @@ async function apiRequestInternal<T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && !isAuthRoute) {
+    const isCurrentAuthContext = isAuthRoute || isCurrentRefreshToken(requestRefreshToken);
+    if (response.status === 401 && !isAuthRoute && isCurrentAuthContext) {
       handleSessionChange(null);
     }
     const fallback = `Request failed with status ${response.status}`;
     const message = extractMessage(payload, fallback);
-    if (response.status === 401 && (message === 'Missing authentication token' || message === 'Invalid token')) {
+    if (
+      response.status === 401 &&
+      isCurrentAuthContext &&
+      (message === 'Missing authentication token' || message === 'Invalid token')
+    ) {
       notifyAuthExpired();
     }
     throw new ApiError(message, response.status, payload);
@@ -149,9 +159,11 @@ async function apiRequestInternal<T>(
 async function refreshAuthSession(): Promise<AuthSession | null> {
   if (refreshSessionRequest) return refreshSessionRequest;
 
-  const refreshToken = getAvailableRefreshToken();
-  if (!refreshToken) {
-    handleSessionChange(null);
+  const initialRefreshToken = getAvailableRefreshToken();
+  if (!initialRefreshToken) {
+    if (isCurrentRefreshToken(initialRefreshToken)) {
+      handleSessionChange(null);
+    }
     return null;
   }
 
@@ -163,27 +175,37 @@ async function refreshAuthSession(): Promise<AuthSession | null> {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refreshToken: initialRefreshToken }),
       });
 
       const text = await response.text();
       const payload = text ? (JSON.parse(text) as unknown) : undefined;
 
       if (!response.ok) {
-        handleSessionChange(null);
+        if (isCurrentRefreshToken(initialRefreshToken)) {
+          handleSessionChange(null);
+        }
         return null;
       }
 
       const session = payload as Partial<AuthSession>;
       if (!session.accessToken || !session.refreshToken || !session.user) {
-        handleSessionChange(null);
+        if (isCurrentRefreshToken(initialRefreshToken)) {
+          handleSessionChange(null);
+        }
+        return null;
+      }
+
+      if (!isCurrentRefreshToken(initialRefreshToken)) {
         return null;
       }
 
       handleSessionChange(session as AuthSession);
       return session as AuthSession;
     } catch {
-      handleSessionChange(null);
+      if (isCurrentRefreshToken(initialRefreshToken)) {
+        handleSessionChange(null);
+      }
       return null;
     } finally {
       refreshSessionRequest = null;
