@@ -181,7 +181,7 @@ jobs:
           exit 1
 
       - name: Scan published ${{ matrix.name }} image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ steps.pushed_image.outputs.image_ref }}
           format: table
