@@ -1698,7 +1698,8 @@ describe('NextDream API', () => {
       .post('/admin/admins/invite')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ email: 'admin-invite@example.com' });
-    expect(inviteAdmin.status).toBe(500);
+    expect(inviteAdmin.status).toBe(200);
+    expect(inviteAdmin.body.email).toBe('admin-invite@example.com');
 
     const knownToken = 'InviteToken123!';
     await adminInvitesRepository.save(

@@ -96,7 +96,8 @@ export class MailService {
 
   private getTransporter(): Transporter | null {
     if (process.env.NODE_ENV === 'test') {
-      return null;
+      this.transporter ??= nodemailer.createTransport({ jsonTransport: true });
+      return this.transporter;
     }
 
     if (this.transporter) {

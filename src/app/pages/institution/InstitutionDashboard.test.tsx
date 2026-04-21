@@ -26,6 +26,23 @@ vi.mock('../../lib/api', async () => {
 
 const overviewMock = vi.mocked(institutionApi.overview);
 
+function buildOverview(overrides: Partial<Awaited<ReturnType<typeof institutionApi.overview>>> = {}) {
+  return {
+    managedPatients: 0,
+    linkedPatients: 0,
+    pendingAccessInvites: 0,
+    dreams: 0,
+    dreamsPublished: 0,
+    dreamsInConversation: 0,
+    proposals: 0,
+    pendingProposals: 0,
+    acceptedProposals: 0,
+    activeConversations: 0,
+    supporterConnections: 0,
+    ...overrides,
+  };
+}
+
 describe('InstitutionDashboard', () => {
   beforeEach(() => {
     overviewMock.mockReset();
@@ -90,18 +107,18 @@ describe('InstitutionDashboard', () => {
 
   it('reloads the overview when the approved institution account changes', async () => {
     overviewMock
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce(buildOverview({
         managedPatients: 3,
         dreams: 2,
         proposals: 4,
         activeConversations: 1,
-      })
-      .mockResolvedValueOnce({
+      }))
+      .mockResolvedValueOnce(buildOverview({
         managedPatients: 5,
         dreams: 1,
         proposals: 2,
         activeConversations: 0,
-      });
+      }));
 
     useAppMock.mockReturnValue({
       currentUser: {
