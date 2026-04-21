@@ -137,4 +137,26 @@ describe('Register', () => {
 
     expect(submitButton).not.toBeDisabled();
   });
+
+  it('uses the same structured onboarding layout for patient and supporter while keeping each role copy distinct', () => {
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/cadastro de paciente/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /seus dados/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /acesso à conta/i })).toBeInTheDocument();
+    expect(screen.getByText(/como funciona para paciente/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /criar conta de paciente/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /apoiador/i }));
+
+    expect(screen.getByText(/cadastro de apoiador/i)).toBeInTheDocument();
+    expect(screen.getByText(/como funciona para apoiador/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /criar conta de apoiador/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/nome completo/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/nome da instituição/i)).not.toBeInTheDocument();
+  });
 });
