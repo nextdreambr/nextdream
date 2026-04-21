@@ -77,11 +77,16 @@ export class SandboxAuthService {
       throw error;
     }
 
-    if (!payload.sandboxSessionId?.trim()) {
+    const sessionId = payload.sandboxSessionId?.trim();
+    if (!sessionId) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const session = this.sandboxState.getSessionOrThrow(payload.sandboxSessionId);
+    const session = this.sandboxState.getSession(sessionId);
+    if (!session) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     const user = session.users.find((candidate) => candidate.id === payload.sub);
     if (!user || user.suspended) {
       throw new UnauthorizedException('Invalid refresh token');

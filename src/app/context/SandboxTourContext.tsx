@@ -257,12 +257,12 @@ export function SandboxTourProvider({ children }: { children: React.ReactNode })
   }, [activeTour]);
 
   const openTour = useCallback(() => {
-    if (!currentPersona) return;
+    if (!canOpenTour || !currentPersona) return;
     setActiveTour({
       persona: currentPersona,
       stepIndex: 0,
     });
-  }, [currentPersona]);
+  }, [canOpenTour, currentPersona]);
 
   const nextStep = () => {
     setActiveTour((current) => {

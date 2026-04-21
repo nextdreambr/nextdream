@@ -10,32 +10,40 @@ export interface SandboxTourSessionState {
   progressByPersona: Partial<Record<SandboxPersona, SandboxTourProgress>>;
 }
 
-const defaultState: SandboxTourSessionState = {
-  queuedLaunchPersona: null,
-  progressByPersona: {},
-};
+function createDefaultState(): SandboxTourSessionState {
+  return {
+    queuedLaunchPersona: null,
+    progressByPersona: {},
+  };
+}
 
 function getSandboxTourStorage() {
   if (typeof window === 'undefined') return null;
   if (!isSandboxEnvironment()) return null;
-  return window.sessionStorage;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }
 
 export function loadSandboxTourState(): SandboxTourSessionState {
   const storage = getSandboxTourStorage();
-  if (!storage) return defaultState;
+  if (!storage) return createDefaultState();
 
   try {
     const raw = storage.getItem(SANDBOX_TOUR_STORAGE_KEY);
-    if (!raw) return defaultState;
+    if (!raw) return createDefaultState();
 
     const parsed = JSON.parse(raw) as Partial<SandboxTourSessionState>;
     return {
       queuedLaunchPersona: parsed.queuedLaunchPersona ?? null,
-      progressByPersona: parsed.progressByPersona ?? {},
+      progressByPersona: {
+        ...(parsed.progressByPersona ?? {}),
+      },
     };
   } catch {
-    return defaultState;
+    return createDefaultState();
   }
 }
 

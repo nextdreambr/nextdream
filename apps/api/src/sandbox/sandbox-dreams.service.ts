@@ -375,6 +375,9 @@ export class SandboxDreamsService {
     if (proposal.status === 'aceita') {
       throw new ConflictException('Accepted proposals cannot be rejected');
     }
+    if (proposal.status === 'recusada') {
+      return this.serializeProposal(session, proposal, currentUser);
+    }
 
     proposal.status = 'recusada';
     await this.notificationsService.createNotification(session.id, {

@@ -26,4 +26,49 @@ describe('sandboxTourSession', () => {
 
     expect(setItemSpy).toHaveBeenCalled();
   });
+
+  it('returns a fresh default state on each load', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'sandbox');
+    vi.stubEnv('VITE_SANDBOX_HOSTNAME', 'sandbox.nextdream.ong.br');
+
+    const { loadSandboxTourState } = await import('./sandboxTourSession');
+
+    const first = loadSandboxTourState();
+    const second = loadSandboxTourState();
+
+    expect(first).toEqual({
+      queuedLaunchPersona: null,
+      progressByPersona: {},
+    });
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+
+    first.progressByPersona.paciente = 'completed';
+    expect(second.progressByPersona).toEqual({});
+  });
+
+  it('returns null storage when sessionStorage access throws', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'sandbox');
+    vi.stubEnv('VITE_SANDBOX_HOSTNAME', 'sandbox.nextdream.ong.br');
+    const sessionStorageGetter = vi
+      .spyOn(window, 'sessionStorage', 'get')
+      .mockImplementation(() => {
+        throw new DOMException('Access denied', 'SecurityError');
+      });
+
+    const { loadSandboxTourState, saveSandboxTourState } = await import('./sandboxTourSession');
+
+    expect(loadSandboxTourState()).toEqual({
+      queuedLaunchPersona: null,
+      progressByPersona: {},
+    });
+    expect(() => {
+      saveSandboxTourState({
+        queuedLaunchPersona: 'paciente',
+        progressByPersona: {},
+      });
+    }).not.toThrow();
+
+    expect(sessionStorageGetter).toHaveBeenCalled();
+  });
 });

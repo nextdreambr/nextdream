@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Outlet, Route, Routes, MemoryRouter, useLocation } from 'react-router';
+import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_STORAGE_KEY } from '../lib/authSession';
 import { AppProvider } from './AppContext';
-import { SandboxTourProvider } from './SandboxTourContext';
+import { SandboxTourProvider, useSandboxTour } from './SandboxTourContext';
 import { SandboxEnvironmentBanner } from '../components/shared/SandboxEnvironmentBanner';
 import { queueSandboxTourLaunch } from '../lib/sandboxTourSession';
 
@@ -19,6 +20,16 @@ function jsonResponse(payload: unknown) {
 function LocationProbe() {
   const location = useLocation();
   return <div data-testid="current-path">{location.pathname}</div>;
+}
+
+function OpenTourOnMount() {
+  const { openTour } = useSandboxTour();
+
+  useEffect(() => {
+    openTour();
+  }, [openTour]);
+
+  return null;
 }
 
 function TestShell() {
@@ -70,6 +81,23 @@ function renderSandboxTour(initialEntry: string) {
           <Route path="/instituicao/propostas" element={<div data-sandbox-tour-id="institution-proposals-panel">Instituicao propostas</div>} />
         </Route>
       </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderSandboxTourWithForcedOpen(initialEntry: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <AppProvider>
+        <SandboxTourProvider>
+          <OpenTourOnMount />
+          <SandboxEnvironmentBanner />
+          <LocationProbe />
+          <Routes>
+            <Route path="/paciente/dashboard" element={<div data-sandbox-tour-id="patient-dashboard-hero">Paciente dashboard</div>} />
+          </Routes>
+        </SandboxTourProvider>
+      </AppProvider>
     </MemoryRouter>,
   );
 }
@@ -168,6 +196,18 @@ describe('SandboxTourProvider', () => {
       expect(screen.getByText('Instituição')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /recomecar experiencia/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /ver tour guiado/i })).toBeInTheDocument();
+    });
+  });
+
+  it('does not open the tour when a consumer calls openTour outside sandbox mode', async () => {
+    saveSandboxSession('paciente');
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    vi.stubEnv('VITE_SANDBOX_HOSTNAME', 'sandbox.nextdream.ong.br');
+
+    renderSandboxTourWithForcedOpen('/paciente/dashboard');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /tour guiado do paciente/i })).not.toBeInTheDocument();
     });
   });
 });

@@ -118,6 +118,56 @@ describe('Sandbox API', () => {
     expect(refresh.body.message).toMatch(/invalid refresh token/i);
   });
 
+  it('normalizes the refresh sandbox session id and keeps missing sessions opaque', async () => {
+    const jwtService = app.get(JwtService);
+    const session = await demoLogin('paciente');
+    const refreshPayload = await jwtService.verifyAsync<{
+      sub: string;
+      role: 'paciente';
+      sandboxSessionId: string;
+    }>(session.refreshToken, {
+      secret: 'sandbox-refresh-secret',
+    });
+
+    const trimmedRefreshToken = await jwtService.signAsync(
+      {
+        sub: refreshPayload.sub,
+        role: refreshPayload.role,
+        sandboxSessionId: `  ${refreshPayload.sandboxSessionId}  `,
+      },
+      {
+        secret: 'sandbox-refresh-secret',
+        expiresIn: '7d',
+      },
+    );
+
+    const trimmedRefresh = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: trimmedRefreshToken });
+
+    expect(trimmedRefresh.status).toBe(200);
+    expect(trimmedRefresh.body.user.id).toBe(session.user.id);
+
+    const missingSessionRefreshToken = await jwtService.signAsync(
+      {
+        sub: refreshPayload.sub,
+        role: refreshPayload.role,
+        sandboxSessionId: 'missing-session-id',
+      },
+      {
+        secret: 'sandbox-refresh-secret',
+        expiresIn: '7d',
+      },
+    );
+
+    const missingSessionRefresh = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: missingSessionRefreshToken });
+
+    expect(missingSessionRefresh.status).toBe(401);
+    expect(missingSessionRefresh.body.message).toBe('Invalid refresh token');
+  });
+
   it('rejects public registration in sandbox mode and requires demo access', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
@@ -300,6 +350,36 @@ describe('Sandbox API', () => {
 
     expect(secondClose.status).toBe(200);
     expect(secondClose.body.status).toBe('encerrada');
+  });
+
+  it('keeps proposal rejection idempotent inside the same sandbox session', async () => {
+    const patientSession = await demoLogin('paciente');
+    const patientAuthHeader = { Authorization: `Bearer ${patientSession.accessToken}` };
+
+    const proposals = await request(app.getHttpServer())
+      .get('/proposals/received')
+      .set(patientAuthHeader);
+
+    expect(proposals.status).toBe(200);
+
+    const pendingProposal = proposals.body.find(
+      (proposal: { status: string }) => proposal.status === 'enviada',
+    );
+    expect(pendingProposal).toBeDefined();
+
+    const firstReject = await request(app.getHttpServer())
+      .post(`/proposals/${pendingProposal.id}/reject`)
+      .set(patientAuthHeader);
+
+    expect(firstReject.status).toBe(200);
+    expect(firstReject.body.status).toBe('recusada');
+
+    const secondReject = await request(app.getHttpServer())
+      .post(`/proposals/${pendingProposal.id}/reject`)
+      .set(patientAuthHeader);
+
+    expect(secondReject.status).toBe(200);
+    expect(secondReject.body.status).toBe('recusada');
   });
 
   it('lets the supporter demo submit proposals and reuse the seeded chat', async () => {
