@@ -4,10 +4,12 @@ import {
   Inbox,
   MapPin,
   MessageCircle,
+  Phone,
   Save,
   ShieldCheck,
   ShieldOff,
   Star,
+  User,
   Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -26,6 +28,8 @@ export default function InstitutionProfile() {
     state: '',
     city: '',
     institutionType: '',
+    institutionResponsibleName: '',
+    institutionResponsiblePhone: '',
     institutionDescription: '',
   });
   const [emailEnabled, setEmailEnabled] = useState(false);
@@ -61,6 +65,8 @@ export default function InstitutionProfile() {
           state: profile.state ?? '',
           city: profile.city ?? '',
           institutionType: profile.institutionType ?? '',
+          institutionResponsibleName: profile.institutionResponsibleName ?? '',
+          institutionResponsiblePhone: profile.institutionResponsiblePhone ?? '',
           institutionDescription: profile.institutionDescription ?? '',
         });
         setEmailEnabled(preferences.emailEnabled);
@@ -96,6 +102,8 @@ export default function InstitutionProfile() {
         state: form.state || undefined,
         city: form.city || undefined,
         institutionType: form.institutionType || undefined,
+        institutionResponsibleName: form.institutionResponsibleName.trim() || undefined,
+        institutionResponsiblePhone: form.institutionResponsiblePhone.trim() || undefined,
         institutionDescription: form.institutionDescription.trim() || undefined,
       });
       updateCurrentUser(profile);
@@ -161,6 +169,22 @@ export default function InstitutionProfile() {
               <h2 className="text-gray-800">{currentUser.name}</h2>
               <p className="text-sm text-gray-500">{currentUser.email}</p>
             </div>
+            {(currentUser.institutionResponsibleName || currentUser.institutionResponsiblePhone) && (
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                {currentUser.institutionResponsibleName && (
+                  <span className="inline-flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {currentUser.institutionResponsibleName}
+                  </span>
+                )}
+                {currentUser.institutionResponsiblePhone && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    {currentUser.institutionResponsiblePhone}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full inline-flex items-center gap-1">
                 <Building2 className="w-3 h-3" />
@@ -228,6 +252,27 @@ export default function InstitutionProfile() {
                     type="email"
                     value={form.email}
                     onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="institution-profile-responsible-name" className="text-sm text-gray-700 block mb-1.5">Nome do responsável</label>
+                  <input
+                    id="institution-profile-responsible-name"
+                    value={form.institutionResponsibleName}
+                    onChange={(event) => setForm((current) => ({ ...current, institutionResponsibleName: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="institution-profile-responsible-phone" className="text-sm text-gray-700 block mb-1.5">Telefone ou WhatsApp do responsável</label>
+                  <input
+                    id="institution-profile-responsible-phone"
+                    value={form.institutionResponsiblePhone}
+                    onChange={(event) => setForm((current) => ({ ...current, institutionResponsiblePhone: event.target.value }))}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
                   />
                 </div>

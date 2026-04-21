@@ -28,6 +28,10 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [name, setName] = useState('');
+  const [institutionResponsibleName, setInstitutionResponsibleName] = useState('');
+  const [institutionResponsiblePhone, setInstitutionResponsiblePhone] = useState('');
+  const [institutionType, setInstitutionType] = useState('');
+  const [institutionDescription, setInstitutionDescription] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [state, setState] = useState('');
@@ -48,6 +52,13 @@ export default function Register() {
   const [role, setRole] = useState<Exclude<ApiUserRole, 'admin'>>(initialRole);
   const cities = getCitiesForState(state);
   const hasIncompleteLocation = Boolean((state && !city) || (!state && city));
+  const isInstitution = role === 'instituicao';
+  const submitButtonClassName =
+    role === 'instituicao'
+      ? 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300'
+      : role === 'apoiador'
+        ? 'bg-teal-600 hover:bg-teal-700 disabled:bg-teal-300'
+        : 'bg-pink-600 hover:bg-pink-700 disabled:bg-pink-300';
 
   const routeByRole = (targetRole: ApiUserRole) => {
     if (targetRole === 'paciente') return '/paciente/dashboard';
@@ -76,6 +87,10 @@ export default function Register() {
         email: email.trim(),
         password,
         role,
+        institutionType: isInstitution ? institutionType.trim() : undefined,
+        institutionResponsibleName: isInstitution ? institutionResponsibleName.trim() : undefined,
+        institutionResponsiblePhone: isInstitution ? institutionResponsiblePhone.trim() : undefined,
+        institutionDescription: isInstitution ? institutionDescription.trim() || undefined : undefined,
         state: state || undefined,
         city: city.trim() || undefined,
       });
@@ -133,7 +148,9 @@ export default function Register() {
             </div>
 
             <div>
-              <label htmlFor="register-name" className="text-sm text-gray-700 block mb-1.5">Nome completo</label>
+              <label htmlFor="register-name" className="text-sm text-gray-700 block mb-1.5">
+                {isInstitution ? 'Nome da instituição' : 'Nome completo'}
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -141,7 +158,7 @@ export default function Register() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Seu nome"
+                  placeholder={isInstitution ? 'Ex.: Casa Esperança' : 'Seu nome'}
                   autoComplete="name"
                   required
                   className="w-full pl-10 pr-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
@@ -149,8 +166,79 @@ export default function Register() {
               </div>
             </div>
 
+            {isInstitution && (
+              <>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="register-institution-responsible-name" className="text-sm text-gray-700 block mb-1.5">
+                      Nome do responsável
+                    </label>
+                    <input
+                      id="register-institution-responsible-name"
+                      type="text"
+                      value={institutionResponsibleName}
+                      onChange={(e) => setInstitutionResponsibleName(e.target.value)}
+                      placeholder="Ex.: Ana Souza"
+                      autoComplete="organization-title"
+                      required={isInstitution}
+                      className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="register-institution-type" className="text-sm text-gray-700 block mb-1.5">
+                      Tipo da instituição
+                    </label>
+                    <select
+                      id="register-institution-type"
+                      value={institutionType}
+                      onChange={(event) => setInstitutionType(event.target.value)}
+                      required={isInstitution}
+                      className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    >
+                      <option value="">Selecione</option>
+                      {['ONG', 'Hospital', 'Clínica', 'Casa de apoio', 'Outro'].map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="register-institution-responsible-phone" className="text-sm text-gray-700 block mb-1.5">
+                    Telefone ou WhatsApp do responsável
+                  </label>
+                  <input
+                    id="register-institution-responsible-phone"
+                    type="text"
+                    value={institutionResponsiblePhone}
+                    onChange={(e) => setInstitutionResponsiblePhone(e.target.value)}
+                    placeholder="Ex.: (11) 99999-9999"
+                    autoComplete="tel"
+                    required={isInstitution}
+                    className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="register-institution-description" className="text-sm text-gray-700 block mb-1.5">
+                    Descrição curta da instituição
+                  </label>
+                  <textarea
+                    id="register-institution-description"
+                    value={institutionDescription}
+                    onChange={(e) => setInstitutionDescription(e.target.value)}
+                    placeholder="Conte brevemente como a instituição acompanha pacientes ou assistidos."
+                    rows={4}
+                    className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  />
+                </div>
+              </>
+            )}
+
             <div>
-              <label htmlFor="register-email" className="text-sm text-gray-700 block mb-1.5">E-mail</label>
+              <label htmlFor="register-email" className="text-sm text-gray-700 block mb-1.5">
+                {isInstitution ? 'E-mail institucional' : 'E-mail'}
+              </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -236,8 +324,11 @@ export default function Register() {
             </div>
 
             {role === 'instituicao' && (
-              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-700">
-                Contas institucionais passam por aprovação manual antes de começar a operar pacientes e sonhos.
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-xs text-indigo-700 space-y-1">
+                <p className="font-semibold">Cadastro institucional com aprovação manual</p>
+                <p>
+                  Contas de Hospital / ONG entram na área institucional logo após o cadastro, mas ficam em análise antes de operar pacientes e sonhos.
+                </p>
               </div>
             )}
 
@@ -260,12 +351,12 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading || hasIncompleteLocation}
-              className="w-full bg-pink-600 hover:bg-pink-700 text-white py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors mt-2"
+              className={`w-full text-white py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors mt-2 ${submitButtonClassName}`}
             >
               {loading ? (
                 <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               ) : (
-                <>Criar conta <ArrowRight className="w-4 h-4" /></>
+                <>{isInstitution ? 'Criar conta institucional' : 'Criar conta'} <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </form>

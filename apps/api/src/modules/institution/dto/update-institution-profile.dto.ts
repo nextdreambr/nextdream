@@ -23,5 +23,13 @@ export class UpdateInstitutionProfileDto {
 
   @IsOptional()
   @IsString()
+  institutionResponsibleName?: string;
+
+  @IsOptional()
+  @IsString()
+  institutionResponsiblePhone?: string;
+
+  @IsOptional()
+  @IsString()
   institutionDescription?: string;
 }

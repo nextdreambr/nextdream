@@ -72,6 +72,10 @@ describe('Institution auth', () => {
         email: 'casa-esperanca@example.com',
         password,
         role: 'instituicao',
+        institutionResponsibleName: 'Ana Souza',
+        institutionResponsiblePhone: '(81) 99999-0000',
+        institutionType: 'ONG',
+        institutionDescription: 'Acolhimento humanizado e apoio social.',
         city: 'Recife',
       });
 

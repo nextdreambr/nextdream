@@ -45,7 +45,7 @@ describe('Register', () => {
     registerMock.mockReset();
   });
 
-  it('submits institution registration and redirects to the institution dashboard', async () => {
+  it('submits institution registration with dedicated institution fields and redirects to the institution dashboard', async () => {
     registerMock.mockResolvedValue({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -57,6 +57,10 @@ describe('Register', () => {
         state: 'PE',
         city: 'Recife',
         locationLabel: 'Recife, PE',
+        institutionResponsibleName: 'Ana Souza',
+        institutionResponsiblePhone: '(81) 99999-0000',
+        institutionType: 'ONG',
+        institutionDescription: 'Acolhimento e cuidado humanizado.',
         verified: true,
         approved: false,
       },
@@ -69,13 +73,21 @@ describe('Register', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /hospital \/ ong/i }));
-    fireEvent.change(screen.getByLabelText(/nome completo/i), { target: { value: 'Casa Esperanca' } });
+
+    expect(screen.queryByLabelText(/nome completo/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /criar conta institucional/i })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/nome da instituição/i), { target: { value: 'Casa Esperanca' } });
+    fireEvent.change(screen.getByLabelText(/nome do responsável/i), { target: { value: 'Ana Souza' } });
     fireEvent.change(screen.getByLabelText(/e-mail/i), { target: { value: 'casa@example.com' } });
+    fireEvent.change(screen.getByLabelText(/tipo da instituição/i), { target: { value: 'ONG' } });
+    fireEvent.change(screen.getByLabelText(/telefone ou whatsapp do responsável/i), { target: { value: '(81) 99999-0000' } });
+    fireEvent.change(screen.getByLabelText(/descrição curta da instituição/i), { target: { value: 'Acolhimento e cuidado humanizado.' } });
     fireEvent.change(screen.getByLabelText(/estado \(opcional\)/i), { target: { value: 'PE' } });
     fireEvent.change(screen.getByLabelText(/cidade \(opcional\)/i), { target: { value: 'Recife' } });
     fireEvent.change(screen.getByLabelText(/senha/i), { target: { value: 'Secret123!' } });
     fireEvent.click(screen.getByLabelText(/li e aceito os/i));
-    fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
+    fireEvent.click(screen.getByRole('button', { name: /criar conta institucional/i }));
 
     await waitFor(() => {
       expect(registerMock).toHaveBeenCalledWith({
@@ -83,6 +95,10 @@ describe('Register', () => {
         email: 'casa@example.com',
         password: 'Secret123!',
         role: 'instituicao',
+        institutionResponsibleName: 'Ana Souza',
+        institutionType: 'ONG',
+        institutionResponsiblePhone: '(81) 99999-0000',
+        institutionDescription: 'Acolhimento e cuidado humanizado.',
         state: 'PE',
         city: 'Recife',
       });

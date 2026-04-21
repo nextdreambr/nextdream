@@ -389,6 +389,12 @@ export class InstitutionService {
     if (dto.institutionType !== undefined) {
       institution.institutionType = dto.institutionType.trim() || undefined;
     }
+    if (dto.institutionResponsibleName !== undefined) {
+      institution.institutionResponsibleName = dto.institutionResponsibleName.trim() || undefined;
+    }
+    if (dto.institutionResponsiblePhone !== undefined) {
+      institution.institutionResponsiblePhone = dto.institutionResponsiblePhone.trim() || undefined;
+    }
     if (dto.institutionDescription !== undefined) {
       institution.institutionDescription = dto.institutionDescription.trim() || undefined;
     }
@@ -535,6 +541,8 @@ export class InstitutionService {
       city: institution.city,
       locationLabel: buildLocationLabel(institution),
       institutionType: institution.institutionType,
+      institutionResponsibleName: institution.institutionResponsibleName,
+      institutionResponsiblePhone: institution.institutionResponsiblePhone,
       institutionDescription: institution.institutionDescription,
       approved: institution.approved,
       approvedAt: institution.approvedAt,

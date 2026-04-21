@@ -33,4 +33,19 @@ describe('auth dto validation', () => {
     expect(acceptAdminInviteErrors.some((error) => error.property === 'name')).toBe(true);
     expect(acceptPatientInviteErrors.some((error) => error.property === 'name')).toBe(true);
   });
+
+  it('requires institution-specific fields when registering an institution', () => {
+    const registerDto = Object.assign(new RegisterDto(), {
+      name: 'Casa Esperanca',
+      email: 'institution@example.com',
+      password: 'Secret123!',
+      role: 'instituicao',
+    });
+
+    const registerErrors = validateSync(registerDto);
+
+    expect(registerErrors.some((error) => error.property === 'institutionResponsibleName')).toBe(true);
+    expect(registerErrors.some((error) => error.property === 'institutionType')).toBe(true);
+    expect(registerErrors.some((error) => error.property === 'institutionResponsiblePhone')).toBe(true);
+  });
 });

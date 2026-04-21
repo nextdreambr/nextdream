@@ -25,6 +25,8 @@ export interface AppUser {
   city?: string;
   locationLabel?: string;
   institutionType?: string;
+  institutionResponsibleName?: string;
+  institutionResponsiblePhone?: string;
   institutionDescription?: string;
   verified: boolean;
   approved: boolean;
@@ -61,6 +63,8 @@ function toAppUser(session: AuthSession | null): AppUser | null {
     city: session.user.city,
     locationLabel: session.user.locationLabel,
     institutionType: session.user.institutionType,
+    institutionResponsibleName: session.user.institutionResponsibleName,
+    institutionResponsiblePhone: session.user.institutionResponsiblePhone,
     institutionDescription: session.user.institutionDescription,
     verified: session.user.verified,
     approved: session.user.approved,

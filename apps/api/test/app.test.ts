@@ -84,6 +84,10 @@ describe('NextDream API', () => {
         email: input.email,
         password: input.password,
         role: 'instituicao',
+        institutionResponsibleName: 'Responsavel Demo',
+        institutionType: 'ONG',
+        institutionResponsiblePhone: '(81) 99999-0000',
+        institutionDescription: 'Instituicao focada em acolhimento humanizado.',
         state: input.state,
         city: input.city,
       });
@@ -385,16 +389,26 @@ describe('NextDream API', () => {
         email: institutionEmail,
         password,
         role: 'instituicao',
+        institutionResponsibleName: 'Ana Souza',
+        institutionType: 'ONG',
+        institutionResponsiblePhone: '(81) 99999-0000',
+        institutionDescription: 'Instituicao focada em acolhimento humanizado.',
         state: 'PE',
         city: 'Recife',
       });
 
     expect(institutionRegister.status).toBe(201);
-    expect(institutionRegister.body.user.role).toBe('instituicao');
-    expect(institutionRegister.body.user.approved).toBe(false);
-    expect(institutionRegister.body.user.state).toBe('PE');
-    expect(institutionRegister.body.user.city).toBe('Recife');
-    expect(institutionRegister.body.user.locationLabel).toBe('Recife, PE');
+    expect(institutionRegister.body.user).toMatchObject({
+      role: 'instituicao',
+      approved: false,
+      state: 'PE',
+      city: 'Recife',
+      locationLabel: 'Recife, PE',
+      institutionType: 'ONG',
+      institutionDescription: 'Instituicao focada em acolhimento humanizado.',
+      institutionResponsibleName: 'Ana Souza',
+      institutionResponsiblePhone: '(81) 99999-0000',
+    });
 
     const pendingInstitutionPatient = await request(app.getHttpServer())
       .post('/institution/patients')
@@ -1048,6 +1062,8 @@ describe('NextDream API', () => {
       name: 'Instituicao Perfil',
       email: 'instituicao-perfil@example.com',
       locationLabel: 'Recife, PE',
+      institutionResponsibleName: 'Responsavel Demo',
+      institutionResponsiblePhone: '(81) 99999-0000',
     });
 
     const updateProfile = await request(app.getHttpServer())
@@ -1056,6 +1072,8 @@ describe('NextDream API', () => {
       .send({
         name: 'Instituicao Perfil Atualizada',
         email: 'instituicao-perfil-atualizada@example.com',
+        institutionResponsibleName: 'Ana Lucia Atualizada',
+        institutionResponsiblePhone: '(81) 98888-7777',
         state: 'PE',
         city: 'Olinda',
         institutionType: 'ONG',
@@ -1072,6 +1090,8 @@ describe('NextDream API', () => {
       locationLabel: 'Olinda, PE',
       institutionType: 'ONG',
       institutionDescription: 'Instituicao focada em acompanhamento humanizado.',
+      institutionResponsibleName: 'Ana Lucia Atualizada',
+      institutionResponsiblePhone: '(81) 98888-7777',
     });
 
     const invalidPasswordChange = await request(app.getHttpServer())
@@ -1106,6 +1126,8 @@ describe('NextDream API', () => {
       role: 'instituicao',
       institutionType: 'ONG',
       institutionDescription: 'Instituicao focada em acompanhamento humanizado.',
+      institutionResponsibleName: 'Ana Lucia Atualizada',
+      institutionResponsiblePhone: '(81) 98888-7777',
       locationLabel: 'Olinda, PE',
     });
   });
