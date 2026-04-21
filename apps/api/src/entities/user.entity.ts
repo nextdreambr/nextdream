@@ -39,6 +39,12 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   institutionType?: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  institutionResponsibleName?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  institutionResponsiblePhone?: string;
+
   @Column({ type: 'text', nullable: true })
   institutionDescription?: string;
 

@@ -62,6 +62,8 @@ describe('InstitutionProfile', () => {
         verified: true,
         institutionType: 'ONG',
         institutionDescription: 'Acolhimento e acompanhamento humanizado.',
+        institutionResponsibleName: 'Ana Souza',
+        institutionResponsiblePhone: '(81) 99999-0000',
         emailNotificationsEnabled: true,
       },
       updateCurrentUser: updateCurrentUserMock,
@@ -82,6 +84,8 @@ describe('InstitutionProfile', () => {
       locationLabel: 'Recife, PE',
       institutionType: 'ONG',
       institutionDescription: 'Acolhimento e acompanhamento humanizado.',
+      institutionResponsibleName: 'Ana Souza',
+      institutionResponsiblePhone: '(81) 99999-0000',
       emailNotificationsEnabled: true,
       createdAt: '2026-04-18T10:00:00.000Z',
       updatedAt: '2026-04-18T10:00:00.000Z',
@@ -113,6 +117,8 @@ describe('InstitutionProfile', () => {
       locationLabel: 'Olinda, PE',
       institutionType: 'Hospital',
       institutionDescription: 'Atendimento social e clínico integrado.',
+      institutionResponsibleName: 'Ana Lucia Atualizada',
+      institutionResponsiblePhone: '(81) 98888-7777',
       emailNotificationsEnabled: true,
       createdAt: '2026-04-18T10:00:00.000Z',
       updatedAt: '2026-04-19T10:00:00.000Z',
@@ -130,7 +136,9 @@ describe('InstitutionProfile', () => {
 
     fireEvent.change(screen.getByLabelText(/nome da instituição/i), { target: { value: 'Casa Esperanca Atualizada' } });
     fireEvent.change(screen.getByLabelText(/e-mail institucional/i), { target: { value: 'casa-atualizada@example.com' } });
+    fireEvent.change(screen.getByLabelText(/nome do responsável/i), { target: { value: 'Ana Lucia Atualizada' } });
     fireEvent.change(screen.getByLabelText(/tipo institucional/i), { target: { value: 'Hospital' } });
+    fireEvent.change(screen.getByLabelText(/telefone ou whatsapp do responsável/i), { target: { value: '(81) 98888-7777' } });
     fireEvent.change(screen.getByLabelText(/estado/i), { target: { value: 'PE' } });
     fireEvent.change(screen.getByLabelText(/^cidade/i), { target: { value: 'Olinda' } });
     fireEvent.change(screen.getByLabelText(/descrição institucional/i), { target: { value: 'Atendimento social e clínico integrado.' } });
@@ -140,6 +148,8 @@ describe('InstitutionProfile', () => {
       expect(updateProfileMock).toHaveBeenCalledWith({
         name: 'Casa Esperanca Atualizada',
         email: 'casa-atualizada@example.com',
+        institutionResponsibleName: 'Ana Lucia Atualizada',
+        institutionResponsiblePhone: '(81) 98888-7777',
         state: 'PE',
         city: 'Olinda',
         institutionType: 'Hospital',

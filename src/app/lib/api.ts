@@ -226,6 +226,8 @@ export interface ApiUser {
   city?: string;
   locationLabel?: string;
   institutionType?: string;
+  institutionResponsibleName?: string;
+  institutionResponsiblePhone?: string;
   institutionDescription?: string;
   verified: boolean;
   approved: boolean;
@@ -327,7 +329,18 @@ export const authApi = {
       body: JSON.stringify(payload),
     });
   },
-  register(payload: { name: string; email: string; password: string; role: ApiUserRole; state?: string; city?: string }) {
+  register(payload: {
+    name: string;
+    email: string;
+    password: string;
+    role: ApiUserRole;
+    institutionType?: string;
+    institutionResponsibleName?: string;
+    institutionResponsiblePhone?: string;
+    institutionDescription?: string;
+    state?: string;
+    city?: string;
+  }) {
     return apiRequest<AuthSession>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -776,6 +789,8 @@ export const institutionApi = {
     state?: string;
     city?: string;
     institutionType?: string;
+    institutionResponsibleName?: string;
+    institutionResponsiblePhone?: string;
     institutionDescription?: string;
   }) {
     return apiRequest<InstitutionProfile>('/institution/profile', {

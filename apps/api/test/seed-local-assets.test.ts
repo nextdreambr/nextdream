@@ -34,6 +34,8 @@ describe('local seed assets', () => {
     expect(seedScript).toContain("role: 'instituicao'");
     expect(seedScript).toContain('approved: true');
     expect(seedScript).toContain("institutionType: 'ONG'");
+    expect(seedScript).toContain("institutionResponsibleName: 'Ana Souza Demo'");
+    expect(seedScript).toContain("institutionResponsiblePhone: '(81) 99999-0000'");
     expect(seedScript).toContain('institutionDescription:');
     expect(seedScript).toContain("id: '11111111-1111-4111-8111-111111111111'");
     expect(seedScript).toContain("id: '22222222-2222-4222-8222-222222222222'");

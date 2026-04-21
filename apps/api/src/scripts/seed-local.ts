@@ -177,6 +177,8 @@ async function run() {
         state: 'PE',
         city: 'Recife',
         institutionType: 'ONG',
+        institutionResponsibleName: 'Ana Souza Demo',
+        institutionResponsiblePhone: '(81) 99999-0000',
         institutionDescription: 'Instituicao demo dedicada a intermediar sonhos com acompanhamento humanizado.',
         verified: true,
         approved: true,

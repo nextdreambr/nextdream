@@ -33,6 +33,8 @@ export interface AuthUserPayload {
   city?: string;
   locationLabel?: string;
   institutionType?: string;
+  institutionResponsibleName?: string;
+  institutionResponsiblePhone?: string;
   institutionDescription?: string;
   verified: boolean;
   approved: boolean;
@@ -88,10 +90,20 @@ export class AuthService {
     }
 
     const user = this.usersRepository.create({
-      name: dto.name,
+      name: dto.name.trim(),
       email: dto.email.toLowerCase(),
       passwordHash: await bcrypt.hash(dto.password, 10),
       role: dto.role,
+      institutionType: dto.role === 'instituicao' ? dto.institutionType?.trim() || undefined : undefined,
+      institutionResponsibleName: dto.role === 'instituicao'
+        ? dto.institutionResponsibleName?.trim() || undefined
+        : undefined,
+      institutionResponsiblePhone: dto.role === 'instituicao'
+        ? dto.institutionResponsiblePhone?.trim() || undefined
+        : undefined,
+      institutionDescription: dto.role === 'instituicao'
+        ? dto.institutionDescription?.trim() || undefined
+        : undefined,
       state: normalizeLocationPart(dto.state),
       city: normalizeLocationPart(dto.city),
       verified: true,
@@ -338,6 +350,8 @@ export class AuthService {
         city: user.city,
         locationLabel: buildLocationLabel(user),
         institutionType: user.institutionType,
+        institutionResponsibleName: user.institutionResponsibleName,
+        institutionResponsiblePhone: user.institutionResponsiblePhone,
         institutionDescription: user.institutionDescription,
         verified: user.verified,
         approved: user.approved,
