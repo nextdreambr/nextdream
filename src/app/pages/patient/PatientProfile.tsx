@@ -2,10 +2,22 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Bell, Heart, LogOut, MapPin, Shield, Sparkles, Star } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { ApiError, PublicDream, Proposal, dreamsApi, notificationsApi, proposalsApi } from '../../lib/api';
+import {
+  ApiError,
+  AppNotification,
+  Conversation,
+  PublicDream,
+  Proposal,
+  conversationsApi,
+  dreamsApi,
+  notificationsApi,
+  proposalsApi,
+} from '../../lib/api';
 import {
   loadSandboxProfileState,
   persistSandboxProfileState,
+  SANDBOX_HISTORY_FILTERS,
+  type SandboxHistoryFilter,
   type SandboxProfileState,
 } from '../../lib/sandboxProfileState';
 
@@ -13,11 +25,20 @@ type ProfileSection = 'visao-geral' | 'privacidade' | 'seguranca' | 'historico';
 
 interface HistoryEntry {
   id: string;
+  kind: SandboxHistoryFilter;
   title: string;
   description: string;
   createdAt: string;
   path?: string;
 }
+
+const historyFilterLabels: Record<Exclude<SandboxHistoryFilter, 'visitas'>, string> = {
+  todos: 'Todos',
+  sonhos: 'Sonhos',
+  propostas: 'Propostas',
+  conversas: 'Conversas',
+  notificacoes: 'Notificações',
+};
 
 function buildDreamPath(dream: PublicDream) {
   return dream.canEdit === false ? `/paciente/sonhos/${dream.id}` : `/paciente/sonhos/editar/${dream.id}`;
@@ -29,6 +50,8 @@ export default function PatientProfile() {
   const [activeSection, setActiveSection] = useState<ProfileSection>('visao-geral');
   const [myDreams, setMyDreams] = useState<PublicDream[]>([]);
   const [receivedProposals, setReceivedProposals] = useState<Proposal[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [profileState, setProfileState] = useState<SandboxProfileState | null>(null);
   const [error, setError] = useState('');
@@ -45,14 +68,18 @@ export default function PatientProfile() {
 
     async function load() {
       try {
-        const [dreams, proposals, preferences] = await Promise.all([
+        const [dreams, proposals, conversationList, notificationList, preferences] = await Promise.all([
           dreamsApi.listMine(),
           proposalsApi.listReceived(),
+          conversationsApi.listMine(),
+          notificationsApi.listMine(),
           notificationsApi.getPreferences(),
         ]);
         if (!mounted) return;
         setMyDreams(dreams);
         setReceivedProposals(proposals);
+        setConversations(conversationList);
+        setNotifications(notificationList);
         setEmailEnabled(preferences.emailEnabled);
       } catch (err) {
         if (!mounted) return;
@@ -76,6 +103,7 @@ export default function PatientProfile() {
   const historyEntries = useMemo<HistoryEntry[]>(() => {
     const dreamEntries = myDreams.map((dream) => ({
       id: `dream-${dream.id}`,
+      kind: 'sonhos' as const,
       title: dream.title,
       description: `Sonho em ${dream.status}.`,
       createdAt: dream.updatedAt,
@@ -84,22 +112,46 @@ export default function PatientProfile() {
 
     const proposalEntries = receivedProposals.map((proposal) => ({
       id: `proposal-${proposal.id}`,
+      kind: 'propostas' as const,
       title: `${proposal.supporterName ?? 'Alguém'} enviou uma proposta ${proposal.status}`,
       description: 'A proposta já apareceu na sua central de respostas desta sessão.',
       createdAt: proposal.createdAt,
       path: '/paciente/propostas',
     }));
 
-    return [...proposalEntries, ...dreamEntries].sort(
+    const conversationEntries = conversations.map((conversation) => ({
+      id: `conversation-${conversation.id}`,
+      kind: 'conversas' as const,
+      title: `Conversa ativa sobre "${conversation.dreamTitle ?? 'um sonho'}"`,
+      description: 'O chat segue disponível para combinar os próximos passos desta sessão.',
+      createdAt: conversation.createdAt,
+      path: `/paciente/chat?conversationId=${conversation.id}`,
+    }));
+
+    const notificationEntries = notifications.map((notification) => ({
+      id: `notification-${notification.id}`,
+      kind: 'notificacoes' as const,
+      title: notification.title,
+      description: notification.message,
+      createdAt: notification.createdAt,
+      path: notification.actionPath,
+    }));
+
+    return [...notificationEntries, ...conversationEntries, ...proposalEntries, ...dreamEntries].sort(
       (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
     );
-  }, [myDreams, receivedProposals]);
+  }, [conversations, myDreams, notifications, receivedProposals]);
 
   function updateProfileState(updater: (current: SandboxProfileState) => SandboxProfileState) {
     setProfileState((current) => {
       if (!current) return current;
       return updater(current);
     });
+  }
+
+  function persistProfileSnapshot(nextState: SandboxProfileState) {
+    if (!currentUser) return;
+    persistSandboxProfileState(currentUser.id, nextState);
   }
 
   function handleSavePrivacy() {
@@ -117,7 +169,7 @@ export default function PatientProfile() {
         lastSavedAt: new Date().toISOString(),
       },
     };
-    persistSandboxProfileState(currentUser.id, nextState);
+    persistProfileSnapshot(nextState);
     setProfileState(nextState);
     setSecurityFeedback('Ajustes de segurança salvos no sandbox');
   }
@@ -130,6 +182,12 @@ export default function PatientProfile() {
   if (!currentUser || !profileState) {
     return <div className="max-w-3xl mx-auto py-8 text-sm text-gray-500">Carregando perfil...</div>;
   }
+
+  const activeHistoryFilter = profileState.historyFilter === 'visitas' ? 'todos' : profileState.historyFilter;
+  const filteredHistoryEntries = historyEntries.filter((entry) => {
+    if (activeHistoryFilter === 'todos') return true;
+    return entry.kind === activeHistoryFilter;
+  });
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -350,12 +408,44 @@ export default function PatientProfile() {
               </div>
             </div>
 
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 p-4">
+              <div>
+                <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Checklist de segurança revisado</p>
+                <p className="mt-1 text-xs text-gray-500">Guarda nesta sessão que você revisou os avisos sobre conversa responsável.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-label="Checklist de segurança revisado"
+                aria-checked={profileState.security.safetyChecklist}
+                onClick={() => {
+                  setSecurityFeedback('');
+                  updateProfileState((current) => ({
+                    ...current,
+                    security: {
+                      ...current.security,
+                      safetyChecklist: !current.security.safetyChecklist,
+                    },
+                  }));
+                }}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                  profileState.security.safetyChecklist ? 'bg-pink-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    profileState.security.safetyChecklist ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={handleSaveSecurity}
               className="rounded-xl border border-pink-200 px-4 py-2.5 text-sm font-medium text-pink-700 hover:bg-pink-50"
             >
-              Registrar ajuste
+              Salvar segurança
             </button>
             {securityFeedback && <p className="text-sm text-green-700">{securityFeedback}</p>}
           </div>
@@ -365,16 +455,41 @@ export default function PatientProfile() {
           <div className="space-y-4">
             <div>
               <h2 className="text-base text-gray-900" style={{ fontWeight: 700 }}>Histórico desta sessão</h2>
-              <p className="text-sm text-gray-500">Uma linha do tempo simples com sonhos e propostas já carregados no sandbox.</p>
+              <p className="text-sm text-gray-500">Uma linha do tempo com sonhos, propostas, conversas e notificações já carregados no sandbox.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {SANDBOX_HISTORY_FILTERS.filter((filter) => filter !== 'visitas').map((filter) => {
+                const checked = activeHistoryFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => {
+                      const nextState = {
+                        ...profileState,
+                        historyFilter: filter,
+                      };
+                      setProfileState(nextState);
+                      persistProfileSnapshot(nextState);
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      checked ? 'bg-pink-600 text-white' : 'bg-pink-50 text-pink-700 hover:bg-pink-100'
+                    }`}
+                  >
+                    {historyFilterLabels[filter as keyof typeof historyFilterLabels]}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="space-y-3">
-              {historyEntries.length === 0 ? (
+              {filteredHistoryEntries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-                  Assim que você publicar sonhos ou receber propostas, os eventos aparecem aqui.
+                  Nenhum evento desta categoria apareceu nesta sessão ainda.
                 </div>
               ) : (
-                historyEntries.map((entry) => (
+                filteredHistoryEntries.map((entry) => (
                   <div key={entry.id} className="rounded-2xl border border-gray-100 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
