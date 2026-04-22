@@ -5,10 +5,20 @@ import { ConversationChat } from './ConversationChat';
 import { ApiError, conversationsApi } from '../../lib/api';
 
 const useAppMock = vi.fn();
+const isSandboxEnvironmentMock = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
 }));
+
+vi.mock('../../config/environment', async () => {
+  const actual = await vi.importActual<typeof import('../../config/environment')>('../../config/environment');
+
+  return {
+    ...actual,
+    isSandboxEnvironment: () => isSandboxEnvironmentMock(),
+  };
+});
 
 vi.mock('../../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../../lib/api')>('../../lib/api');
@@ -31,9 +41,11 @@ const sendMessageMock = vi.mocked(conversationsApi.sendMessage);
 describe('ConversationChat', () => {
   beforeEach(() => {
     useAppMock.mockReset();
+    isSandboxEnvironmentMock.mockReset();
     listMineMock.mockReset();
     listMessagesMock.mockReset();
     sendMessageMock.mockReset();
+    isSandboxEnvironmentMock.mockReturnValue(true);
 
     useAppMock.mockReturnValue({
       currentUser: {
@@ -131,6 +143,38 @@ describe('ConversationChat', () => {
     await waitFor(() => {
       expect(screen.getByText(/reformule oferecendo tempo, presença ou companhia/i)).toBeInTheDocument();
     });
+  });
+
+  it('does not apply sandbox-only financial blocking outside the sandbox environment', async () => {
+    isSandboxEnvironmentMock.mockReturnValue(false);
+    sendMessageMock.mockResolvedValueOnce({
+      id: 'message-3',
+      conversationId: 'conversation-1',
+      senderId: 'supporter-1',
+      body: 'Posso fazer um PIX para agilizar tudo.',
+      moderated: false,
+      createdAt: '2026-04-20T10:15:00.000Z',
+    });
+
+    render(
+      <MemoryRouter>
+        <ConversationChat emptyActionTo="/apoiador/propostas" emptyActionLabel="Ver propostas" />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Serenata para a varanda');
+
+    fireEvent.change(screen.getByPlaceholderText(/digite sua mensagem/i), {
+      target: { value: 'Posso fazer um PIX para agilizar tudo.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
+
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith('conversation-1', 'Posso fazer um PIX para agilizar tudo.');
+    });
+    expect(
+      screen.queryByText(/mensagens com pix, dinheiro ou doações são bloqueadas no sandbox/i),
+    ).not.toBeInTheDocument();
   });
 
   it('tolerates an initial preload failure and retries when the selected conversation effect runs', async () => {

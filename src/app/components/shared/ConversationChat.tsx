@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { MessageCircle, Send } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ApiError, ChatMessage, Conversation, conversationsApi } from '../../lib/api';
+import { isSandboxEnvironment } from '../../config/environment';
 import { containsFinancialLanguage, getSandboxFinancialModerationMessage } from '../../lib/sandboxFinancialModeration';
 
 interface ConversationChatProps {
@@ -120,7 +121,7 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
     event.preventDefault();
     if (!selectedId || !draft.trim() || sending || selectedConversation?.status === 'encerrada') return;
 
-    if (containsFinancialLanguage(draft)) {
+    if (isSandboxEnvironment() && containsFinancialLanguage(draft)) {
       setError(getSandboxFinancialModerationMessage());
       return;
     }

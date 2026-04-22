@@ -34,6 +34,17 @@ export interface SandboxProfileState {
   visitedDreams: SandboxVisitedDream[];
 }
 
+function isSandboxVisitedDream(value: unknown): value is SandboxVisitedDream {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<SandboxVisitedDream>;
+  return (
+    typeof candidate.dreamId === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.path === 'string' &&
+    typeof candidate.visitedAt === 'string'
+  );
+}
+
 function buildDefaultState(role: AppRole): SandboxProfileState {
   return {
     privacy: {
@@ -53,12 +64,20 @@ function buildDefaultState(role: AppRole): SandboxProfileState {
 
 function getStorage(userId: string) {
   if (typeof window === 'undefined') return null;
-  return window.sessionStorage.getItem(`${SANDBOX_PROFILE_STORAGE_PREFIX}${userId}`);
+  try {
+    return window.sessionStorage.getItem(`${SANDBOX_PROFILE_STORAGE_PREFIX}${userId}`);
+  } catch {
+    return null;
+  }
 }
 
 function saveStorage(userId: string, value: SandboxProfileState) {
   if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(`${SANDBOX_PROFILE_STORAGE_PREFIX}${userId}`, JSON.stringify(value));
+  try {
+    window.sessionStorage.setItem(`${SANDBOX_PROFILE_STORAGE_PREFIX}${userId}`, JSON.stringify(value));
+  } catch {
+    // Mantém o sandbox funcional mesmo sem persistência disponível.
+  }
 }
 
 export function loadSandboxProfileState(userId: string, role: AppRole): SandboxProfileState {
@@ -73,6 +92,9 @@ export function loadSandboxProfileState(userId: string, role: AppRole): SandboxP
       SANDBOX_HISTORY_FILTERS.includes(parsed.historyFilter as SandboxHistoryFilter)
         ? parsed.historyFilter
         : fallback.historyFilter;
+    const visitedDreams = Array.isArray(parsed.visitedDreams)
+      ? parsed.visitedDreams.filter(isSandboxVisitedDream)
+      : fallback.visitedDreams;
 
     return {
       privacy: {
@@ -84,7 +106,7 @@ export function loadSandboxProfileState(userId: string, role: AppRole): SandboxP
         ...parsed.security,
       },
       historyFilter,
-      visitedDreams: Array.isArray(parsed.visitedDreams) ? parsed.visitedDreams : fallback.visitedDreams,
+      visitedDreams,
     };
   } catch {
     return fallback;
