@@ -45,7 +45,7 @@ export default function InstitutionPatientDetail() {
       setInviteEmail(data.patient.pendingInviteEmail ?? data.patient.linkedUserEmail ?? '');
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
-      else setError('Não foi possível carregar o prontuário do paciente.');
+      else setError('Não foi possível carregar a visão do caso.');
     } finally {
       setLoading(false);
     }
@@ -133,6 +133,9 @@ export default function InstitutionPatientDetail() {
 
   const patient = detail.patient;
   const timeline = detail.timeline ?? [];
+  const dreams = detail.dreams ?? [];
+  const proposals = detail.proposals ?? [];
+  const conversations = detail.conversations ?? [];
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -245,10 +248,10 @@ export default function InstitutionPatientDetail() {
               <h2 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Sonhos relacionados</h2>
             </div>
             <div className="divide-y divide-indigo-50">
-              {detail.dreams.length === 0 ? (
+              {dreams.length === 0 ? (
                 <div className="px-5 py-6 text-sm text-gray-500">Nenhum sonho publicado para este paciente ainda.</div>
               ) : (
-                detail.dreams.map((dream) => (
+                dreams.map((dream) => (
                   <Link
                     key={dream.id}
                     to={`/instituicao/sonhos/editar/${dream.id}`}
@@ -274,10 +277,10 @@ export default function InstitutionPatientDetail() {
               <h2 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Propostas e apoiadores</h2>
             </div>
             <div className="divide-y divide-indigo-50">
-              {detail.proposals.length === 0 ? (
+              {proposals.length === 0 ? (
                 <div className="px-5 py-6 text-sm text-gray-500">Ainda não há propostas ligadas a este caso.</div>
               ) : (
-                detail.proposals.map((proposal) => (
+                proposals.map((proposal) => (
                   <div key={proposal.id} className="px-5 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -299,10 +302,10 @@ export default function InstitutionPatientDetail() {
               <h2 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Conversas do caso</h2>
             </div>
             <div className="divide-y divide-indigo-50">
-              {detail.conversations.length === 0 ? (
+              {conversations.length === 0 ? (
                 <div className="px-5 py-6 text-sm text-gray-500">Nenhuma conversa iniciada para este paciente.</div>
               ) : (
-                detail.conversations.map((conversation) => (
+                conversations.map((conversation) => (
                   <Link
                     key={conversation.id}
                     to={`/instituicao/chat?conversationId=${conversation.id}`}
@@ -326,7 +329,7 @@ export default function InstitutionPatientDetail() {
           <section className="bg-white border border-indigo-100 rounded-2xl p-5 space-y-4">
             <div>
               <h2 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Dados do paciente</h2>
-              <p className="text-xs text-gray-500 mt-1">Atualize o prontuário básico do beneficiário sem sair da visão do caso.</p>
+              <p className="text-xs text-gray-500 mt-1">Atualize o cadastro básico do beneficiário sem sair da visão do caso.</p>
             </div>
 
             <form onSubmit={handlePatientSubmit} className="space-y-3">
