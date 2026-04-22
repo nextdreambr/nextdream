@@ -565,7 +565,7 @@ export interface ManagedPatientDetail {
     supporterName?: string;
     createdAt: string;
   }>;
-  timeline: Array<{
+  timeline?: Array<{
     id: string;
     type: 'sonho' | 'proposta' | 'conversa' | 'notificacao';
     title: string;

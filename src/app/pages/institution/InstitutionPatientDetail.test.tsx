@@ -109,4 +109,46 @@ describe('InstitutionPatientDetail', () => {
       });
     });
   });
+
+  it('renders the case view even when the API response omits timeline', async () => {
+    getPatientMock.mockResolvedValue({
+      patient: {
+        id: 'managed-1',
+        institutionId: 'institution-1',
+        accessStatus: 'sem-acesso',
+        name: 'Miguel Assistido',
+        state: 'PE',
+        city: 'Recife',
+        locationLabel: 'Recife, PE',
+        createdAt: '2026-04-19T10:00:00.000Z',
+        updatedAt: '2026-04-19T10:00:00.000Z',
+      },
+      summary: {
+        dreams: 2,
+        proposals: 2,
+        activeConversations: 1,
+      },
+      dreams: [
+        {
+          id: 'dream-1',
+          title: 'Dia de oficinas de pintura',
+          category: 'Arte',
+          status: 'publicado',
+          urgency: 'media',
+          updatedAt: '2026-04-21T11:44:00.000Z',
+        },
+      ],
+      proposals: [],
+      conversations: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <InstitutionPatientDetail />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Miguel Assistido')).toBeInTheDocument();
+    expect(screen.getByText(/ainda não há eventos registrados para este caso/i)).toBeInTheDocument();
+  });
 });
