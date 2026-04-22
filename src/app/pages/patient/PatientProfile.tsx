@@ -231,6 +231,7 @@ export default function PatientProfile() {
       <section className="bg-white rounded-3xl border border-pink-100 p-5 space-y-4">
         <div className="flex flex-wrap gap-2">
           {[
+            { id: 'visao-geral' as const, label: 'Visão geral' },
             { id: 'privacidade' as const, label: 'Privacidade' },
             { id: 'seguranca' as const, label: 'Segurança' },
             { id: 'historico' as const, label: 'Histórico' },

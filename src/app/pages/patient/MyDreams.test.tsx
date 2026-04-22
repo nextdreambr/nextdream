@@ -68,6 +68,8 @@ describe('MyDreams', () => {
       pageSize: 6,
       query: '',
       status: '',
+      category: '',
+      format: '',
     });
     expect(screen.getByText(/10 sonhos no total/i)).toBeInTheDocument();
     expect(screen.getByText(/página 1 de 2/i)).toBeInTheDocument();
@@ -80,10 +82,58 @@ describe('MyDreams', () => {
         pageSize: 6,
         query: '',
         status: '',
+        category: '',
+        format: '',
       });
     });
 
     expect(await screen.findByText('Sonho 10')).toBeInTheDocument();
     expect(screen.queryByText('Sonho 1')).not.toBeInTheDocument();
+  });
+
+  it('forwards category and format filters to the paginated API call', async () => {
+    listMinePageMock.mockReset();
+    listMinePageMock.mockResolvedValue({
+      items: [makeDream(1)],
+      page: 1,
+      pageSize: 6,
+      total: 1,
+      totalPages: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <MyDreams />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Sonho 1');
+
+    fireEvent.click(screen.getByRole('button', { name: /filtros/i }));
+    fireEvent.click(screen.getByRole('button', { name: /arte e música/i }));
+
+    await waitFor(() => {
+      expect(listMinePageMock).toHaveBeenLastCalledWith({
+        page: 1,
+        pageSize: 6,
+        query: '',
+        status: '',
+        category: 'Arte e Música',
+        format: '',
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /online/i }));
+
+    await waitFor(() => {
+      expect(listMinePageMock).toHaveBeenLastCalledWith({
+        page: 1,
+        pageSize: 6,
+        query: '',
+        status: '',
+        category: 'Arte e Música',
+        format: 'remoto',
+      });
+    });
   });
 });

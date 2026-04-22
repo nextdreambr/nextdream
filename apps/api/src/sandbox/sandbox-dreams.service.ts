@@ -134,7 +134,14 @@ export class SandboxDreamsService {
 
   async listMyDreams(
     currentUser: JwtPayload,
-    query: { page?: string; pageSize?: string; query?: string; status?: string } = {},
+    query: {
+      page?: string;
+      pageSize?: string;
+      query?: string;
+      status?: string;
+      category?: string;
+      format?: string;
+    } = {},
   ) {
     const session = this.getSession(currentUser);
     if (currentUser.role !== 'paciente' && currentUser.role !== 'instituicao') {
@@ -143,10 +150,14 @@ export class SandboxDreamsService {
 
     const normalizedQuery = normalizeQueryTerm(query.query);
     const normalizedStatus = normalizeQueryTerm(query.status);
+    const normalizedCategory = normalizeQueryTerm(query.category);
+    const normalizedFormat = normalizeQueryTerm(query.format);
     const pagination = parsePagination(query);
     const shouldPaginate = pagination.enabled || hasQueryFilters({
       query: normalizedQuery,
       status: normalizedStatus,
+      category: normalizedCategory,
+      format: normalizedFormat,
     });
     const linkedManagedPatientIds = this.getLinkedManagedPatientIds(session, currentUser.sub);
 
@@ -161,6 +172,15 @@ export class SandboxDreamsService {
 
     if (normalizedStatus) {
       dreams = dreams.filter((dream) => dream.status === normalizedStatus);
+    }
+
+    if (normalizedCategory) {
+      const loweredCategory = normalizedCategory.toLowerCase();
+      dreams = dreams.filter((dream) => dream.category.toLowerCase() === loweredCategory);
+    }
+
+    if (normalizedFormat) {
+      dreams = dreams.filter((dream) => dream.format === normalizedFormat);
     }
 
     if (normalizedQuery) {

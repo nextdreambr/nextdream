@@ -496,14 +496,26 @@ describe('Sandbox API', () => {
     expect(conversations.status).toBe(200);
     expect(conversations.body.length).toBeGreaterThan(0);
 
-    const conversationId = conversations.body[0].id as string;
+    let conversationId: string | null = null;
+    let messages: request.Response | null = null;
 
-    const messages = await request(app.getHttpServer())
-      .get(`/conversations/${conversationId}/messages`)
-      .set(authHeader);
+    for (const conversation of conversations.body as Array<{ id: string }>) {
+      const currentMessages = await request(app.getHttpServer())
+        .get(`/conversations/${conversation.id}/messages`)
+        .set(authHeader);
 
-    expect(messages.status).toBe(200);
-    expect(messages.body.some((message: { moderated: boolean }) => message.moderated)).toBe(true);
+      expect(currentMessages.status).toBe(200);
+
+      if (currentMessages.body.some((message: { moderated: boolean }) => message.moderated)) {
+        conversationId = conversation.id;
+        messages = currentMessages;
+        break;
+      }
+    }
+
+    if (!conversationId || !messages) {
+      throw new Error('Expected at least one seeded conversation with moderated messages');
+    }
 
     const blockedAttempt = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)

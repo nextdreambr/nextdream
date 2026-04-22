@@ -1,14 +1,16 @@
 import type { AppRole } from '../context/AppContext';
 
 export const SANDBOX_PROFILE_STORAGE_PREFIX = 'nextdream.sandbox.profile.';
+export const SANDBOX_HISTORY_FILTERS = [
+  'todos',
+  'sonhos',
+  'propostas',
+  'conversas',
+  'notificacoes',
+  'visitas',
+] as const;
 
-export type SandboxHistoryFilter =
-  | 'todos'
-  | 'sonhos'
-  | 'propostas'
-  | 'conversas'
-  | 'notificacoes'
-  | 'visitas';
+export type SandboxHistoryFilter = (typeof SANDBOX_HISTORY_FILTERS)[number];
 
 export interface SandboxVisitedDream {
   dreamId: string;
@@ -66,6 +68,12 @@ export function loadSandboxProfileState(userId: string, role: AppRole): SandboxP
 
   try {
     const parsed = JSON.parse(raw) as Partial<SandboxProfileState>;
+    const historyFilter =
+      typeof parsed.historyFilter === 'string' &&
+      SANDBOX_HISTORY_FILTERS.includes(parsed.historyFilter as SandboxHistoryFilter)
+        ? parsed.historyFilter
+        : fallback.historyFilter;
+
     return {
       privacy: {
         ...fallback.privacy,
@@ -75,7 +83,7 @@ export function loadSandboxProfileState(userId: string, role: AppRole): SandboxP
         ...fallback.security,
         ...parsed.security,
       },
-      historyFilter: parsed.historyFilter ?? fallback.historyFilter,
+      historyFilter,
       visitedDreams: Array.isArray(parsed.visitedDreams) ? parsed.visitedDreams : fallback.visitedDreams,
     };
   } catch {

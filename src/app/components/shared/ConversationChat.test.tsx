@@ -132,4 +132,33 @@ describe('ConversationChat', () => {
       expect(screen.getByText(/reformule oferecendo tempo, presença ou companhia/i)).toBeInTheDocument();
     });
   });
+
+  it('tolerates an initial preload failure and retries when the selected conversation effect runs', async () => {
+    listMessagesMock
+      .mockReset()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce([
+        {
+          id: 'message-1',
+          conversationId: 'conversation-1',
+          senderId: 'patient-1',
+          body: 'Mensagem retida pela moderação do sandbox por mencionar dinheiro.',
+          moderated: true,
+          createdAt: '2026-04-20T10:10:00.000Z',
+        },
+      ]);
+
+    render(
+      <MemoryRouter>
+        <ConversationChat emptyActionTo="/apoiador/propostas" emptyActionLabel="Ver propostas" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Serenata para a varanda')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText(/mensagem moderada/i)).toBeInTheDocument();
+    });
+    expect(listMessagesMock).toHaveBeenCalledTimes(2);
+  });
 });

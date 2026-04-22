@@ -378,7 +378,14 @@ export const dreamsApi = {
   listMine() {
     return apiRequest<PublicDream[]>('/dreams/mine');
   },
-  listMinePage(params: { page?: number; pageSize?: number; query?: string; status?: PublicDream['status'] | '' }) {
+  listMinePage(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: PublicDream['status'] | '';
+    category?: string;
+    format?: PublicDream['format'] | '';
+  }) {
     return apiRequest<PaginatedResult<PublicDream>>(`/dreams/mine${buildQueryString(params)}`);
   },
   create(payload: CreateDreamInput) {

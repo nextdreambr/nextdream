@@ -19,6 +19,12 @@ const statusOptions: { value: DreamStatus; label: string }[] = [
   { value: 'pausado', label: 'Pausado' },
 ];
 
+const formatOptions: Array<{ val: PublicDream['format']; label: string }> = [
+  { val: 'remoto', label: '💻 Online' },
+  { val: 'presencial', label: '📍 Presencial' },
+  { val: 'ambos', label: '🤝 Ambos' },
+];
+
 const PAGE_SIZE = 6;
 
 const categoryTheme: Record<string, { img: string; accent: string; tagColor: string }> = {
@@ -43,7 +49,7 @@ export default function MyDreams() {
   const [filters, setFilters] = useState({
     status: '' as DreamStatus | '',
     category: '',
-    format: '',
+    format: '' as PublicDream['format'] | '',
   });
 
   useEffect(() => {
@@ -56,6 +62,8 @@ export default function MyDreams() {
           pageSize: PAGE_SIZE,
           query,
           status: filters.status,
+          category: filters.category,
+          format: filters.format,
         });
         if (!mounted) return;
         setMyDreams(response.items);
@@ -70,15 +78,7 @@ export default function MyDreams() {
     return () => {
       mounted = false;
     };
-  }, [filters.status, page, query]);
-
-  const filtered = myDreams.filter(d => {
-    if (query && !d.title.toLowerCase().includes(query.toLowerCase()) && !d.description.toLowerCase().includes(query.toLowerCase())) return false;
-    if (filters.status && d.status !== filters.status) return false;
-    if (filters.category && d.category !== filters.category) return false;
-    if (filters.format && d.format !== filters.format && d.format !== 'ambos') return false;
-    return true;
-  });
+  }, [filters.category, filters.format, filters.status, page, query]);
 
   const clearFilters = () => {
     setFilters({ status: '', category: '', format: '' });
@@ -181,11 +181,7 @@ export default function MyDreams() {
           <div>
             <p className="text-xs text-gray-500 mb-2">Formato</p>
             <div className="flex gap-2">
-              {[
-                { val: 'remoto', label: '💻 Online' },
-                { val: 'presencial', label: '📍 Presencial' },
-                { val: 'ambos', label: '🤝 Ambos' },
-              ].map(f => (
+              {formatOptions.map(f => (
                 <button
                   key={f.val}
                   onClick={() => {
@@ -237,7 +233,7 @@ export default function MyDreams() {
       )}
 
       {/* Dreams list */}
-      {filtered.length === 0 ? (
+      {myDreams.length === 0 ? (
         <EmptyState
           icon={Star}
           title="Nenhum sonho encontrado"
@@ -249,7 +245,7 @@ export default function MyDreams() {
         />
       ) : (
         <div className="grid sm:grid-cols-2 gap-6 mt-8">
-          {filtered.map(dream => {
+          {myDreams.map(dream => {
             const theme = categoryTheme[dream.category] || categoryTheme['Outro'];
             const dreamLink = dream.canEdit === false ? `/paciente/sonhos/${dream.id}` : `/paciente/sonhos/editar/${dream.id}`;
             return (

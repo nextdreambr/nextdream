@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PatientProfile from './PatientProfile';
 import { dreamsApi, notificationsApi, proposalsApi } from '../../lib/api';
+import { SANDBOX_PROFILE_STORAGE_PREFIX } from '../../lib/sandboxProfileState';
 
 const useAppMock = vi.fn();
 const logoutMock = vi.fn();
@@ -126,7 +127,10 @@ describe('PatientProfile', () => {
     await waitFor(() => {
       expect(screen.getByText(/preferências salvas no sandbox/i)).toBeInTheDocument();
     });
-    expect(window.sessionStorage.getItem('nextdream.sandbox.profile.patient-1')).toContain('"showCity":false');
+    expect(window.sessionStorage.getItem(`${SANDBOX_PROFILE_STORAGE_PREFIX}patient-1`)).toContain('"showCity":false');
+
+    fireEvent.click(screen.getByRole('button', { name: /visão geral/i }));
+    expect(screen.getByText(/use as seções abaixo para simular ajustes de privacidade/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /histórico/i }));
     expect(screen.getByText(/histórico desta sessão/i)).toBeInTheDocument();

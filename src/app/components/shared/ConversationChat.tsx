@@ -51,9 +51,14 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
             : data[0]?.id ?? null;
 
         if (nextSelectedId) {
-          const initialMessages = await conversationsApi.listMessages(nextSelectedId);
-          if (!mounted) return;
-          setMessages(initialMessages);
+          try {
+            const initialMessages = await conversationsApi.listMessages(nextSelectedId);
+            if (!mounted) return;
+            setMessages(initialMessages);
+          } catch {
+            if (!mounted) return;
+            setMessages([]);
+          }
         } else {
           setMessages([]);
         }

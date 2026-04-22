@@ -27,8 +27,17 @@ export class DreamsController {
     @Query('pageSize') pageSize?: string,
     @Query('query') query?: string,
     @Query('status') status?: string,
+    @Query('category') category?: string,
+    @Query('format') format?: string,
   ) {
-    return this.dreamsService.listMyDreams(currentUser, { page, pageSize, query, status });
+    return this.dreamsService.listMyDreams(currentUser, {
+      page,
+      pageSize,
+      query,
+      status,
+      category,
+      format,
+    });
   }
 
   @UseGuards(JwtAuthGuard)

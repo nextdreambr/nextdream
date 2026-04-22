@@ -165,7 +165,14 @@ export class DreamsService {
 
   async listMyDreams(
     currentUser: JwtPayload,
-    query: { page?: string; pageSize?: string; query?: string; status?: string } = {},
+    query: {
+      page?: string;
+      pageSize?: string;
+      query?: string;
+      status?: string;
+      category?: string;
+      format?: string;
+    } = {},
   ) {
     if (currentUser.role !== 'paciente' && currentUser.role !== 'instituicao') {
       throw new ForbiddenException('Only patients or institutions can list their dreams');
@@ -176,10 +183,14 @@ export class DreamsService {
 
     const normalizedQuery = normalizeQueryTerm(query.query);
     const normalizedStatus = normalizeQueryTerm(query.status);
+    const normalizedCategory = normalizeQueryTerm(query.category);
+    const normalizedFormat = normalizeQueryTerm(query.format);
     const pagination = parsePagination(query);
     const shouldPaginate = pagination.enabled || hasQueryFilters({
       query: normalizedQuery,
       status: normalizedStatus,
+      category: normalizedCategory,
+      format: normalizedFormat,
     });
 
     const linkedManagedPatientIds =
@@ -205,6 +216,16 @@ export class DreamsService {
 
     if (normalizedStatus) {
       queryBuilder.andWhere('dream.status = :status', { status: normalizedStatus });
+    }
+
+    if (normalizedCategory) {
+      queryBuilder.andWhere('LOWER(dream.category) = :category', {
+        category: normalizedCategory.toLowerCase(),
+      });
+    }
+
+    if (normalizedFormat) {
+      queryBuilder.andWhere('dream.format = :format', { format: normalizedFormat });
     }
 
     if (normalizedQuery) {

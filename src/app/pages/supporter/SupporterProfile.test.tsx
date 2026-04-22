@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SupporterProfile from './SupporterProfile';
 import { notificationsApi, proposalsApi } from '../../lib/api';
+import { SANDBOX_PROFILE_STORAGE_PREFIX } from '../../lib/sandboxProfileState';
 
 const useAppMock = vi.fn();
 const logoutMock = vi.fn();
@@ -54,7 +55,7 @@ describe('SupporterProfile', () => {
     });
 
     window.sessionStorage.setItem(
-      'nextdream.sandbox.profile.supporter-1',
+      `${SANDBOX_PROFILE_STORAGE_PREFIX}supporter-1`,
       JSON.stringify({
         historyFilter: 'todos',
         visitedDreams: [
@@ -106,6 +107,9 @@ describe('SupporterProfile', () => {
     await waitFor(() => {
       expect(screen.getByText(/ajustes de segurança salvos no sandbox/i)).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByRole('button', { name: /visão geral/i }));
+    expect(screen.getByText(/use as seções abaixo para simular preferências do apoiador/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /histórico/i }));
     expect(screen.getByText(/histórico desta sessão/i)).toBeInTheDocument();
