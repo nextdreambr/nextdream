@@ -549,6 +549,12 @@ describe('Sandbox API', () => {
       throw new Error('Expected at least one seeded conversation with moderated messages');
     }
 
+    expect(
+      messages.body.some((message: { body: string; moderated: boolean }) =>
+        message.moderated && /pix, dinheiro ou doa/i.test(message.body),
+      ),
+    ).toBe(true);
+
     const blockedAttempt = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)
       .set(authHeader)
