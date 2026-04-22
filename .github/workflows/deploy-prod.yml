@@ -262,6 +262,8 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
           SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
           SENTRY_DSN_API: ${{ vars.SENTRY_DSN_API }}
           GHCR_USERNAME: ${{ github.actor }}
@@ -306,6 +308,8 @@ jobs:
             DATABASE_URL
             JWT_ACCESS_SECRET
             JWT_REFRESH_SECRET
+            RESEND_API_KEY
+            RESEND_FROM_EMAIL
             SENTRY_DSN_WEB
             SENTRY_DSN_API
           )
@@ -443,6 +447,8 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           JWT_ACCESS_SECRET: ${{ secrets.PROD_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.PROD_JWT_REFRESH_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
           SENTRY_DSN_API: ${{ vars.SENTRY_DSN_API }}
           SENTRY_DSN_WEB: ${{ vars.SENTRY_DSN_WEB }}
           SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.15' }}
@@ -487,6 +493,8 @@ jobs:
           DATABASE_URL=${database_url_runtime}
           JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+          RESEND_API_KEY=${RESEND_API_KEY}
+          RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL}
           SENTRY_DSN=${SENTRY_DSN_API}
           SENTRY_DSN_WEB=${SENTRY_DSN_WEB}
           SENTRY_ENVIRONMENT=production

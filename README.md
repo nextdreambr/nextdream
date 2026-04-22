@@ -37,6 +37,7 @@ Nosso foco é 100% em **conexão humana** através de presença, tempo e carinho
 - **Web**: React + Vite (na raiz do repositório)
 - **API**: NestJS + TypeORM (`apps/api`)
 - **Infra local**: Docker Compose com Postgres, Redis, MinIO e Mailpit
+- **Email em runtime**: Resend em ambientes com `RESEND_API_KEY` + `RESEND_FROM_EMAIL`; Mailpit/SMTP apenas no desenvolvimento local
 - **Monorepo npm workspaces**: scripts unificados na raiz
 
 ## 🚀 Como rodar localmente
@@ -69,6 +70,8 @@ Acesse:
 - Web: `http://localhost:5173`
 - API (health): `http://localhost:4000/health`
 - Mailpit: `http://localhost:8025`
+
+Para desenvolvimento local, mantenha `SMTP_HOST=localhost` e `SMTP_PORT=1025` apontando para o Mailpit. Em produção, configure `RESEND_API_KEY` e `RESEND_FROM_EMAIL`.
 
 ### Seed local (dados de demonstração)
 
@@ -104,6 +107,12 @@ O deploy ideal publica produção e sandbox a partir do mesmo commit. Em produç
 npm run lint
 npm run typecheck
 npm run test
+```
+
+Smoke test operacional de email:
+
+```bash
+MAIL_SMOKE_TO=voce@exemplo.com npm run mail:smoke --workspace apps/api
 ```
 
 ## 🤝 Seja parte disso

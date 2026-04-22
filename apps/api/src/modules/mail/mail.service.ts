@@ -1,11 +1,34 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
+
+type MailProviderKind = 'test' | 'smtp' | 'resend';
+
+type MailDelivery = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+};
+
+type MailProvider =
+  | {
+      kind: MailProviderKind;
+      from: string;
+      send: (message: MailDelivery) => Promise<void>;
+    }
+  | {
+      kind: 'disabled' | 'config-error';
+      provider: 'smtp' | 'resend';
+      message: string;
+    };
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter | null = null;
-  private disabledLogged = false;
+  private resendClient: Resend | null = null;
+  private providerSelectionLogged: string | null = null;
 
   private escapeHtml(value: string) {
     return value
@@ -94,29 +117,43 @@ export class MailService {
     return { html, text };
   }
 
-  private getTransporter(): Transporter | null {
-    if (process.env.NODE_ENV === 'test') {
-      this.transporter ??= nodemailer.createTransport({ jsonTransport: true });
-      return this.transporter;
+  private getTrimmedEnv(name: string) {
+    const value = process.env[name];
+    if (!value) {
+      return undefined;
     }
 
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  private getSmtpFromAddress() {
+    return this.getTrimmedEnv('SMTP_FROM') ?? 'no-reply@nextdream.local';
+  }
+
+  private logProviderSelection(provider: MailProviderKind) {
+    if (this.providerSelectionLogged === provider) {
+      return;
+    }
+
+    this.logger.log(`Mail provider selected: ${provider}`);
+    this.providerSelectionLogged = provider;
+  }
+
+  private getSmtpTransporter() {
     if (this.transporter) {
       return this.transporter;
     }
 
-    const host = process.env.SMTP_HOST;
+    const host = this.getTrimmedEnv('SMTP_HOST');
     if (!host) {
-      if (!this.disabledLogged) {
-        this.logger.warn('SMTP_HOST not configured. Email sending is disabled.');
-        this.disabledLogged = true;
-      }
       return null;
     }
 
-    const port = Number(process.env.SMTP_PORT ?? 1025);
+    const port = Number(this.getTrimmedEnv('SMTP_PORT') ?? '1025');
     const secure = port === 465;
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
+    const user = this.getTrimmedEnv('SMTP_USER');
+    const pass = this.getTrimmedEnv('SMTP_PASS');
 
     this.transporter = nodemailer.createTransport({
       host,
@@ -128,13 +165,161 @@ export class MailService {
     return this.transporter;
   }
 
-  async sendWelcomeEmail(params: { to: string; name: string; role: string }) {
-    const transporter = this.getTransporter();
-    if (!transporter) {
+  private getTestTransporter() {
+    if (this.transporter) {
+      return this.transporter;
+    }
+
+    this.transporter = nodemailer.createTransport({ jsonTransport: true });
+    return this.transporter;
+  }
+
+  private getResendClient(apiKey: string) {
+    if (this.resendClient) {
+      return this.resendClient;
+    }
+
+    this.resendClient = new Resend(apiKey);
+    return this.resendClient;
+  }
+
+  private resolveProvider(): MailProvider {
+    if (process.env.NODE_ENV === 'test') {
+      this.logProviderSelection('test');
+      const transporter = this.getTestTransporter();
+      const from = this.getSmtpFromAddress();
+
+      return {
+        kind: 'test',
+        from,
+        send: async (message) => {
+          await transporter.sendMail({
+            from,
+            to: message.to,
+            subject: message.subject,
+            text: message.text,
+            html: message.html,
+          });
+        },
+      };
+    }
+
+    const resendApiKey = this.getTrimmedEnv('RESEND_API_KEY');
+    const resendFrom = this.getTrimmedEnv('RESEND_FROM_EMAIL');
+    const hasAnyResendConfig = Boolean(resendApiKey || resendFrom);
+
+    if (hasAnyResendConfig) {
+      if (!resendApiKey) {
+        return {
+          kind: 'config-error',
+          provider: 'resend',
+          message: 'Mail provider "resend" is misconfigured: missing RESEND_API_KEY.',
+        };
+      }
+
+      if (!resendFrom) {
+        return {
+          kind: 'config-error',
+          provider: 'resend',
+          message: 'Mail provider "resend" is misconfigured: missing RESEND_FROM_EMAIL.',
+        };
+      }
+
+      this.logProviderSelection('resend');
+      const resendClient = this.getResendClient(resendApiKey);
+
+      return {
+        kind: 'resend',
+        from: resendFrom,
+        send: async (message) => {
+          const response = await resendClient.emails.send({
+            from: resendFrom,
+            to: message.to,
+            subject: message.subject,
+            text: message.text,
+            html: message.html,
+          });
+
+          if (response.error) {
+            throw new Error(response.error.message);
+          }
+        },
+      };
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      const transporter = this.getSmtpTransporter();
+      if (!transporter) {
+        return {
+          kind: 'disabled',
+          provider: 'smtp',
+          message: 'Mail provider "smtp" is not configured for development: missing SMTP_HOST.',
+        };
+      }
+
+      this.logProviderSelection('smtp');
+      const from = this.getSmtpFromAddress();
+
+      return {
+        kind: 'smtp',
+        from,
+        send: async (message) => {
+          await transporter.sendMail({
+            from,
+            to: message.to,
+            subject: message.subject,
+            text: message.text,
+            html: message.html,
+          });
+        },
+      };
+    }
+
+    return {
+      kind: 'config-error',
+      provider: 'resend',
+      message: 'Mail provider "resend" is not configured: set RESEND_API_KEY and RESEND_FROM_EMAIL.',
+    };
+  }
+
+  private async deliverEmail(params: {
+    failureLabel: string;
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+    throwOnFailure: boolean;
+  }) {
+    const provider = this.resolveProvider();
+
+    if (!('send' in provider)) {
+      this.logger.warn(`${params.failureLabel} via ${provider.provider}: ${provider.message}`);
+
+      if (params.throwOnFailure) {
+        throw new Error(provider.message);
+      }
       return;
     }
 
-    const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
+    try {
+      await provider.send({
+        to: params.to,
+        subject: params.subject,
+        text: params.text,
+        html: params.html,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      const failureMessage = `${params.failureLabel} via ${provider.kind}: ${message}`;
+      this.logger.warn(failureMessage);
+
+      if (params.throwOnFailure) {
+        throw new Error(failureMessage);
+      }
+    }
+  }
+
+  async sendWelcomeEmail(params: { to: string; name: string; role: string }) {
     const subject = 'Bem-vindo ao NextDream';
     const roleLabel = params.role === 'apoiador' ? 'Apoiador' : params.role === 'admin' ? 'Admin' : 'Paciente';
     const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
@@ -151,30 +336,17 @@ export class MailService {
       ctaUrl: appUrl,
     });
 
-    try {
-      await transporter.sendMail({
-        from,
-        to: params.to,
-        subject,
-        text: template.text,
-        html: template.html,
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Failed to send welcome email to ${params.to}: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
-      );
-    }
+    await this.deliverEmail({
+      failureLabel: `Failed to send welcome email to ${params.to}`,
+      to: params.to,
+      subject,
+      text: template.text,
+      html: template.html,
+      throwOnFailure: false,
+    });
   }
 
   async sendNotificationEmail(params: { to: string; name: string; title: string; message: string }) {
-    const transporter = this.getTransporter();
-    if (!transporter) {
-      return;
-    }
-
-    const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
     const subject = `[NextDream] ${params.title}`;
     const text = [
       `Olá, ${params.name}!`,
@@ -184,29 +356,16 @@ export class MailService {
       'Esta é uma notificação automática da plataforma NextDream.',
     ].join('\n');
 
-    try {
-      await transporter.sendMail({
-        from,
-        to: params.to,
-        subject,
-        text,
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Failed to send notification email to ${params.to}: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
-      );
-    }
+    await this.deliverEmail({
+      failureLabel: `Failed to send notification email to ${params.to}`,
+      to: params.to,
+      subject,
+      text,
+      throwOnFailure: false,
+    });
   }
 
   async sendAdminInviteEmail(params: { to: string; inviteUrl: string; expiresInHours: number }) {
-    const transporter = this.getTransporter();
-    if (!transporter) {
-      throw new Error('SMTP transporter is unavailable for admin invite email');
-    }
-
-    const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
     const subject = 'Convite de administrador - NextDream';
     const template = this.renderEmailTemplate({
       preheader: 'Convite para acessar o painel administrativo do NextDream',
@@ -221,21 +380,14 @@ export class MailService {
       ctaUrl: params.inviteUrl,
     });
 
-    try {
-      await transporter.sendMail({
-        from,
-        to: params.to,
-        subject,
-        text: template.text,
-        html: template.html,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown error';
-      this.logger.warn(
-        `Failed to send admin invite email to ${params.to}: ${message}`,
-      );
-      throw new Error(`Failed to send admin invite email to ${params.to}: ${message}`);
-    }
+    await this.deliverEmail({
+      failureLabel: `Failed to send admin invite email to ${params.to}`,
+      to: params.to,
+      subject,
+      text: template.text,
+      html: template.html,
+      throwOnFailure: true,
+    });
   }
 
   async sendPatientInviteEmail(params: {
@@ -245,12 +397,6 @@ export class MailService {
     inviteUrl: string;
     expiresInHours: number;
   }) {
-    const transporter = this.getTransporter();
-    if (!transporter) {
-      throw new Error('SMTP transporter is unavailable for patient invite email');
-    }
-
-    const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
     const subject = 'Convite para acompanhar seu caso - NextDream';
     const template = this.renderEmailTemplate({
       preheader: 'Convite para acompanhar seu caso no NextDream',
@@ -265,20 +411,40 @@ export class MailService {
       ctaUrl: params.inviteUrl,
     });
 
-    try {
-      await transporter.sendMail({
-        from,
-        to: params.to,
-        subject,
-        text: template.text,
-        html: template.html,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown error';
-      this.logger.warn(
-        `Failed to send patient invite email to ${params.to}: ${message}`,
-      );
-      throw new Error(`Failed to send patient invite email to ${params.to}: ${message}`);
-    }
+    await this.deliverEmail({
+      failureLabel: `Failed to send patient invite email to ${params.to}`,
+      to: params.to,
+      subject,
+      text: template.text,
+      html: template.html,
+      throwOnFailure: true,
+    });
+  }
+
+  async sendSmokeTestEmail(params: { to: string; name?: string }) {
+    const subject = '[NextDream] Smoke test de email';
+    const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
+    const template = this.renderEmailTemplate({
+      preheader: 'Teste operacional do envio de email do NextDream',
+      title: 'Smoke test de email',
+      greeting: params.name ? `Olá, ${params.name}!` : 'Olá,',
+      intro: 'Este email confirma que o provider configurado para o NextDream está aceitando envios.',
+      bodyLines: [
+        `Ambiente NODE_ENV: ${process.env.NODE_ENV ?? 'undefined'}`,
+        `APP_URL: ${appUrl}`,
+        `Emitido em: ${new Date().toISOString()}`,
+      ],
+      ctaLabel: 'Abrir NextDream',
+      ctaUrl: appUrl,
+    });
+
+    await this.deliverEmail({
+      failureLabel: `Failed to send mail smoke test to ${params.to}`,
+      to: params.to,
+      subject,
+      text: template.text,
+      html: template.html,
+      throwOnFailure: true,
+    });
   }
 }

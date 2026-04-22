@@ -6,6 +6,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start:dev": "nest start --watch",
     "seed:local": "npm run build && node dist/scripts/seed-local.js",
+    "mail:smoke": "npm run build && node dist/scripts/mail-smoke.js",
     "schema:sync": "npm run build && node dist/scripts/sync-schema.js",
     "lint": "eslint \"{src,test}/**/*.ts\" --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -31,6 +32,7 @@
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.3",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.12.2",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.22"
   },
