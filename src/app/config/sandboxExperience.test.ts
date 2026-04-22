@@ -28,4 +28,14 @@ describe('sandboxExperienceConfig', () => {
       'propostas',
     ]);
   });
+
+  it('keeps every tour step explicit about what the user sees, does and learns', () => {
+    for (const tour of Object.values(sandboxExperienceConfig.tours)) {
+      for (const step of tour) {
+        expect(step.see.length).toBeGreaterThan(20);
+        expect(step.action.length).toBeGreaterThan(20);
+        expect(step.why.length).toBeGreaterThan(20);
+      }
+    }
+  });
 });

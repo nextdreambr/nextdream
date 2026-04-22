@@ -186,7 +186,7 @@ export default function SandboxAccess() {
                   Tour guiado do {sandboxExperienceConfig.personas[previewPersona].title}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Veja como a jornada funciona antes de entrar.
+                  Veja o que aparece, o que fazer primeiro e por que isso faz diferença antes de entrar.
                 </p>
               </div>
               <button
@@ -200,7 +200,7 @@ export default function SandboxAccess() {
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-900">O que você vai ver em cada etapa</p>
+              <p className="text-sm font-medium text-slate-900">O que você vai encontrar em cada etapa</p>
               {sandboxExperienceConfig.tours[previewPersona].map((step, index) => (
                 <div key={step.id} className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-slate-700">
@@ -209,6 +209,7 @@ export default function SandboxAccess() {
                   <div>
                     <p className="text-sm font-medium text-slate-900">{step.label}</p>
                     <p className="mt-1 text-sm text-slate-600">{step.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{step.see}</p>
                   </div>
                 </div>
               ))}
