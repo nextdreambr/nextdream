@@ -88,11 +88,11 @@ describe('SandboxAccess', () => {
   it('renders the non-technical sandbox entry with trust guidance and tour offers', () => {
     renderSandboxAccess();
 
-    expect(screen.getByText(/escolha como voce quer conhecer a plataforma/i)).toBeInTheDocument();
-    expect(screen.getByText(/esta e uma experiencia de apresentacao/i)).toBeInTheDocument();
-    expect(screen.getByText(/nada daqui afeta atendimentos reais/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /entrar e conhecer a jornada do apoiador/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ver tour guiado do apoiador/i })).toBeInTheDocument();
+    expect(screen.getByText(/escolha uma jornada para testar o nextdream/i)).toBeInTheDocument();
+    expect(screen.getByText(/este é um ambiente de demonstração/i)).toBeInTheDocument();
+    expect(screen.getByText(/você pode recomeçar quando quiser/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /entrar como apoiador/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /ver tour/i })).toHaveLength(3);
     expect(screen.queryByText(/regras desta demo/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/mesmas apis principais/i)).not.toBeInTheDocument();
   });
@@ -105,10 +105,11 @@ describe('SandboxAccess', () => {
     fireEvent.click(screen.getByRole('button', { name: /ver tour guiado do apoiador/i }));
 
     expect(screen.getByRole('dialog', { name: /tour guiado do apoiador/i })).toBeInTheDocument();
-    expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/veja como a jornada funciona antes de entrar/i)).toBeInTheDocument();
+    expect(screen.getByText(/o que você vai ver em cada etapa/i)).toBeInTheDocument();
     expect(screen.getByText(/explorar sonhos/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /entrar como apoiador e iniciar tour/i }));
+    fireEvent.click(screen.getByRole('button', { name: /entrar e começar o tour/i }));
 
     await screen.findByText('Apoiador dashboard');
     expect(loginMock).toHaveBeenCalledWith(sandboxSessions.apoiador);
@@ -120,7 +121,7 @@ describe('SandboxAccess', () => {
 
     renderSandboxAccess('/sandbox?tipo=instituicao');
 
-    fireEvent.click(screen.getByRole('button', { name: /entrar e conhecer a jornada da instituicao/i }));
+    fireEvent.click(screen.getByRole('button', { name: /entrar como instituição/i }));
 
     await screen.findByText('Instituicao dashboard');
     expect(loginMock).toHaveBeenCalledWith(sandboxSessions.instituicao);
@@ -132,7 +133,7 @@ describe('SandboxAccess', () => {
 
     renderSandboxAccess('/sandbox?tipo=paciente');
 
-    fireEvent.click(screen.getByRole('button', { name: /entrar e conhecer a jornada do paciente/i }));
+    fireEvent.click(screen.getByRole('button', { name: /entrar como paciente/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/nao foi possivel abrir essa experiencia agora/i)).toBeInTheDocument();

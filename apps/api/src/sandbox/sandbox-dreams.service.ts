@@ -134,7 +134,14 @@ export class SandboxDreamsService {
 
   async listMyDreams(
     currentUser: JwtPayload,
-    query: { page?: string; pageSize?: string; query?: string; status?: string } = {},
+    query: {
+      page?: string;
+      pageSize?: string;
+      query?: string;
+      status?: string;
+      category?: string;
+      format?: string;
+    } = {},
   ) {
     const session = this.getSession(currentUser);
     if (currentUser.role !== 'paciente' && currentUser.role !== 'instituicao') {
@@ -143,10 +150,14 @@ export class SandboxDreamsService {
 
     const normalizedQuery = normalizeQueryTerm(query.query);
     const normalizedStatus = normalizeQueryTerm(query.status);
+    const normalizedCategory = normalizeQueryTerm(query.category);
+    const normalizedFormat = normalizeQueryTerm(query.format);
     const pagination = parsePagination(query);
     const shouldPaginate = pagination.enabled || hasQueryFilters({
       query: normalizedQuery,
       status: normalizedStatus,
+      category: normalizedCategory,
+      format: normalizedFormat,
     });
     const linkedManagedPatientIds = this.getLinkedManagedPatientIds(session, currentUser.sub);
 
@@ -161,6 +172,15 @@ export class SandboxDreamsService {
 
     if (normalizedStatus) {
       dreams = dreams.filter((dream) => dream.status === normalizedStatus);
+    }
+
+    if (normalizedCategory) {
+      const loweredCategory = normalizedCategory.toLowerCase();
+      dreams = dreams.filter((dream) => dream.category.toLowerCase() === loweredCategory);
+    }
+
+    if (normalizedFormat) {
+      dreams = dreams.filter((dream) => dream.format === normalizedFormat);
     }
 
     if (normalizedQuery) {
@@ -270,6 +290,10 @@ export class SandboxDreamsService {
 
     const supporter = this.getUserOrThrow(session, currentUser.sub);
     const dream = this.getDreamOrThrow(session, dreamId);
+    const message = this.requireNonEmptyText(dto.message, 'Proposal message');
+    const offering = this.requireNonEmptyText(dto.offering, 'Proposal offering');
+    const availability = this.requireNonEmptyText(dto.availability, 'Proposal availability');
+    const duration = this.requireNonEmptyText(dto.duration, 'Proposal duration');
     if (dream.status !== 'publicado') {
       throw new ConflictException('Este sonho nao esta disponivel para novas propostas.');
     }
@@ -285,10 +309,10 @@ export class SandboxDreamsService {
       id: randomUUID(),
       dreamId: dream.id,
       supporterId: supporter.id,
-      message: this.requireNonEmptyText(dto.message, 'Proposal message'),
-      offering: this.requireNonEmptyText(dto.offering, 'Proposal offering'),
-      availability: this.requireNonEmptyText(dto.availability, 'Proposal availability'),
-      duration: this.requireNonEmptyText(dto.duration, 'Proposal duration'),
+      message,
+      offering,
+      availability,
+      duration,
       status: 'enviada',
       createdAt: new Date(),
     };
@@ -545,6 +569,7 @@ export class SandboxDreamsService {
       ? buildLocationLabel(managedPatient)
       : buildLocationLabel(operator ?? {});
     const institutionName = dream.managedPatientId ? operator?.name : undefined;
+    const patientContext = managedPatient?.caseSummary ?? managedPatient?.supportContext ?? managedPatient?.careFocus;
     const isLinkedViewer = Boolean(
       currentUser?.role === 'paciente' &&
       dream.managedPatientId &&
@@ -567,6 +592,7 @@ export class SandboxDreamsService {
       institutionName,
       patientName,
       patientCity,
+      patientContext,
       operatorRole: dream.managedPatientId ? ('instituicao' as const) : ('paciente' as const),
       canEdit: currentUser
         ? currentUser.role === 'instituicao'

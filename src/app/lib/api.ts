@@ -275,6 +275,7 @@ export interface PublicDream {
   institutionName?: string;
   patientName?: string;
   patientCity?: string;
+  patientContext?: string;
   operatorRole?: 'paciente' | 'instituicao';
   canEdit?: boolean;
   restrictions?: string;
@@ -377,7 +378,14 @@ export const dreamsApi = {
   listMine() {
     return apiRequest<PublicDream[]>('/dreams/mine');
   },
-  listMinePage(params: { page?: number; pageSize?: number; query?: string; status?: PublicDream['status'] | '' }) {
+  listMinePage(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: PublicDream['status'] | '';
+    category?: string;
+    format?: PublicDream['format'] | '';
+  }) {
     return apiRequest<PaginatedResult<PublicDream>>(`/dreams/mine${buildQueryString(params)}`);
   },
   create(payload: CreateDreamInput) {
@@ -517,6 +525,9 @@ export interface ManagedPatient {
   state?: string;
   city?: string;
   locationLabel?: string;
+  caseSummary?: string;
+  supportContext?: string;
+  careFocus?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -552,6 +563,13 @@ export interface ManagedPatientDetail {
     status: Conversation['status'];
     supporterId: string;
     supporterName?: string;
+    createdAt: string;
+  }>;
+  timeline: Array<{
+    id: string;
+    type: 'sonho' | 'proposta' | 'conversa' | 'notificacao';
+    title: string;
+    description: string;
     createdAt: string;
   }>;
 }

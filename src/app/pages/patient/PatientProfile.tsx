@@ -1,439 +1,408 @@
-import { useEffect, useRef, useState } from 'react';
-import { MapPin, Shield, Bell, Lock, ChevronRight, Edit2, Star, MessageCircle, Heart, AlertTriangle, CheckCircle, X, Save, Clock, Loader2, Camera, Trash2, LogOut } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { Bell, Heart, LogOut, MapPin, Shield, Sparkles, Star } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useNavigate } from 'react-router';
 import { ApiError, PublicDream, Proposal, dreamsApi, notificationsApi, proposalsApi } from '../../lib/api';
+import {
+  loadSandboxProfileState,
+  persistSandboxProfileState,
+  type SandboxProfileState,
+} from '../../lib/sandboxProfileState';
+
+type ProfileSection = 'visao-geral' | 'privacidade' | 'seguranca' | 'historico';
+
+interface HistoryEntry {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  path?: string;
+}
+
+function buildDreamPath(dream: PublicDream) {
+  return dream.canEdit === false ? `/paciente/sonhos/${dream.id}` : `/paciente/sonhos/editar/${dream.id}`;
+}
 
 export default function PatientProfile() {
   const { currentUser, logout } = useApp();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [showNotifSettings, setShowNotifSettings] = useState(false);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [tempAvatarUrl, setTempAvatarUrl] = useState<string | null>(null);
-  const [name, setName] = useState(currentUser?.name || '');
-  const [editName, setEditName] = useState(currentUser?.name || '');
-  const [bio, setBio] = useState('');
-  const [editBio, setEditBio] = useState(bio);
-  const [notifications, setNotifications] = useState({
-    novasPropostas: true,
-    chat: true,
-    lembretes: true,
-    email: false,
-  });
+  const [activeSection, setActiveSection] = useState<ProfileSection>('visao-geral');
   const [myDreams, setMyDreams] = useState<PublicDream[]>([]);
-  const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [receivedProposals, setReceivedProposals] = useState<Proposal[]>([]);
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [profileState, setProfileState] = useState<SandboxProfileState | null>(null);
   const [error, setError] = useState('');
+  const [privacyFeedback, setPrivacyFeedback] = useState('');
+  const [securityFeedback, setSecurityFeedback] = useState('');
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setProfileState(loadSandboxProfileState(currentUser.id, 'paciente'));
+  }, [currentUser]);
 
   useEffect(() => {
     let mounted = true;
+
     async function load() {
       try {
-        const [dreams, proposals] = await Promise.all([
+        const [dreams, proposals, preferences] = await Promise.all([
           dreamsApi.listMine(),
           proposalsApi.listReceived(),
+          notificationsApi.getPreferences(),
         ]);
-        const preferences = await notificationsApi.getPreferences();
         if (!mounted) return;
         setMyDreams(dreams);
-        setMyProposals(proposals);
-        setNotifications((prev) => ({ ...prev, email: preferences.emailEnabled }));
+        setReceivedProposals(proposals);
+        setEmailEnabled(preferences.emailEnabled);
       } catch (err) {
+        if (!mounted) return;
         if (err instanceof ApiError) setError(err.message);
         else setError('Não foi possível carregar dados do perfil.');
       }
     }
+
     void load();
     return () => {
       mounted = false;
     };
   }, []);
 
-  const completedDreams = myDreams.filter(d => d.status === 'concluido').length;
+  const completedDreams = myDreams.filter((dream) => dream.status === 'concluido').length;
+  const recentDreams = myDreams
+    .slice()
+    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+    .slice(0, 3);
 
-  const handleStartEditing = () => {
-    setEditName(name || currentUser?.name || '');
-    setEditBio(bio);
-    setTempAvatarUrl(avatarUrl);
-    setEditing(true);
-  };
+  const historyEntries = useMemo<HistoryEntry[]>(() => {
+    const dreamEntries = myDreams.map((dream) => ({
+      id: `dream-${dream.id}`,
+      title: dream.title,
+      description: `Sonho em ${dream.status}.`,
+      createdAt: dream.updatedAt,
+      path: buildDreamPath(dream),
+    }));
 
-  const handleCancel = () => {
-    setEditName(name || currentUser?.name || '');
-    setEditBio(bio);
-    setTempAvatarUrl(null);
-    setEditing(false);
-  };
+    const proposalEntries = receivedProposals.map((proposal) => ({
+      id: `proposal-${proposal.id}`,
+      title: `${proposal.supporterName ?? 'Alguém'} enviou uma proposta ${proposal.status}`,
+      description: 'A proposta já apareceu na sua central de respostas desta sessão.',
+      createdAt: proposal.createdAt,
+      path: '/paciente/propostas',
+    }));
 
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      setName(editName);
-      setBio(editBio);
-      if (tempAvatarUrl !== null) setAvatarUrl(tempAvatarUrl);
-      setSaving(false);
-      setEditing(false);
-    }, 1000);
-  };
+    return [...proposalEntries, ...dreamEntries].sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+  }, [myDreams, receivedProposals]);
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setTempAvatarUrl(url);
-      setShowPhotoModal(false);
-    }
-  };
+  function updateProfileState(updater: (current: SandboxProfileState) => SandboxProfileState) {
+    setProfileState((current) => {
+      if (!current) return current;
+      return updater(current);
+    });
+  }
 
-  const handleRemovePhoto = () => {
-    setTempAvatarUrl(null);
-    setAvatarUrl(null);
-    setShowPhotoModal(false);
-  };
+  function handleSavePrivacy() {
+    if (!currentUser || !profileState) return;
+    persistSandboxProfileState(currentUser.id, profileState);
+    setPrivacyFeedback('Preferências salvas no sandbox');
+  }
 
-  const handleLogout = () => {
+  function handleSaveSecurity() {
+    if (!currentUser || !profileState) return;
+    const nextState = {
+      ...profileState,
+      security: {
+        ...profileState.security,
+        lastSavedAt: new Date().toISOString(),
+      },
+    };
+    persistSandboxProfileState(currentUser.id, nextState);
+    setProfileState(nextState);
+    setSecurityFeedback('Ajustes de segurança salvos no sandbox');
+  }
+
+  function handleLogout() {
     logout();
     navigate('/');
-  };
+  }
 
-  const displayAvatar = editing ? (tempAvatarUrl ?? avatarUrl) : avatarUrl;
+  if (!currentUser || !profileState) {
+    return <div className="max-w-3xl mx-auto py-8 text-sm text-gray-500">Carregando perfil...</div>;
+  }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Meu Perfil</h1>
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Meu Perfil</h1>
+          <p className="text-sm text-gray-500">Um resumo do que você já publicou, recebeu e revisou nesta sessão sandbox.</p>
+        </div>
         <button
-          onClick={() => editing ? handleCancel() : handleStartEditing()}
-          className={`flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border transition-colors
-            ${editing ? 'bg-pink-600 text-white border-pink-600' : 'text-pink-600 border-pink-200 hover:bg-pink-50'}`}
+          type="button"
+          onClick={handleLogout}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-pink-200 px-4 py-2 text-sm font-medium text-pink-700 hover:bg-pink-50"
         >
-          {editing ? <><X className="w-3.5 h-3.5" /> Cancelar</> : <><Edit2 className="w-3.5 h-3.5" /> Editar perfil</>}
+          <LogOut className="w-4 h-4" />
+          Sair da demo
         </button>
       </div>
 
-      {/* Profile card */}
-      <div className="bg-white rounded-2xl border border-pink-100 p-6">
-        <div className="flex items-start gap-5">
-          <div className="relative shrink-0">
-            {displayAvatar ? (
-              <img src={displayAvatar} alt="Avatar" className="w-16 h-16 rounded-2xl object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-2xl bg-pink-100 flex items-center justify-center text-pink-700 text-2xl font-semibold">
-                {currentUser?.name?.[0] || 'A'}
+      <section className="bg-white rounded-3xl border border-pink-100 p-6 space-y-5">
+        <div className="flex items-start gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-pink-100 text-2xl font-semibold text-pink-700">
+            {currentUser.name[0]}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl text-gray-900" style={{ fontWeight: 700 }}>{currentUser.name}</h2>
+              <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-medium text-pink-700">Paciente</span>
+              {currentUser.verified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                  <Shield className="w-3.5 h-3.5" />
+                  Conta verificada
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-gray-500">{currentUser.email}</p>
+            {profileState.privacy.showCity && (currentUser.locationLabel ?? currentUser.city) && (
+              <p className="mt-2 inline-flex items-center gap-1 text-sm text-gray-500">
+                <MapPin className="w-4 h-4" />
+                {currentUser.locationLabel ?? currentUser.city}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: 'Sonhos publicados', value: myDreams.length, icon: Star, color: 'bg-pink-100 text-pink-700' },
+            { label: 'Propostas recebidas', value: receivedProposals.length, icon: Heart, color: 'bg-rose-100 text-rose-700' },
+            { label: 'Sonhos concluídos', value: completedDreams, icon: Sparkles, color: 'bg-amber-100 text-amber-700' },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${item.color}`}>
+                <item.icon className="w-4 h-4" />
               </div>
-            )}
-            {editing && (
-              <button
-                onClick={() => setShowPhotoModal(true)}
-                className="absolute -bottom-1 -right-1 w-7 h-7 bg-pink-600 hover:bg-pink-700 rounded-full flex items-center justify-center shadow-md transition-colors"
-              >
-                <Camera className="w-3.5 h-3.5 text-white" />
-              </button>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            {editing ? (
-              <input
-                type="text"
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                className="text-gray-800 font-medium text-base w-full border-b border-pink-300 focus:outline-none focus:border-pink-500 pb-0.5 mb-1 bg-transparent"
-              />
-            ) : (
-              <h2 className="text-gray-800 mb-1">{name || currentUser?.name}</h2>
-            )}
-            <p className="text-gray-500 text-sm">{currentUser?.email}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className="text-xs text-pink-600 bg-pink-50 px-2.5 py-1 rounded-full">Paciente</span>
-              {currentUser?.verified && (
-                <span className="text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1">
-                  <Shield className="w-3 h-3" />Verificado
-                </span>
-              )}
-              {(currentUser?.locationLabel ?? currentUser?.city) && (
-                <span className="text-xs text-gray-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />{currentUser.locationLabel ?? currentUser.city}
-                </span>
-              )}
+              <p className="text-2xl text-gray-900" style={{ fontWeight: 700 }}>{item.value}</p>
+              <p className="text-xs text-gray-500 mt-1">{item.label}</p>
             </div>
-          </div>
+          ))}
         </div>
 
-        {/* Bio */}
-        <div className="mt-5 pt-4 border-t border-pink-50">
-          <p className="text-xs text-gray-400 mb-2 font-medium">Sobre mim</p>
-          {editing ? (
+        {activeSection !== 'historico' && (
+          <div className="rounded-2xl border border-pink-100 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-pink-50 px-5 py-4">
             <div>
-              <textarea
-                value={editBio}
-                onChange={e => setEditBio(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2.5 bg-pink-50 border border-pink-100 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"
-              />
+              <h3 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Meus sonhos recentes</h3>
+              <p className="text-xs text-gray-500">Abra o sonho certo e continue a jornada do ponto em que parou.</p>
             </div>
-          ) : (
-            <p className="text-sm text-gray-600 leading-relaxed">{bio}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Sonhos publicados', value: myDreams.length, icon: Star, color: 'bg-pink-100 text-pink-600' },
-          { label: 'Propostas recebidas', value: myProposals.length, icon: Heart, color: 'bg-pink-100 text-pink-600' },
-          { label: 'Sonhos realizados', value: completedDreams, icon: CheckCircle, color: 'bg-green-100 text-green-600' },
-        ].map((item, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
-            <div className={`w-9 h-9 rounded-xl ${item.color} flex items-center justify-center mx-auto mb-2`}>
-              <item.icon className="w-4 h-4" />
-            </div>
-            <p className="text-gray-800 text-xl" style={{ fontWeight: 700 }}>{item.value}</p>
-            <p className="text-gray-500 text-xs mt-0.5">{item.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Recent dreams */}
-      {myDreams.length > 0 && (
-        <div className="bg-white rounded-2xl border border-pink-100 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-pink-50">
-            <h3 className="text-gray-700 text-sm">Meus sonhos recentes</h3>
+            <Link to="/paciente/sonhos/criar" className="text-sm font-medium text-pink-600 hover:text-pink-700">
+              Novo sonho
+            </Link>
           </div>
           <div className="divide-y divide-pink-50">
-            {myDreams.slice(0, 3).map(dream => (
-              <div key={dream.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-base shrink-0">
-                  {dream.category === 'Experiência ao ar livre' ? '🌅' : dream.category === 'Arte e Música' ? '🎵' : dream.category === 'Culinária' ? '🍳' : '✨'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 truncate">{dream.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      dream.status === 'concluido' ? 'bg-green-100 text-green-700' :
-                      dream.status === 'publicado' ? 'bg-blue-100 text-blue-700' :
-                      dream.status === 'em-conversa' ? 'bg-amber-100 text-amber-700' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>{dream.status}</span>
-                    <span className="text-xs text-gray-400">Atualizado em {new Date(dream.updatedAt).toLocaleDateString('pt-BR')}</span>
+            {recentDreams.length === 0 ? (
+              <p className="px-5 py-4 text-sm text-gray-500">Você ainda não publicou sonhos nesta sessão.</p>
+            ) : (
+              recentDreams.map((dream) => (
+                <Link
+                  key={dream.id}
+                  to={buildDreamPath(dream)}
+                  className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-pink-50/60"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>{dream.title}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {dream.category} • Atualizado em {new Date(dream.updatedAt).toLocaleDateString('pt-BR')}
+                    </p>
                   </div>
-                </div>
-                {dream.status === 'em-conversa' && (
-                  <MessageCircle className="w-4 h-4 text-teal-500 shrink-0" />
-                )}
-              </div>
-            ))}
+                  <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-medium text-pink-700">
+                    {dream.status}
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      </section>
 
-      {/* Verification status */}
-      {!currentUser?.verified && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-          <Shield className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-blue-800">Verificação de conta pendente</p>
-            <p className="text-xs text-blue-600 mt-0.5 leading-relaxed">
-              Contas verificadas recebem mais propostas e geram mais confiança nos apoiadores. Envie um documento para verificação.
-            </p>
-            <button className="mt-2 text-xs text-blue-700 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-xl transition-colors font-medium">
-              Solicitar verificação
+      <section className="bg-white rounded-3xl border border-pink-100 p-5 space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'visao-geral' as const, label: 'Visão geral' },
+            { id: 'privacidade' as const, label: 'Privacidade' },
+            { id: 'seguranca' as const, label: 'Segurança' },
+            { id: 'historico' as const, label: 'Histórico' },
+          ].map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => {
+                setActiveSection(section.id);
+                setPrivacyFeedback('');
+                setSecurityFeedback('');
+              }}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeSection === section.id
+                  ? 'bg-pink-600 text-white'
+                  : 'bg-pink-50 text-pink-700 hover:bg-pink-100'
+              }`}
+            >
+              {section.label}
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Settings */}
-      <div className="bg-white rounded-2xl border border-pink-100 overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-pink-50">
-          <h3 className="text-gray-700 text-sm">Configurações</h3>
+          ))}
         </div>
 
-        {/* Notifications toggle */}
-        <button
-          onClick={() => setShowNotifSettings(!showNotifSettings)}
-          className="w-full flex items-center gap-4 px-5 py-4 border-b border-gray-50 hover:bg-pink-50/30 transition-colors text-left"
-        >
-          <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center">
-            <Bell className="w-4 h-4 text-pink-600" />
+        {activeSection === 'visao-geral' && (
+          <div className="rounded-2xl bg-pink-50 p-4 text-sm text-pink-900">
+            Use as seções abaixo para simular ajustes de privacidade, registrar mudanças de segurança e revisar o histórico desta sessão.
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-800">Notificações</p>
-            <p className="text-xs text-gray-500">E-mail e alertas in-app</p>
-          </div>
-          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showNotifSettings ? 'rotate-90' : ''}`} />
-        </button>
+        )}
 
-        {showNotifSettings && (
-          <div className="px-5 pb-4 bg-pink-50/30 border-b border-gray-50">
-            <div className="space-y-3 pt-3">
-              {[
-                { key: 'novasPropostas' as const, label: 'Novas propostas', desc: 'Quando um apoiador enviar uma proposta' },
-                { key: 'chat' as const, label: 'Mensagens no chat', desc: 'Novas mensagens nas conversas ativas' },
-                { key: 'lembretes' as const, label: 'Lembretes de sonhos', desc: 'Lembrar de responder propostas' },
-                { key: 'email' as const, label: 'Resumo por e-mail', desc: 'Resumo semanal da sua conta' },
-              ].map(item => (
-                <div key={item.key} className="flex items-center justify-between py-1">
+        {activeSection === 'privacidade' && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-base text-gray-900" style={{ fontWeight: 700 }}>Privacidade no sandbox</h2>
+              <p className="text-sm text-gray-500">Essas preferências ficam salvas só nesta sessão demonstrativa.</p>
+            </div>
+
+            {[
+              {
+                key: 'showCity' as const,
+                label: 'Mostrar cidade no perfil',
+                description: 'Exibe sua localização resumida nas superfícies do sandbox.',
+              },
+              {
+                key: 'showDreamContext' as const,
+                label: 'Mostrar contexto do sonho',
+                description: 'Mantém lembretes visuais do que você considera importante ao publicar.',
+              },
+              {
+                key: 'highlightSafetyReminder' as const,
+                label: 'Destacar lembretes de segurança',
+                description: 'Mantém avisos de conversa responsável em evidência.',
+              },
+            ].map((item) => {
+              const checked = profileState.privacy[item.key];
+              return (
+                <div key={item.key} className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 p-4">
                   <div>
-                    <p className="text-xs font-medium text-gray-700">{item.label}</p>
-                    <p className="text-xs text-gray-400">{item.desc}</p>
+                    <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>{item.label}</p>
+                    <p className="text-xs text-gray-500 mt-1">{item.description}</p>
                   </div>
                   <button
+                    type="button"
+                    role="switch"
+                    aria-label={item.label}
+                    aria-checked={checked}
                     onClick={() => {
-                      const nextValue = !notifications[item.key];
-                      setNotifications(prev => ({ ...prev, [item.key]: nextValue }));
-                      if (item.key === 'email') {
-                        void notificationsApi.updatePreferences({ emailEnabled: nextValue }).catch(() => {
-                          setNotifications(prev => ({ ...prev, email: !nextValue }));
-                        });
-                      }
+                      setPrivacyFeedback('');
+                      updateProfileState((current) => ({
+                        ...current,
+                        privacy: {
+                          ...current.privacy,
+                          [item.key]: !checked,
+                        },
+                      }));
                     }}
-                    className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${notifications[item.key] ? 'bg-pink-500' : 'bg-gray-300'}`}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${checked ? 'bg-pink-600' : 'bg-gray-300'}`}
                   >
-                    <div className={`w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-transform ${notifications[item.key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                 </div>
-              ))}
+              );
+            })}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSavePrivacy}
+                className="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-pink-700"
+              >
+                Salvar preferências
+              </button>
+              {privacyFeedback && <p className="text-sm text-green-700">{privacyFeedback}</p>}
             </div>
           </div>
         )}
 
-        {[
-          { icon: Lock, label: 'Privacidade', desc: 'Visibilidade do perfil e sonhos' },
-          { icon: Shield, label: 'Segurança', desc: 'Senha e autenticação' },
-          { icon: Clock, label: 'Histórico', desc: 'Ver todas as atividades da conta' },
-        ].map((item, i, arr) => (
-          <button key={i} className={`w-full flex items-center gap-4 px-5 py-4 hover:bg-pink-50/30 transition-colors text-left ${i < arr.length - 1 ? 'border-b border-gray-50' : 'border-b border-gray-50'}`}>
-            <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center">
-              <item.icon className="w-4 h-4 text-pink-600" />
+        {activeSection === 'seguranca' && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-base text-gray-900" style={{ fontWeight: 700 }}>Segurança no sandbox</h2>
+              <p className="text-sm text-gray-500">Registre lembretes visuais para esta sessão sem alterar uma conta real.</p>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-800">{item.label}</p>
-              <p className="text-xs text-gray-500">{item.desc}</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          </button>
-        ))}
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50/50 transition-colors text-left"
-        >
-          <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center">
-            <LogOut className="w-4 h-4 text-red-600" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-red-600">Sair da conta</p>
-            <p className="text-xs text-gray-500">Encerrar sessão atual</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-gray-400" />
-        </button>
-      </div>
-
-      {/* Safety reminder */}
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-        <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-700 leading-relaxed">
-          <strong>Sua segurança é prioridade:</strong> O NextDream nunca exige dinheiro. Se alguém pedir PIX, transferência ou qualquer valor, denuncie imediatamente pelo chat. Sua privacidade está protegida.
-        </p>
-      </div>
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <p className="text-xs text-center text-gray-400 pb-2">NextDream v1.0 • Protótipo</p>
-
-      {/* Floating save bar */}
-      {editing && (
-        <div className="fixed bottom-14 left-0 right-0 z-40 md:left-64">
-          <div className="max-w-2xl mx-auto px-4">
-            <div className="bg-white border border-pink-200 rounded-2xl shadow-lg p-4 flex items-center justify-between gap-3">
-              <p className="text-sm text-gray-600 hidden sm:block">
-                Você tem alterações não salvas
-              </p>
-              <p className="text-sm text-gray-600 sm:hidden">
-                Alterações pendentes
-              </p>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={saving}
-                  className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 text-sm bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors disabled:opacity-80"
-                  style={{ fontWeight: 600 }}
-                >
-                  {saving ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
-                  ) : (
-                    <><Save className="w-4 h-4" /> Salvar alterações</>
-                  )}
-                </button>
+            <div className="rounded-2xl border border-gray-100 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm text-gray-800">
+                <Shield className="w-4 h-4 text-pink-600" />
+                Conversas financeiras continuam bloqueadas no sandbox.
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-800">
+                <Bell className="w-4 h-4 text-pink-600" />
+                Notificações por e-mail: {emailEnabled ? 'ativas' : 'desativadas'}.
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-800">
+                <Sparkles className="w-4 h-4 text-pink-600" />
+                Seu lembrete visual de segurança está {profileState.privacy.highlightSafetyReminder ? 'ativo' : 'oculto'}.
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Photo modal */}
-      {showPhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowPhotoModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-gray-800" style={{ fontWeight: 600 }}>Foto do perfil</h3>
-              <button onClick={() => setShowPhotoModal(false)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
+            <button
+              type="button"
+              onClick={handleSaveSecurity}
+              className="rounded-xl border border-pink-200 px-4 py-2.5 text-sm font-medium text-pink-700 hover:bg-pink-50"
+            >
+              Registrar ajuste
+            </button>
+            {securityFeedback && <p className="text-sm text-green-700">{securityFeedback}</p>}
+          </div>
+        )}
+
+        {activeSection === 'historico' && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-base text-gray-900" style={{ fontWeight: 700 }}>Histórico desta sessão</h2>
+              <p className="text-sm text-gray-500">Uma linha do tempo simples com sonhos e propostas já carregados no sandbox.</p>
             </div>
-            <div className="p-5 flex flex-col items-center gap-4">
-              {displayAvatar ? (
-                <img src={displayAvatar} alt="Avatar" className="w-24 h-24 rounded-2xl object-cover" />
-              ) : (
-                <div className="w-24 h-24 rounded-2xl bg-pink-100 flex items-center justify-center text-pink-700 text-4xl font-semibold">
-                  {currentUser?.name?.[0] || 'A'}
+
+            <div className="space-y-3">
+              {historyEntries.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+                  Assim que você publicar sonhos ou receber propostas, os eventos aparecem aqui.
                 </div>
+              ) : (
+                historyEntries.map((entry) => (
+                  <div key={entry.id} className="rounded-2xl border border-gray-100 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        {entry.path ? (
+                          <Link to={entry.path} className="text-sm text-gray-900 hover:text-pink-700" style={{ fontWeight: 600 }}>
+                            {entry.title}
+                          </Link>
+                        ) : (
+                          <p className="text-sm text-gray-900" style={{ fontWeight: 600 }}>{entry.title}</p>
+                        )}
+                        <p className="mt-1 text-sm text-gray-500">{entry.description}</p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-gray-400">
+                        <Bell className="w-3.5 h-3.5" />
+                        {new Date(entry.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                ))
               )}
-              <div className="w-full space-y-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center justify-center gap-2 w-full bg-pink-600 hover:bg-pink-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
-                >
-                  <Camera className="w-4 h-4" />
-                  {displayAvatar ? 'Trocar foto' : 'Enviar foto'}
-                </button>
-                {displayAvatar && (
-                  <button
-                    onClick={handleRemovePhoto}
-                    className="flex items-center justify-center gap-2 w-full border border-red-200 text-red-600 hover:bg-red-50 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Remover foto
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 text-center">JPG, PNG ou GIF. Tamanho máximo: 5MB</p>
             </div>
           </div>
+        )}
+      </section>
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
         </div>
       )}
     </div>

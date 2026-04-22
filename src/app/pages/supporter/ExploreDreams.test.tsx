@@ -88,6 +88,36 @@ const dreamsFixture: PublicDream[] = [
     createdAt: '2026-04-10T12:00:00.000Z',
     updatedAt: '2026-04-10T12:00:00.000Z',
   },
+  {
+    id: 'dream-family',
+    title: 'Gravar mensagens para meus netos',
+    description: 'Quero organizar lembranças em vídeo.',
+    category: 'Família e Memórias',
+    format: 'remoto',
+    urgency: 'media',
+    privacy: 'publico',
+    status: 'publicado',
+    patientId: 'patient-5',
+    patientName: 'Elias',
+    patientCity: 'Recife',
+    createdAt: '2026-04-10T12:00:00.000Z',
+    updatedAt: '2026-04-10T12:00:00.000Z',
+  },
+  {
+    id: 'dream-wellbeing',
+    title: 'Aula leve de alongamento',
+    description: 'Busco um encontro curto e acolhedor.',
+    category: 'Saúde e Bem-estar',
+    format: 'presencial',
+    urgency: 'baixa',
+    privacy: 'publico',
+    status: 'publicado',
+    patientId: 'patient-6',
+    patientName: 'Fernanda',
+    patientCity: 'João Pessoa',
+    createdAt: '2026-04-10T12:00:00.000Z',
+    updatedAt: '2026-04-10T12:00:00.000Z',
+  },
 ];
 
 function renderPage() {
@@ -148,6 +178,20 @@ describe('ExploreDreams', () => {
     expect(screen.getByText('Cozinhar receita de família')).toBeInTheDocument();
     expect(screen.getByText('Montar meu primeiro computador')).toBeInTheDocument();
     expect(screen.getByText('Visita calma ao museu')).toBeInTheDocument();
-    expect(screen.getByText('4 sonhos aguardando um apoiador como você')).toBeInTheDocument();
+    expect(screen.getByText('6 sonhos aguardando um apoiador como você')).toBeInTheDocument();
+  });
+
+  it('paginates the filtered supporter catalog on the client', async () => {
+    renderPage();
+
+    expect(await screen.findByText('Sessão de violão no parque')).toBeInTheDocument();
+    expect(screen.getByText(/página 1 de 2/i)).toBeInTheDocument();
+    expect(screen.queryByText('Aula leve de alongamento')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/próxima página/i));
+
+    expect(await screen.findByText('Aula leve de alongamento')).toBeInTheDocument();
+    expect(screen.getByText(/página 2 de 2/i)).toBeInTheDocument();
+    expect(screen.queryByText('Sessão de violão no parque')).not.toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { Plus, Star, Search, SlidersHorizontal, X, Edit, CheckCircle } from 'luc
 import { useEffect, useState } from 'react';
 import { DreamStatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
+import { EntityPagination } from '../../components/shared/EntityPagination';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
@@ -17,6 +18,14 @@ const statusOptions: { value: DreamStatus; label: string }[] = [
   { value: 'rascunho', label: 'Rascunho' },
   { value: 'pausado', label: 'Pausado' },
 ];
+
+const formatOptions: Array<{ val: PublicDream['format']; label: string }> = [
+  { val: 'remoto', label: '💻 Online' },
+  { val: 'presencial', label: '📍 Presencial' },
+  { val: 'ambos', label: '🤝 Ambos' },
+];
+
+const PAGE_SIZE = 6;
 
 const categoryTheme: Record<string, { img: string; accent: string; tagColor: string }> = {
   'Experiência ao ar livre': { img: 'https://images.unsplash.com/photo-1480882194365-f8653456ca74?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuYXR1cmUlMjBsYW5kc2NhcGUlMjBob3BlfGVufDF8fHx8MTc3MjgyMTE2OHww&ixlib=rb-4.1.0&q=80&w=1080', accent: 'from-green-800/70', tagColor: 'bg-green-100 text-green-700' },
@@ -33,19 +42,33 @@ export default function MyDreams() {
   const [myDreams, setMyDreams] = useState<PublicDream[]>([]);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     status: '' as DreamStatus | '',
     category: '',
-    format: '',
+    format: '' as PublicDream['format'] | '',
   });
 
   useEffect(() => {
     let mounted = true;
     async function loadDreams() {
       try {
-        const dreams = await dreamsApi.listMine();
-        if (mounted) setMyDreams(dreams);
+        setError('');
+        const response = await dreamsApi.listMinePage({
+          page,
+          pageSize: PAGE_SIZE,
+          query,
+          status: filters.status,
+          category: filters.category,
+          format: filters.format,
+        });
+        if (!mounted) return;
+        setMyDreams(response.items);
+        setTotal(response.total);
+        setTotalPages(response.totalPages);
       } catch (err) {
         if (err instanceof ApiError) setError(err.message);
         else setError('Não foi possível carregar seus sonhos.');
@@ -55,17 +78,12 @@ export default function MyDreams() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [filters.category, filters.format, filters.status, page, query]);
 
-  const filtered = myDreams.filter(d => {
-    if (query && !d.title.toLowerCase().includes(query.toLowerCase()) && !d.description.toLowerCase().includes(query.toLowerCase())) return false;
-    if (filters.status && d.status !== filters.status) return false;
-    if (filters.category && d.category !== filters.category) return false;
-    if (filters.format && d.format !== filters.format && d.format !== 'ambos') return false;
-    return true;
-  });
-
-  const clearFilters = () => setFilters({ status: '', category: '', format: '' });
+  const clearFilters = () => {
+    setFilters({ status: '', category: '', format: '' });
+    setPage(1);
+  };
   const hasFilters = !!(filters.status || filters.category || filters.format);
 
   return (
@@ -73,7 +91,7 @@ export default function MyDreams() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Meus Sonhos</h1>
-          <p className="text-gray-500 text-sm">{myDreams.length} {myDreams.length === 1 ? 'sonho' : 'sonhos'} no total</p>
+          <p className="text-gray-500 text-sm">{total} {total === 1 ? 'sonho' : 'sonhos'} no total</p>
         </div>
         <Link to="/paciente/sonhos/criar"
           className="flex items-center gap-2 bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors">
@@ -88,7 +106,10 @@ export default function MyDreams() {
           <input
             type="text"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por título, descrição..."
             className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
           />
@@ -123,7 +144,10 @@ export default function MyDreams() {
               {statusOptions.map(s => (
                 <button
                   key={s.value}
-                  onClick={() => setFilters(f => ({ ...f, status: f.status === s.value ? '' : s.value }))}
+                  onClick={() => {
+                    setFilters(f => ({ ...f, status: f.status === s.value ? '' : s.value }));
+                    setPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
                     ${filters.status === s.value ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-200 text-gray-600 hover:border-pink-200'}`}
                 >
@@ -140,7 +164,10 @@ export default function MyDreams() {
               {DREAM_CATEGORIES.slice(0, 8).map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setFilters(f => ({ ...f, category: f.category === cat ? '' : cat }))}
+                  onClick={() => {
+                    setFilters(f => ({ ...f, category: f.category === cat ? '' : cat }));
+                    setPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
                     ${filters.category === cat ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-200 text-gray-600 hover:border-pink-200'}`}
                 >
@@ -154,14 +181,13 @@ export default function MyDreams() {
           <div>
             <p className="text-xs text-gray-500 mb-2">Formato</p>
             <div className="flex gap-2">
-              {[
-                { val: 'remoto', label: '💻 Online' },
-                { val: 'presencial', label: '📍 Presencial' },
-                { val: 'ambos', label: '🤝 Ambos' },
-              ].map(f => (
+              {formatOptions.map(f => (
                 <button
                   key={f.val}
-                  onClick={() => setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }))}
+                  onClick={() => {
+                    setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }));
+                    setPage(1);
+                  }}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
                     ${filters.format === f.val ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-200 text-gray-600 hover:border-pink-200'}`}
                 >
@@ -179,26 +205,35 @@ export default function MyDreams() {
           {filters.status && (
             <span className="flex items-center gap-1.5 bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs">
               {statusOptions.find(s => s.value === filters.status)?.label}
-              <button onClick={() => setFilters(f => ({ ...f, status: '' }))}><X className="w-3 h-3" /></button>
+              <button onClick={() => {
+                setFilters(f => ({ ...f, status: '' }));
+                setPage(1);
+              }}><X className="w-3 h-3" /></button>
             </span>
           )}
           {filters.category && (
             <span className="flex items-center gap-1.5 bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs">
               {filters.category}
-              <button onClick={() => setFilters(f => ({ ...f, category: '' }))}><X className="w-3 h-3" /></button>
+              <button onClick={() => {
+                setFilters(f => ({ ...f, category: '' }));
+                setPage(1);
+              }}><X className="w-3 h-3" /></button>
             </span>
           )}
           {filters.format && (
             <span className="flex items-center gap-1.5 bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs">
               {filters.format === 'remoto' ? '💻 Online' : filters.format === 'presencial' ? '📍 Presencial' : '🤝 Ambos'}
-              <button onClick={() => setFilters(f => ({ ...f, format: '' }))}><X className="w-3 h-3" /></button>
+              <button onClick={() => {
+                setFilters(f => ({ ...f, format: '' }));
+                setPage(1);
+              }}><X className="w-3 h-3" /></button>
             </span>
           )}
         </div>
       )}
 
       {/* Dreams list */}
-      {filtered.length === 0 ? (
+      {myDreams.length === 0 ? (
         <EmptyState
           icon={Star}
           title="Nenhum sonho encontrado"
@@ -210,7 +245,7 @@ export default function MyDreams() {
         />
       ) : (
         <div className="grid sm:grid-cols-2 gap-6 mt-8">
-          {filtered.map(dream => {
+          {myDreams.map(dream => {
             const theme = categoryTheme[dream.category] || categoryTheme['Outro'];
             const dreamLink = dream.canEdit === false ? `/paciente/sonhos/${dream.id}` : `/paciente/sonhos/editar/${dream.id}`;
             return (
@@ -280,6 +315,7 @@ export default function MyDreams() {
           })}
         </div>
       )}
+      <EntityPagination page={page} totalPages={totalPages} onPageChange={setPage} />
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
           {error}

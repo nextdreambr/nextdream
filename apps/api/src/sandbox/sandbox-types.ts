@@ -38,6 +38,9 @@ export interface SandboxManagedPatient {
   name: string;
   state?: string;
   city?: string;
+  caseSummary?: string;
+  supportContext?: string;
+  careFocus?: string;
   pendingInviteEmail?: string;
   pendingInviteExpiresAt?: Date;
   createdAt: Date;
@@ -87,6 +90,7 @@ export interface SandboxMessage {
   senderId: string;
   body: string;
   moderated: boolean;
+  moderationReason?: 'financeiro';
   createdAt: Date;
 }
 

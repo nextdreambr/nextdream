@@ -166,11 +166,15 @@ function SandboxTourOverlay({
 
           <div className="space-y-4 text-sm leading-6 text-slate-600">
             <div>
-              <p className="mb-1 font-medium text-slate-950">O que fazer aqui</p>
-              <p>{step.label}</p>
+              <p className="mb-1 font-medium text-slate-950">O que você vê nesta etapa</p>
+              <p>{step.see}</p>
             </div>
             <div>
-              <p className="mb-1 font-medium text-slate-950">Por que isso importa</p>
+              <p className="mb-1 font-medium text-slate-950">O que fazer agora</p>
+              <p>{step.action}</p>
+            </div>
+            <div>
+              <p className="mb-1 font-medium text-slate-950">Por que isso vale a pena</p>
               <p>{step.why}</p>
             </div>
           </div>
@@ -192,7 +196,7 @@ function SandboxTourOverlay({
               {isLastStep ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Concluir tour
+                  Encerrar tour e explorar
                 </>
               ) : (
                 <>

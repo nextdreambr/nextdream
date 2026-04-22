@@ -442,6 +442,99 @@ describe('Sandbox API', () => {
     expect(conversations.body.length).toBeGreaterThan(0);
   });
 
+  it('seeds richer sandbox templates per persona so the demo feels populated', async () => {
+    const patientSession = await demoLogin('paciente');
+    const patientAuthHeader = { Authorization: `Bearer ${patientSession.accessToken}` };
+
+    const patientDreams = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=6')
+      .set(patientAuthHeader);
+
+    expect(patientDreams.status).toBe(200);
+    expect(patientDreams.body.total).toBeGreaterThanOrEqual(10);
+    expect(patientDreams.body.totalPages).toBeGreaterThan(1);
+
+    const supporterSession = await demoLogin('apoiador');
+    const supporterAuthHeader = { Authorization: `Bearer ${supporterSession.accessToken}` };
+
+    const supporterProposals = await request(app.getHttpServer())
+      .get('/proposals/mine')
+      .set(supporterAuthHeader);
+    const supporterConversations = await request(app.getHttpServer())
+      .get('/conversations/mine')
+      .set(supporterAuthHeader);
+
+    expect(supporterProposals.status).toBe(200);
+    expect(supporterConversations.status).toBe(200);
+    expect(supporterProposals.body.length).toBeGreaterThanOrEqual(3);
+    expect(supporterConversations.body.length).toBeGreaterThanOrEqual(2);
+
+    const institutionSession = await demoLogin('instituicao');
+    const institutionAuthHeader = { Authorization: `Bearer ${institutionSession.accessToken}` };
+
+    const institutionPatients = await request(app.getHttpServer())
+      .get('/institution/patients')
+      .set(institutionAuthHeader);
+    const institutionDreams = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=6')
+      .set(institutionAuthHeader);
+
+    expect(institutionPatients.status).toBe(200);
+    expect(institutionDreams.status).toBe(200);
+    expect(institutionPatients.body.length).toBeGreaterThanOrEqual(10);
+    expect(institutionDreams.body.total).toBeGreaterThanOrEqual(10);
+  });
+
+  it('serializes seeded moderated messages and blocks financial language in sandbox chat sends', async () => {
+    const session = await demoLogin('paciente');
+    const authHeader = { Authorization: `Bearer ${session.accessToken}` };
+
+    const conversations = await request(app.getHttpServer())
+      .get('/conversations/mine')
+      .set(authHeader);
+
+    expect(conversations.status).toBe(200);
+    expect(conversations.body.length).toBeGreaterThan(0);
+
+    let conversationId: string | null = null;
+    let messages: request.Response | null = null;
+
+    for (const conversation of conversations.body as Array<{ id: string }>) {
+      const currentMessages = await request(app.getHttpServer())
+        .get(`/conversations/${conversation.id}/messages`)
+        .set(authHeader);
+
+      expect(currentMessages.status).toBe(200);
+
+      if (currentMessages.body.some((message: { moderated: boolean }) => message.moderated)) {
+        conversationId = conversation.id;
+        messages = currentMessages;
+        break;
+      }
+    }
+
+    if (!conversationId || !messages) {
+      throw new Error('Expected at least one seeded conversation with moderated messages');
+    }
+
+    const blockedAttempt = await request(app.getHttpServer())
+      .post(`/conversations/${conversationId}/messages`)
+      .set(authHeader)
+      .send({
+        body: 'Posso mandar um PIX para resolver isso mais rápido.',
+      });
+
+    expect(blockedAttempt.status).toBe(400);
+    expect(blockedAttempt.body.message).toMatch(/pix|dinheiro|doa/i);
+
+    const messagesAfterBlockedAttempt = await request(app.getHttpServer())
+      .get(`/conversations/${conversationId}/messages`)
+      .set(authHeader);
+
+    expect(messagesAfterBlockedAttempt.status).toBe(200);
+    expect(messagesAfterBlockedAttempt.body).toHaveLength(messages.body.length);
+  });
+
   it('supports institution overview, managed patients and institution-owned dreams without a database', async () => {
     const session = await demoLogin('instituicao');
     const authHeader = { Authorization: `Bearer ${session.accessToken}` };

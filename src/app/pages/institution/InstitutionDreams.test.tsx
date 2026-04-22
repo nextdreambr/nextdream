@@ -40,6 +40,7 @@ describe('InstitutionDreams', () => {
         institutionName: 'Casa Esperanca',
         patientName: 'Maria das Dores',
         patientCity: 'Recife, PE',
+        patientContext: 'Beneficiária com preferência por atividades curtas e ambiente silencioso.',
         createdAt: '2026-04-19T10:00:00.000Z',
         updatedAt: '2026-04-19T10:00:00.000Z',
       }],
@@ -58,6 +59,8 @@ describe('InstitutionDreams', () => {
     expect(await screen.findByText('Oficina de musica suave')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/buscar sonhos/i)).toBeInTheDocument();
     expect(screen.getByText(/página 1 de 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/recife, pe/i)).toBeInTheDocument();
+    expect(screen.getByText(/beneficiária com preferência por atividades curtas/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /editar sonho oficina de musica suave/i })).toHaveAttribute(
       'href',
       '/instituicao/sonhos/editar/dream-1',

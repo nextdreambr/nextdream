@@ -10,6 +10,7 @@ import { JwtPayload } from '../modules/auth/jwt-auth.guard';
 import { CloseConversationDto } from '../modules/conversations/dto/close-conversation.dto';
 import { CreateMessageDto } from '../modules/conversations/dto/create-message.dto';
 import { SandboxNotificationsService } from './sandbox-notifications.service';
+import { containsFinancialLanguage, getSandboxFinancialModerationMessage } from './sandbox-financial-moderation';
 import { SandboxStateService } from './sandbox-state.service';
 import { SandboxConversation, SandboxMessage, SandboxSessionState } from './sandbox-types';
 
@@ -67,6 +68,9 @@ export class SandboxConversationsService {
     }
     if (body.length === 0) {
       throw new BadRequestException('Message body cannot be empty');
+    }
+    if (containsFinancialLanguage(body)) {
+      throw new BadRequestException(getSandboxFinancialModerationMessage());
     }
 
     const message: SandboxMessage = {
