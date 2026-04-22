@@ -124,6 +124,37 @@ export class SandboxInstitutionService {
     const conversations = session.conversations
       .filter((conversation) => conversation.patientId === institution.id && conversation.managedPatientId === managedPatientId)
       .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+    const timeline = [
+      ...dreams.map((dream) => ({
+        id: `timeline-dream-${dream.id}`,
+        type: 'sonho' as const,
+        title: 'Sonho publicado com apoio da instituição',
+        description: `${dream.title} • ${dream.status}.`,
+        createdAt: dream.createdAt,
+      })),
+      ...proposals.map((proposal) => ({
+        id: `timeline-proposal-${proposal.id}`,
+        type: 'proposta' as const,
+        title: `Proposta ${proposal.status} para o caso`,
+        description: `${
+          session.users.find((user) => user.id === proposal.supporterId)?.name ?? 'Apoiador'
+        } respondeu ao sonho "${
+          dreams.find((dream) => dream.id === proposal.dreamId)?.title ?? 'Sem título'
+        }".`,
+        createdAt: proposal.createdAt,
+      })),
+      ...conversations.map((conversation) => ({
+        id: `timeline-conversation-${conversation.id}`,
+        type: 'conversa' as const,
+        title: conversation.status === 'ativa' ? 'Conversa ativa com apoiador' : 'Conversa encerrada',
+        description: `${
+          session.users.find((user) => user.id === conversation.supporterId)?.name ?? 'Apoiador'
+        } está vinculado ao sonho "${
+          dreams.find((dream) => dream.id === conversation.dreamId)?.title ?? 'Sem título'
+        }".`,
+        createdAt: conversation.createdAt,
+      })),
+    ].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
 
     return {
       patient: this.serializePatient(session, patient),
@@ -158,6 +189,7 @@ export class SandboxInstitutionService {
         proposals: proposals.length,
         activeConversations: conversations.filter((conversation) => conversation.status === 'ativa').length,
       },
+      timeline,
     };
   }
 
@@ -315,6 +347,9 @@ export class SandboxInstitutionService {
       state: patient.state,
       city: patient.city,
       locationLabel: buildLocationLabel(patient),
+      caseSummary: patient.caseSummary,
+      supportContext: patient.supportContext,
+      careFocus: patient.careFocus,
       createdAt: patient.createdAt,
       updatedAt: patient.updatedAt,
     };

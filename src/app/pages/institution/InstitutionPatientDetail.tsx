@@ -116,7 +116,7 @@ export default function InstitutionPatientDetail() {
   }
 
   if (loading) {
-    return <div className="max-w-5xl mx-auto py-8 text-sm text-gray-500">Carregando prontuário do paciente...</div>;
+    return <div className="max-w-5xl mx-auto py-8 text-sm text-gray-500">Carregando visão do caso...</div>;
   }
 
   if (!detail) {
@@ -189,15 +189,53 @@ export default function InstitutionPatientDetail() {
               <p className="text-xs text-gray-500 mt-1">O beneficiário continua identificado como paciente, enquanto a instituição opera o fluxo com apoiadores.</p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
+            <div className="grid gap-4 md:grid-cols-2 text-sm">
+              <div className="rounded-2xl bg-indigo-50 p-4">
+                <p className="text-indigo-500 text-xs mb-1">Resumo operacional</p>
+                <p className="text-gray-700">{patient.caseSummary ?? 'Contexto do caso em construção.'}</p>
+              </div>
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <p className="text-gray-400 text-xs mb-1">Contexto de apoio</p>
+                <p className="text-gray-700">{patient.supportContext ?? 'Sem detalhes adicionais informados.'}</p>
+              </div>
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <p className="text-gray-400 text-xs mb-1">Foco de cuidado</p>
+                <p className="text-gray-700">{patient.careFocus ?? 'A definir com a equipe.'}</p>
+              </div>
               <div className="rounded-2xl bg-gray-50 p-4">
                 <p className="text-gray-400 text-xs mb-1">Conta vinculada</p>
                 <p className="text-gray-700">{patient.linkedUserEmail ?? 'Ainda não ativada'}</p>
               </div>
-              <div className="rounded-2xl bg-gray-50 p-4">
+              <div className="rounded-2xl bg-gray-50 p-4 md:col-span-2">
                 <p className="text-gray-400 text-xs mb-1">Convite pendente</p>
                 <p className="text-gray-700">{patient.pendingInviteEmail ?? 'Nenhum convite pendente'}</p>
               </div>
+            </div>
+          </section>
+
+          <section className="bg-white border border-indigo-100 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-indigo-100">
+              <h2 className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Linha do tempo do caso</h2>
+              <p className="text-xs text-gray-500 mt-1">Um resumo dos sonhos, propostas, conversas e marcos da sessão.</p>
+            </div>
+            <div className="divide-y divide-indigo-50">
+              {detail.timeline.length === 0 ? (
+                <div className="px-5 py-6 text-sm text-gray-500">Ainda não há eventos registrados para este caso.</div>
+              ) : (
+                detail.timeline.map((entry) => (
+                  <div key={entry.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>{entry.title}</p>
+                        <p className="text-sm text-gray-500 mt-1">{entry.description}</p>
+                      </div>
+                      <span className="whitespace-nowrap text-xs text-gray-400">
+                        {new Date(entry.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 

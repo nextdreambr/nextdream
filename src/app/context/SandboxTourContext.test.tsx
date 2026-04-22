@@ -127,19 +127,22 @@ describe('SandboxTourProvider', () => {
 
     await screen.findByRole('dialog', { name: /tour guiado do apoiador/i });
     expect(screen.getByText(/passo 1 de 4/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /veja o painel com sonhos, propostas e conexoes/i })).toBeInTheDocument();
+    expect(screen.getByText(/o que você vê nesta etapa/i)).toBeInTheDocument();
+    expect(screen.getByText(/o que fazer agora/i)).toBeInTheDocument();
+    expect(screen.getByText(/por que isso vale a pena/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /veja o painel com sonhos, propostas e conversas/i })).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent('/apoiador/dashboard');
 
     fireEvent.click(screen.getByRole('button', { name: /proximo passo/i }));
-    await screen.findByRole('heading', { name: /encontre um sonho para apoiar/i });
+    await screen.findByRole('heading', { name: /explore os sonhos e escolha onde você quer chegar junto/i });
     expect(screen.getByTestId('current-path')).toHaveTextContent('/apoiador/explorar');
 
     fireEvent.click(screen.getByRole('button', { name: /proximo passo/i }));
-    await screen.findByRole('heading', { name: /acompanhe as propostas que voce enviou/i });
+    await screen.findByRole('heading', { name: /acompanhe as respostas e retome contatos sem se perder/i });
     expect(screen.getByTestId('current-path')).toHaveTextContent('/apoiador/propostas');
 
     fireEvent.click(screen.getByRole('button', { name: /proximo passo/i }));
-    await screen.findByRole('heading', { name: /continue a conversa quando a conexao acontecer/i });
+    await screen.findByRole('heading', { name: /combine os próximos passos quando a conexão for aceita/i });
     expect(screen.getByTestId('current-path')).toHaveTextContent('/apoiador/chat');
   });
 
@@ -169,15 +172,15 @@ describe('SandboxTourProvider', () => {
     await screen.findByRole('dialog', { name: /tour guiado do paciente/i });
 
     fireEvent.click(screen.getByRole('button', { name: /proximo passo/i }));
-    await screen.findByRole('heading', { name: /publique o sonho que voce quer compartilhar/i });
+    await screen.findByRole('heading', { name: /crie um sonho com clareza para receber apoios compatíveis/i });
 
     fireEvent.click(screen.getByRole('button', { name: /proximo passo/i }));
-    await screen.findByRole('heading', { name: /acompanhe quem quer ajudar e responda com calma/i });
+    await screen.findByRole('heading', { name: /veja quem respondeu e avance só com quem fizer sentido/i });
 
     fireEvent.click(screen.getByRole('button', { name: /proximo passo/i }));
-    await screen.findByRole('heading', { name: /use o chat para combinar os proximos passos com seguranca/i });
+    await screen.findByRole('heading', { name: /combine detalhes com segurança quando a ajuda for confirmada/i });
 
-    fireEvent.click(screen.getByRole('button', { name: /concluir tour/i }));
+    fireEvent.click(screen.getByRole('button', { name: /encerrar tour e explorar/i }));
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: /tour guiado do paciente/i })).not.toBeInTheDocument();
@@ -192,10 +195,10 @@ describe('SandboxTourProvider', () => {
     renderSandboxTour('/instituicao/dashboard');
 
     await waitFor(() => {
-      expect(screen.getByText(/experiencia de apresentacao/i)).toBeInTheDocument();
+      expect(screen.getByText(/ambiente de demonstração/i)).toBeInTheDocument();
       expect(screen.getByText('Instituição')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /recomecar experiencia/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /ver tour guiado/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /recomeçar demo/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /ver tour/i })).toBeInTheDocument();
     });
   });
 

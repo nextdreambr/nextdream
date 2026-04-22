@@ -136,6 +136,11 @@ export default function InstitutionDreams() {
                   <p className="text-sm text-gray-500">
                     {dream.patientName} {dream.patientCity ? `• ${dream.patientCity}` : ''}
                   </p>
+                  {dream.patientContext && (
+                    <p className="text-sm text-indigo-700 bg-indigo-50 rounded-2xl px-3 py-2">
+                      {dream.patientContext}
+                    </p>
+                  )}
                   {dream.institutionName && (
                     <p className="text-xs text-indigo-600">Paciente beneficiário operado por {dream.institutionName}</p>
                   )}
