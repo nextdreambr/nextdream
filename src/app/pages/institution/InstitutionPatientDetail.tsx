@@ -132,6 +132,7 @@ export default function InstitutionPatientDetail() {
   }
 
   const patient = detail.patient;
+  const timeline = detail.timeline ?? [];
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -219,10 +220,10 @@ export default function InstitutionPatientDetail() {
               <p className="text-xs text-gray-500 mt-1">Um resumo dos sonhos, propostas, conversas e marcos da sessão.</p>
             </div>
             <div className="divide-y divide-indigo-50">
-              {detail.timeline.length === 0 ? (
+              {timeline.length === 0 ? (
                 <div className="px-5 py-6 text-sm text-gray-500">Ainda não há eventos registrados para este caso.</div>
               ) : (
-                detail.timeline.map((entry) => (
+                timeline.map((entry) => (
                   <div key={entry.id} className="px-5 py-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
