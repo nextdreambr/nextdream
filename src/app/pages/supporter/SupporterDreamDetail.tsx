@@ -2,8 +2,10 @@ import { useParams, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, MapPin, Video, MapPinned, Clock, Send, AlertTriangle, Heart, MessageCircle } from 'lucide-react';
 import { DreamStatusBadge, ProposalStatusBadge, UrgencyBadge } from '../../components/shared/StatusBadge';
+import { useApp } from '../../context/AppContext';
 import { ApiError, Proposal, PublicDream, dreamsApi, proposalsApi } from '../../lib/api';
 import { buildProposalMapByDream } from '../../lib/proposals';
+import { recordSandboxDreamVisit } from '../../lib/sandboxProfileState';
 
 const templates = [
   { label: '💻 Video', text: 'Posso te ajudar por videochamada! Tenho disponibilidade nos fins de semana e seria uma honra conhecer sua história.' },
@@ -14,6 +16,7 @@ const templates = [
 export default function SupporterDreamDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { currentUser } = useApp();
   const [dream, setDream] = useState<PublicDream | null>(null);
   const [loadingDream, setLoadingDream] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -69,6 +72,15 @@ export default function SupporterDreamDetail() {
       mounted = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!dream || !currentUser || currentUser.role !== 'apoiador') return;
+    recordSandboxDreamVisit(currentUser.id, 'apoiador', {
+      dreamId: dream.id,
+      title: dream.title,
+      path: `/apoiador/sonhos/${dream.id}`,
+    });
+  }, [currentUser, dream]);
 
   const handleMsgChange = (val: string) => {
     if (BLOCKED.some(w => val.toLowerCase().includes(w))) {
