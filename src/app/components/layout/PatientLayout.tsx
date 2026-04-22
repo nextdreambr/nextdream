@@ -43,9 +43,9 @@ export function PatientLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex pb-12">
+    <div className="min-h-screen bg-background flex pb-12 md:pb-0">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-pink-100 fixed h-full z-30">
+      <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col bg-white border-r border-pink-100">
         <div className="p-5 border-b border-pink-100">
           <Link to="/paciente/dashboard" className="flex items-center">
             <img src={logoImg} alt="NextDream" className="h-8 w-auto" />
@@ -148,7 +148,7 @@ export function PatientLayout() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Top bar */}
         <header className="sticky top-0 z-20 bg-white border-b border-pink-100 px-4 sm:px-6 h-14 flex items-center justify-between">
           <button className="md:hidden p-1.5 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(true)}>
