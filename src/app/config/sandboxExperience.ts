@@ -58,7 +58,7 @@ export const sandboxExperienceConfig = {
     badge: 'Ambiente de demonstração',
     title: 'Você está navegando em uma jornada de apresentação.',
     description: 'Pode testar, rever o tour e recomeçar a demo quando quiser.',
-    restartCta: 'Recomeçar demo',
+    restartCta: 'Recomeçar experiência',
     tourCta: 'Ver tour guiado',
     roleLabels: {
       paciente: 'Paciente',

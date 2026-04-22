@@ -92,7 +92,12 @@ describe('SandboxAccess', () => {
     expect(screen.getByText(/este é um ambiente de demonstração/i)).toBeInTheDocument();
     expect(screen.getByText(/você pode recomeçar quando quiser/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /entrar como apoiador/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /ver tour/i })).toHaveLength(3);
+    const tourButtons = screen.getAllByRole('button', { name: /ver tour/i });
+    expect(tourButtons).toHaveLength(3);
+    for (const button of tourButtons) {
+      expect(button).toHaveClass('text-center');
+      expect(button).toHaveClass('sm:whitespace-nowrap');
+    }
     expect(screen.queryByText(/regras desta demo/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/mesmas apis principais/i)).not.toBeInTheDocument();
   });
@@ -136,7 +141,7 @@ describe('SandboxAccess', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar como paciente/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/nao foi possivel abrir essa experiencia agora/i)).toBeInTheDocument();
+      expect(screen.getByText(/não foi possível abrir esta experiência agora/i)).toBeInTheDocument();
     });
   });
 });

@@ -197,7 +197,7 @@ describe('SandboxTourProvider', () => {
     await waitFor(() => {
       expect(screen.getByText(/ambiente de demonstração/i)).toBeInTheDocument();
       expect(screen.getByText('Instituição')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /recomeçar demo/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /recomeçar experiência/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /ver tour/i })).toBeInTheDocument();
     });
   });

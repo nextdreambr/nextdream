@@ -68,7 +68,7 @@ export default function SandboxAccess() {
       if (options?.startTour) {
         clearSandboxTourLaunch();
       }
-      setError('Nao foi possivel abrir essa experiencia agora. Tente novamente em instantes.');
+      setError('Não foi possível abrir esta experiência agora. Tente novamente em instantes.');
     } finally {
       setLoadingPersona(null);
     }
@@ -144,7 +144,7 @@ export default function SandboxAccess() {
                     type="button"
                     onClick={() => void handleSandboxLogin(card.persona)}
                     disabled={loadingPersona !== null}
-                    className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-slate-800 sm:whitespace-nowrap disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
                     {loading ? (
                       <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -156,7 +156,7 @@ export default function SandboxAccess() {
                     type="button"
                     onClick={() => setPreviewPersona(card.persona)}
                     disabled={loadingPersona !== null}
-                    className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 sm:whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <PlayCircle className="h-4 w-4" />
                     {content.tourCta}
@@ -226,7 +226,7 @@ export default function SandboxAccess() {
                 type="button"
                 onClick={() => void handleSandboxLogin(previewPersona, { startTour: true })}
                 disabled={loadingPersona !== null}
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-slate-800 sm:whitespace-nowrap disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {loadingPersona === previewPersona ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
