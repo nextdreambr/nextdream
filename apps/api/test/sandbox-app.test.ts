@@ -485,6 +485,38 @@ describe('Sandbox API', () => {
     expect(institutionDreams.body.total).toBeGreaterThanOrEqual(10);
   });
 
+  it('keeps the patient sandbox catalog paginated with richer status variety', async () => {
+    const session = await demoLogin('paciente');
+    const authHeader = { Authorization: `Bearer ${session.accessToken}` };
+
+    const firstPage = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=6')
+      .set(authHeader);
+    const secondPage = await request(app.getHttpServer())
+      .get('/dreams/mine?page=2&pageSize=6')
+      .set(authHeader);
+
+    expect(firstPage.status).toBe(200);
+    expect(secondPage.status).toBe(200);
+    expect(firstPage.body.items).toHaveLength(6);
+    expect(secondPage.body.items.length).toBeGreaterThan(0);
+
+    const statuses = new Set<string>(
+      [...firstPage.body.items, ...secondPage.body.items].map((dream: { status: string }) => dream.status),
+    );
+
+    expect(Array.from(statuses)).toEqual(
+      expect.arrayContaining([
+        'publicado',
+        'em-conversa',
+        'realizando',
+        'concluido',
+        'pausado',
+        'rascunho',
+      ]),
+    );
+  });
+
   it('serializes seeded moderated messages and blocks financial language in sandbox chat sends', async () => {
     const session = await demoLogin('paciente');
     const authHeader = { Authorization: `Bearer ${session.accessToken}` };
