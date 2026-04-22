@@ -34,6 +34,10 @@ export interface SandboxProfileState {
   visitedDreams: SandboxVisitedDream[];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function isSandboxVisitedDream(value: unknown): value is SandboxVisitedDream {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<SandboxVisitedDream>;
@@ -43,6 +47,40 @@ function isSandboxVisitedDream(value: unknown): value is SandboxVisitedDream {
     typeof candidate.path === 'string' &&
     typeof candidate.visitedAt === 'string'
   );
+}
+
+function normalizePrivacy(
+  value: unknown,
+): Partial<SandboxProfileState['privacy']> {
+  if (!isRecord(value)) return {};
+
+  return {
+    ...(typeof value.showCity === 'boolean' ? { showCity: value.showCity } : {}),
+    ...(typeof value.showDreamContext === 'boolean'
+      ? { showDreamContext: value.showDreamContext }
+      : {}),
+    ...(typeof value.highlightSafetyReminder === 'boolean'
+      ? { highlightSafetyReminder: value.highlightSafetyReminder }
+      : {}),
+  };
+}
+
+function normalizeSecurity(
+  value: unknown,
+): Partial<SandboxProfileState['security']> {
+  if (!isRecord(value)) return {};
+
+  return {
+    ...(typeof value.demoPasswordDraft === 'string'
+      ? { demoPasswordDraft: value.demoPasswordDraft }
+      : {}),
+    ...(typeof value.lastSavedAt === 'string'
+      ? { lastSavedAt: value.lastSavedAt }
+      : {}),
+    ...(typeof value.safetyChecklist === 'boolean'
+      ? { safetyChecklist: value.safetyChecklist }
+      : {}),
+  };
 }
 
 function buildDefaultState(role: AppRole): SandboxProfileState {
@@ -87,6 +125,8 @@ export function loadSandboxProfileState(userId: string, role: AppRole): SandboxP
 
   try {
     const parsed = JSON.parse(raw) as Partial<SandboxProfileState>;
+    const privacy = normalizePrivacy(parsed.privacy);
+    const security = normalizeSecurity(parsed.security);
     const historyFilter =
       typeof parsed.historyFilter === 'string' &&
       SANDBOX_HISTORY_FILTERS.includes(parsed.historyFilter as SandboxHistoryFilter)
@@ -99,11 +139,11 @@ export function loadSandboxProfileState(userId: string, role: AppRole): SandboxP
     return {
       privacy: {
         ...fallback.privacy,
-        ...parsed.privacy,
+        ...privacy,
       },
       security: {
         ...fallback.security,
-        ...parsed.security,
+        ...security,
       },
       historyFilter,
       visitedDreams,

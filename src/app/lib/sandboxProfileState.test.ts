@@ -91,4 +91,35 @@ describe('sandboxProfileState', () => {
       },
     ]);
   });
+
+  it('keeps fallback values when privacy and security fields have invalid types', () => {
+    window.sessionStorage.setItem(
+      `${SANDBOX_PROFILE_STORAGE_PREFIX}supporter-1`,
+      JSON.stringify({
+        privacy: {
+          showCity: 'yes',
+          showDreamContext: false,
+          highlightSafetyReminder: 1,
+        },
+        security: {
+          demoPasswordDraft: 123,
+          lastSavedAt: '2026-04-22T10:00:00.000Z',
+          safetyChecklist: 'true',
+        },
+      }),
+    );
+
+    const state = loadSandboxProfileState('supporter-1', 'apoiador');
+
+    expect(state.privacy).toEqual({
+      showCity: true,
+      showDreamContext: false,
+      highlightSafetyReminder: true,
+    });
+    expect(state.security).toEqual({
+      demoPasswordDraft: '',
+      lastSavedAt: '2026-04-22T10:00:00.000Z',
+      safetyChecklist: true,
+    });
+  });
 });
