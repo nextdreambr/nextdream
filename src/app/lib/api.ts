@@ -539,7 +539,7 @@ export interface ManagedPatientDetail {
     proposals: number;
     activeConversations: number;
   };
-  dreams: Array<{
+  dreams?: Array<{
     id: string;
     title: string;
     category: string;
@@ -547,7 +547,7 @@ export interface ManagedPatientDetail {
     urgency: PublicDream['urgency'];
     updatedAt: string;
   }>;
-  proposals: Array<{
+  proposals?: Array<{
     id: string;
     dreamId: string;
     dreamTitle?: string;
@@ -556,7 +556,7 @@ export interface ManagedPatientDetail {
     supporterName?: string;
     createdAt: string;
   }>;
-  conversations: Array<{
+  conversations?: Array<{
     id: string;
     dreamId: string;
     dreamTitle?: string;
