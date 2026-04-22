@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { MessageCircle, Send } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ApiError, ChatMessage, Conversation, conversationsApi } from '../../lib/api';
+import { containsFinancialLanguage, getSandboxFinancialModerationMessage } from '../../lib/sandboxFinancialModeration';
 
 interface ConversationChatProps {
   emptyActionTo: string;
@@ -44,13 +45,24 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
       try {
         const data = await conversationsApi.listMine();
         if (!mounted) return;
-        setConversations(data);
-        if (preferredId && data.some((conversation) => conversation.id === preferredId)) {
-          setSelectedId(preferredId);
-        } else if (data.length > 0) {
-          setSelectedId((prev) => prev ?? data[0].id);
+        const nextSelectedId =
+          preferredId && data.some((conversation) => conversation.id === preferredId)
+            ? preferredId
+            : data[0]?.id ?? null;
+
+        if (nextSelectedId) {
+          const initialMessages = await conversationsApi.listMessages(nextSelectedId);
+          if (!mounted) return;
+          setMessages(initialMessages);
         } else {
-          setSelectedId(null);
+          setMessages([]);
+        }
+
+        setConversations(data);
+        if (preferredId && nextSelectedId === preferredId) {
+          setSelectedId(nextSelectedId);
+        } else {
+          setSelectedId((current) => current ?? nextSelectedId);
         }
       } catch (err) {
         if (err instanceof ApiError) setError(err.message);
@@ -102,6 +114,11 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
   async function handleSend(event: FormEvent) {
     event.preventDefault();
     if (!selectedId || !draft.trim() || sending || selectedConversation?.status === 'encerrada') return;
+
+    if (containsFinancialLanguage(draft)) {
+      setError(getSandboxFinancialModerationMessage());
+      return;
+    }
 
     setSending(true);
     setError('');
@@ -159,9 +176,11 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
                 : 'border-transparent hover:border-pink-100 hover:bg-pink-50/50'
             }`}
           >
-            <p className="text-xs text-gray-500">Conversa #{conversation.id.slice(0, 8)}</p>
-            <p className="text-sm text-gray-700" style={{ fontWeight: 600 }}>
-              {conversation.dreamTitle ?? `Sonho #${conversation.dreamId.slice(0, 8)}`}
+            <p className="text-[11px] uppercase tracking-[0.12em] text-gray-400">Sonho</p>
+            <p className="text-sm text-gray-800" style={{ fontWeight: 700 }}>
+              {conversation.dreamTitle
+                ? `Sonho: ${conversation.dreamTitle}`
+                : `Sonho #${conversation.dreamId.slice(0, 8)}`}
             </p>
             {conversation.patientName && (
               <p className="text-xs text-gray-500 mt-1">
@@ -183,8 +202,8 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
       <section className="bg-white border border-pink-100 rounded-2xl flex flex-col min-h-[70vh]">
         <header className="px-4 py-3 border-b border-pink-100 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-500">Conversa</p>
-            <h1 className="text-sm text-gray-800">
+            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Conversa vinculada ao sonho</p>
+            <h1 className="text-lg text-gray-800" style={{ fontWeight: 700 }}>
               {selectedConversation
                 ? selectedConversation.dreamTitle ?? `#${selectedConversation.id.slice(0, 8)}`
                 : 'Selecione uma conversa'}
@@ -196,7 +215,7 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
                   <span className="text-indigo-600">Instituição operadora: {selectedConversation.institutionName}</span>
                 )}
                 {selectedConversation.dreamPath && (
-                  <Link to={selectedConversation.dreamPath} className="text-pink-600 hover:text-pink-700">
+                  <Link to={selectedConversation.dreamPath} className="text-pink-600 hover:text-pink-700" style={{ fontWeight: 600 }}>
                     Ver sonho
                   </Link>
                 )}
@@ -225,6 +244,11 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
               return (
                 <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-pink-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                    {message.moderated && (
+                      <p className={`mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${mine ? 'text-pink-100' : 'text-amber-700'}`}>
+                        Mensagem moderada
+                      </p>
+                    )}
                     <p>{message.body}</p>
                     <p className={`text-[10px] mt-1 ${mine ? 'text-pink-100' : 'text-gray-400'}`}>
                       {new Date(message.createdAt).toLocaleString('pt-BR')}
@@ -235,6 +259,12 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
             })
           )}
         </div>
+
+        {error && (
+          <div className="px-3 pt-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSend} className="p-3 border-t border-pink-100 flex gap-2">
           <input
@@ -259,12 +289,6 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
           </button>
         </form>
       </section>
-
-      {error && (
-        <div className="md:col-span-2 bg-red-50 border border-red-200 rounded-2xl p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import { Search, SlidersHorizontal, X, MapPin, Video, Users } from 'lucide-react';
 import { DreamCard } from '../../components/shared/DreamCard';
 import { EmptyState } from '../../components/shared/EmptyState';
+import { EntityPagination } from '../../components/shared/EntityPagination';
 import { useNavigate } from 'react-router';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
 import { buildProposalMapByDream } from '../../lib/proposals';
+
+const PAGE_SIZE = 5;
 
 const formatLabels = {
   remoto: '💻 Online',
@@ -37,6 +40,7 @@ export default function ExploreDreams() {
   const [proposalByDream, setProposalByDream] = useState<Map<string, Proposal>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     categories: [] as string[],
@@ -85,8 +89,13 @@ export default function ExploreDreams() {
     if (filters.urgency && d.urgency !== filters.urgency) return false;
     return true;
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedDreams = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const clearFilters = () => setFilters({ categories: [], format: '', urgency: '' });
+  const clearFilters = () => {
+    setFilters({ categories: [], format: '', urgency: '' });
+    setPage(1);
+  };
   const hasFilters = filters.categories.length > 0 || filters.format || filters.urgency;
 
   return (
@@ -105,7 +114,10 @@ export default function ExploreDreams() {
           <input
             type="text"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por título, descrição..."
             className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
           />
@@ -139,14 +151,15 @@ export default function ExploreDreams() {
               {DREAM_CATEGORIES.map(cat => (
                 <button
                   key={cat}
-                  onClick={() =>
+                  onClick={() => {
                     setFilters(current => ({
                       ...current,
                       categories: current.categories.includes(cat)
                         ? current.categories.filter((value) => value !== cat)
                         : [...current.categories, cat],
-                    }))
-                  }
+                    }));
+                    setPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
                     ${filters.categories.includes(cat) ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
                 >
@@ -166,7 +179,10 @@ export default function ExploreDreams() {
               ].map(f => (
                 <button
                   key={f.val}
-                  onClick={() => setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }))}
+                  onClick={() => {
+                    setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }));
+                    setPage(1);
+                  }}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
                     ${filters.format === f.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
                 >
@@ -186,7 +202,10 @@ export default function ExploreDreams() {
               ].map(u => (
                 <button
                   key={u.val}
-                  onClick={() => setFilters(f => ({ ...f, urgency: f.urgency === u.val ? '' : u.val }))}
+                  onClick={() => {
+                    setFilters(f => ({ ...f, urgency: f.urgency === u.val ? '' : u.val }));
+                    setPage(1);
+                  }}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
                     ${filters.urgency === u.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
                 >
@@ -204,7 +223,10 @@ export default function ExploreDreams() {
           {filters.categories.map((category) => (
             <span key={category} className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
               {category}
-              <button onClick={() => setFilters(current => ({ ...current, categories: current.categories.filter((value) => value !== category) }))}>
+              <button onClick={() => {
+                setFilters(current => ({ ...current, categories: current.categories.filter((value) => value !== category) }));
+                setPage(1);
+              }}>
                 <X className="w-3 h-3" />
               </button>
             </span>
@@ -212,13 +234,19 @@ export default function ExploreDreams() {
           {filters.format && (
             <span className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
               {formatLabels[filters.format as keyof typeof formatLabels]}
-              <button onClick={() => setFilters(f => ({ ...f, format: '' }))}><X className="w-3 h-3" /></button>
+              <button onClick={() => {
+                setFilters(f => ({ ...f, format: '' }));
+                setPage(1);
+              }}><X className="w-3 h-3" /></button>
             </span>
           )}
           {filters.urgency && (
             <span className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
               Urgência: {urgencyLabels[filters.urgency as keyof typeof urgencyLabels]}
-              <button onClick={() => setFilters(f => ({ ...f, urgency: '' }))}><X className="w-3 h-3" /></button>
+              <button onClick={() => {
+                setFilters(f => ({ ...f, urgency: '' }));
+                setPage(1);
+              }}><X className="w-3 h-3" /></button>
             </span>
           )}
         </div>
@@ -243,7 +271,7 @@ export default function ExploreDreams() {
         />
       ) : (
         <div className="space-y-3">
-          {filtered.map(dream => (
+          {pagedDreams.map(dream => (
             <DreamCard
               key={dream.id}
               dream={{
@@ -256,6 +284,7 @@ export default function ExploreDreams() {
               variant="supporter"
             />
           ))}
+          <EntityPagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}
     </div>

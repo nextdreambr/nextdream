@@ -144,7 +144,7 @@ export default function SandboxAccess() {
                     type="button"
                     onClick={() => void handleSandboxLogin(card.persona)}
                     disabled={loadingPersona !== null}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
                     {loading ? (
                       <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -156,7 +156,7 @@ export default function SandboxAccess() {
                     type="button"
                     onClick={() => setPreviewPersona(card.persona)}
                     disabled={loadingPersona !== null}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <PlayCircle className="h-4 w-4" />
                     {content.tourCta}
@@ -186,7 +186,7 @@ export default function SandboxAccess() {
                   Tour guiado do {sandboxExperienceConfig.personas[previewPersona].title}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Em poucos passos voce passa pelos pontos principais dessa jornada e entende o que fazer em cada etapa.
+                  Veja como a jornada funciona antes de entrar.
                 </p>
               </div>
               <button
@@ -200,6 +200,7 @@ export default function SandboxAccess() {
             </div>
 
             <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-900">O que você vai ver em cada etapa</p>
               {sandboxExperienceConfig.tours[previewPersona].map((step, index) => (
                 <div key={step.id} className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-slate-700">
@@ -219,13 +220,13 @@ export default function SandboxAccess() {
                 onClick={() => setPreviewPersona(null)}
                 className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
-                Agora nao
+                Agora não
               </button>
               <button
                 type="button"
                 onClick={() => void handleSandboxLogin(previewPersona, { startTour: true })}
                 disabled={loadingPersona !== null}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {loadingPersona === previewPersona ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

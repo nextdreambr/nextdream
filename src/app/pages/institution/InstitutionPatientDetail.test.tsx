@@ -49,6 +49,9 @@ describe('InstitutionPatientDetail', () => {
         state: 'PE',
         city: 'Recife',
         locationLabel: 'Recife, PE',
+        caseSummary: 'Rotina marcada por fadiga no fim do dia e preferência por encontros em ambiente calmo.',
+        supportContext: 'A família consegue acompanhar aos fins de semana, mas precisa de apoio para deslocamentos curtos.',
+        careFocus: 'Experiências curtas, acolhedoras e com planejamento simples.',
         createdAt: '2026-04-19T10:00:00.000Z',
         updatedAt: '2026-04-19T10:00:00.000Z',
       },
@@ -60,6 +63,15 @@ describe('InstitutionPatientDetail', () => {
       dreams: [],
       proposals: [],
       conversations: [],
+      timeline: [
+        {
+          id: 'timeline-1',
+          type: 'sonho',
+          title: 'Sonho publicado com apoio da instituição',
+          description: 'A equipe registrou um novo desejo e abriu a busca por apoiadores.',
+          createdAt: '2026-04-19T09:00:00.000Z',
+        },
+      ],
     });
     updatePatientMock.mockResolvedValue({
       id: 'managed-1',
@@ -82,6 +94,8 @@ describe('InstitutionPatientDetail', () => {
     );
 
     expect(await screen.findByDisplayValue('Maria das Dores')).toBeInTheDocument();
+    expect(screen.getByText(/rotina marcada por fadiga no fim do dia/i)).toBeInTheDocument();
+    expect(screen.getByText(/sonho publicado com apoio da instituição/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/nome do paciente/i), { target: { value: 'Maria Clara' } });
     fireEvent.change(screen.getByLabelText(/cidade/i), { target: { value: 'Olinda' } });

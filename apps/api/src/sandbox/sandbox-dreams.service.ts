@@ -270,6 +270,10 @@ export class SandboxDreamsService {
 
     const supporter = this.getUserOrThrow(session, currentUser.sub);
     const dream = this.getDreamOrThrow(session, dreamId);
+    const message = this.requireNonEmptyText(dto.message, 'Proposal message');
+    const offering = this.requireNonEmptyText(dto.offering, 'Proposal offering');
+    const availability = this.requireNonEmptyText(dto.availability, 'Proposal availability');
+    const duration = this.requireNonEmptyText(dto.duration, 'Proposal duration');
     if (dream.status !== 'publicado') {
       throw new ConflictException('Este sonho nao esta disponivel para novas propostas.');
     }
@@ -285,10 +289,10 @@ export class SandboxDreamsService {
       id: randomUUID(),
       dreamId: dream.id,
       supporterId: supporter.id,
-      message: this.requireNonEmptyText(dto.message, 'Proposal message'),
-      offering: this.requireNonEmptyText(dto.offering, 'Proposal offering'),
-      availability: this.requireNonEmptyText(dto.availability, 'Proposal availability'),
-      duration: this.requireNonEmptyText(dto.duration, 'Proposal duration'),
+      message,
+      offering,
+      availability,
+      duration,
       status: 'enviada',
       createdAt: new Date(),
     };
@@ -545,6 +549,7 @@ export class SandboxDreamsService {
       ? buildLocationLabel(managedPatient)
       : buildLocationLabel(operator ?? {});
     const institutionName = dream.managedPatientId ? operator?.name : undefined;
+    const patientContext = managedPatient?.caseSummary ?? managedPatient?.supportContext ?? managedPatient?.careFocus;
     const isLinkedViewer = Boolean(
       currentUser?.role === 'paciente' &&
       dream.managedPatientId &&
@@ -567,6 +572,7 @@ export class SandboxDreamsService {
       institutionName,
       patientName,
       patientCity,
+      patientContext,
       operatorRole: dream.managedPatientId ? ('instituicao' as const) : ('paciente' as const),
       canEdit: currentUser
         ? currentUser.role === 'instituicao'
