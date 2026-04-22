@@ -517,6 +517,56 @@ describe('Sandbox API', () => {
     );
   });
 
+  it('keeps institution sandbox seeds connected across patients, dreams, proposals and conversations', async () => {
+    const session = await demoLogin('instituicao');
+    const authHeader = { Authorization: `Bearer ${session.accessToken}` };
+
+    const patients = await request(app.getHttpServer())
+      .get('/institution/patients')
+      .set(authHeader);
+    const dreams = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=20')
+      .set(authHeader);
+    const proposals = await request(app.getHttpServer())
+      .get('/proposals/received')
+      .set(authHeader);
+    const conversations = await request(app.getHttpServer())
+      .get('/conversations/mine')
+      .set(authHeader);
+    const patientDetail = await request(app.getHttpServer())
+      .get('/institution/patients/managed-patient-1')
+      .set(authHeader);
+
+    expect(patients.status).toBe(200);
+    expect(dreams.status).toBe(200);
+    expect(proposals.status).toBe(200);
+    expect(conversations.status).toBe(200);
+    expect(patientDetail.status).toBe(200);
+
+    expect(patients.body.length).toBeGreaterThanOrEqual(10);
+    expect(dreams.body.total).toBeGreaterThanOrEqual(10);
+    expect(proposals.body.length).toBeGreaterThanOrEqual(5);
+    expect(conversations.body.length).toBeGreaterThanOrEqual(3);
+
+    const managedPatientIds = new Set(
+      dreams.body.items.map((dream: { managedPatientId?: string }) => dream.managedPatientId).filter(Boolean),
+    );
+    expect(managedPatientIds.size).toBeGreaterThanOrEqual(10);
+    expect(
+      dreams.body.items.every((dream: { managedPatientId?: string; patientName?: string; patientContext?: string }) =>
+        Boolean(dream.managedPatientId && dream.patientName && dream.patientContext),
+      ),
+    ).toBe(true);
+    expect(
+      conversations.body.every((conversation: { managedByInstitution?: boolean; institutionName?: string }) =>
+        Boolean(conversation.managedByInstitution && conversation.institutionName),
+      ),
+    ).toBe(true);
+    expect(patientDetail.body.dreams.length).toBeGreaterThan(0);
+    expect(patientDetail.body.proposals.length).toBeGreaterThan(0);
+    expect(patientDetail.body.conversations.length).toBeGreaterThan(0);
+  });
+
   it('serializes seeded moderated messages and blocks financial language in sandbox chat sends', async () => {
     const session = await demoLogin('paciente');
     const authHeader = { Authorization: `Bearer ${session.accessToken}` };

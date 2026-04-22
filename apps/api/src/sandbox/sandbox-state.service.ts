@@ -888,6 +888,16 @@ function buildInstitutionTemplate(): SandboxSessionState {
       updatedAt: at(-13),
     }),
     createDream({
+      id: 'dream-institution-collage',
+      title: 'Ateliê de colagem com memórias visuais',
+      description: 'Oficina curta para trabalhar criatividade, lembranças e conversa em pequenos grupos.',
+      category: 'Arte e Música',
+      patientId: institution.id,
+      managedPatientId: 'managed-patient-4',
+      status: 'publicado',
+      updatedAt: at(-15),
+    }),
+    createDream({
       id: 'dream-institution-museum',
       title: 'Passeio guiado em museu acessível',
       description: 'Saída breve com foco em conforto e mediação acolhedora.',
