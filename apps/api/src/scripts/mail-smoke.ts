@@ -1,5 +1,14 @@
 import { MailService } from '../modules/mail/mail.service';
 
+function maskEmail(email: string) {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) {
+    return '***';
+  }
+
+  return `${local[0]}***@${domain}`;
+}
+
 function getRequiredEnv(name: string) {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -16,11 +25,10 @@ async function main() {
   const mailService = new MailService();
   await mailService.sendSmokeTestEmail({ to, name });
 
-  console.log(`Mail smoke test sent to ${to}`);
+  console.log(`Mail smoke test sent to ${maskEmail(to)}`);
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : 'unknown error';
-  console.error(`Mail smoke test failed: ${message}`);
+main().catch(() => {
+  console.error('Mail smoke test failed');
   process.exit(1);
 });

@@ -62,6 +62,51 @@ describe('AuthService.acceptPatientInvite', () => {
     );
   });
 
+  it('sends the welcome email after registering a new account', async () => {
+    const savedUser = {
+      id: 'user-1',
+      name: 'Paciente Demo',
+      email: 'patient@example.com',
+      role: 'paciente',
+      verified: true,
+      approved: true,
+      sessionVersion: 0,
+    } as User;
+
+    usersRepository.findOne.mockResolvedValue(null);
+    usersRepository.create.mockReturnValue(savedUser);
+    usersRepository.save.mockResolvedValue(savedUser);
+    jwtService.signAsync.mockResolvedValueOnce('access-token').mockResolvedValueOnce('refresh-token');
+
+    const service = new (AuthService as any)(
+      usersRepository,
+      adminInvitesRepository,
+      patientInvitesRepository,
+      managedPatientsRepository,
+      jwtService as unknown as JwtService,
+      mailService as unknown as MailService,
+      {} as DataSource,
+    );
+
+    const result = await service.register({
+      name: 'Paciente Demo',
+      email: 'Patient@Example.com',
+      password: 'Secret123!',
+      role: 'paciente',
+      city: 'Recife',
+    });
+
+    expect(usersRepository.findOne).toHaveBeenCalledWith({
+      where: { email: 'patient@example.com' },
+    });
+    expect(mailService.sendWelcomeEmail).toHaveBeenCalledWith({
+      to: 'patient@example.com',
+      name: 'Paciente Demo',
+      role: 'paciente',
+    });
+    expect(result.accessToken).toBe('access-token');
+  });
+
   it('rotates refresh session version before issuing a new token pair', async () => {
     const user = {
       id: 'user-1',

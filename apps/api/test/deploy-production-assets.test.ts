@@ -120,6 +120,18 @@ describe('production deploy hardening assets', () => {
     expect(envExample).toContain('RESEND_FROM_EMAIL=<PROD_RESEND_FROM_EMAIL>');
   });
 
+  it('does not require or inject SMTP settings in the production deploy path', () => {
+    const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
+
+    expect(workflow).not.toContain('SMTP_HOST: ${{ vars.SMTP_HOST }}');
+    expect(workflow).not.toContain('SMTP_PORT: ${{ vars.SMTP_PORT || \'1025\' }}');
+    expect(workflow).not.toContain('SMTP_USER: ${{ vars.SMTP_USER }}');
+    expect(workflow).not.toContain('SMTP_PASS: ${{ secrets.SMTP_PASS }}');
+    expect(workflow).not.toContain('SMTP_FROM: ${{ vars.SMTP_FROM }}');
+    expect(workflow).not.toContain('SMTP_HOST');
+    expect(workflow).not.toContain('SMTP_FROM');
+  });
+
   it('exposes an internal mail smoke test command for controlled real sends', () => {
     const apiPackage = JSON.parse(readRepoFile('apps/api/package.json')) as {
       scripts: Record<string, string>;
