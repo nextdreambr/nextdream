@@ -454,6 +454,66 @@ export class MailService {
     });
   }
 
+  async sendEmailVerificationEmail(params: {
+    to: string;
+    name: string;
+    verifyUrl: string;
+    expiresInHours: number;
+  }) {
+    const subject = 'Ative sua conta - NextDream';
+    const template = this.renderEmailTemplate({
+      preheader: 'Confirme seu email para ativar sua conta no NextDream',
+      title: 'Verifique seu email',
+      greeting: `Olá, ${params.name}!`,
+      intro: 'Seu cadastro foi recebido. Falta confirmar seu email para ativar a conta no NextDream.',
+      bodyLines: [
+        `Este link expira em ${params.expiresInHours} horas e pode ser usado apenas uma vez.`,
+        'Depois da confirmação, você poderá entrar com sua conta normalmente.',
+      ],
+      ctaLabel: 'Ativar minha conta',
+      ctaUrl: params.verifyUrl,
+    });
+
+    await this.deliverEmail({
+      failureLabel: `Failed to send email verification email to ${params.to}`,
+      to: params.to,
+      subject,
+      text: template.text,
+      html: template.html,
+      throwOnFailure: true,
+    });
+  }
+
+  async sendPasswordResetEmail(params: {
+    to: string;
+    name: string;
+    resetUrl: string;
+    expiresInHours: number;
+  }) {
+    const subject = 'Redefina sua senha - NextDream';
+    const template = this.renderEmailTemplate({
+      preheader: 'Link para redefinir sua senha no NextDream',
+      title: 'Redefinir senha',
+      greeting: `Olá, ${params.name}!`,
+      intro: 'Recebemos um pedido para redefinir a senha da sua conta no NextDream.',
+      bodyLines: [
+        `Este link expira em ${params.expiresInHours} horas e pode ser usado para criar uma nova senha com segurança.`,
+        'Se você não fez esta solicitação, ignore este email. Sua senha atual continuará válida.',
+      ],
+      ctaLabel: 'Criar nova senha',
+      ctaUrl: params.resetUrl,
+    });
+
+    await this.deliverEmail({
+      failureLabel: `Failed to send password reset email to ${params.to}`,
+      to: params.to,
+      subject,
+      text: template.text,
+      html: template.html,
+      throwOnFailure: true,
+    });
+  }
+
   async sendSmokeTestEmail(params: { to: string; name?: string }) {
     const subject = '[NextDream] Smoke test de email';
     const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');

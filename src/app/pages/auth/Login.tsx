@@ -10,12 +10,13 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const { login } = useApp();
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get('tipo');
+  const [email, setEmail] = useState(() => searchParams.get('email')?.trim() ?? '');
+  const [password, setPassword] = useState('');
+  const [verificationHelpEmail, setVerificationHelpEmail] = useState('');
 
   if (isSandboxEnvironment()) {
     const nextSearch = new URLSearchParams();
@@ -36,6 +37,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setVerificationHelpEmail('');
     setLoading(true);
 
     try {
@@ -46,7 +48,10 @@ export default function Login() {
       }
       navigate(routeByRole(session.user.role));
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.message === 'Email verification is required before login') {
+        setVerificationHelpEmail(email.trim());
+        setError('Confirme seu e-mail para ativar a conta antes de entrar.');
+      } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('Não foi possível entrar agora. Tente novamente.');
@@ -73,6 +78,19 @@ export default function Login() {
                 {error}
               </div>
             )}
+            {verificationHelpEmail && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-3 py-3">
+                Abra o link enviado para <span className="font-medium">{verificationHelpEmail}</span> para ativar sua conta.
+                <div className="mt-2">
+                  <Link
+                    to={`/verificar-email?email=${encodeURIComponent(verificationHelpEmail)}`}
+                    className="text-amber-900 underline underline-offset-2"
+                  >
+                    Ver instruções de ativação
+                  </Link>
+                </div>
+              </div>
+            )}
             <div>
               <label className="text-sm text-gray-700 block mb-1.5">E-mail</label>
               <div className="relative">
@@ -80,7 +98,12 @@ export default function Login() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (verificationHelpEmail) {
+                      setVerificationHelpEmail('');
+                    }
+                  }}
                   placeholder="seu@email.com"
                   autoComplete="email"
                   required

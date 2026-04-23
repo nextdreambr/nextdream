@@ -23,6 +23,8 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ProfileSelect from './pages/auth/ProfileSelect';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import VerifyEmail from './pages/auth/VerifyEmail';
 import AcceptAdminInvite from './pages/auth/AcceptAdminInvite';
 import AcceptPatientInvite from './pages/auth/AcceptPatientInvite';
 import NotFound from './pages/NotFound';
@@ -100,6 +102,8 @@ export const router = createBrowserRouter([
           { path: 'cadastro', Component: Register },
           { path: 'selecionar-perfil', Component: ProfileSelect },
           { path: 'esqueci-senha', Component: ForgotPassword },
+          { path: 'redefinir-senha', Component: ResetPassword },
+          { path: 'verificar-email', Component: VerifyEmail },
           { path: 'aceitar-convite-admin', Component: AcceptAdminInvite },
           { path: 'aceitar-convite-paciente', Component: AcceptPatientInvite },
           { path: 'sonhos/:id', Component: PublicDreamDetail },

@@ -2,14 +2,17 @@ import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
 import { Response } from 'express';
 import { Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AuthService, AuthSessionPayload } from './auth.service';
+import { AuthRegisterResponse, AuthService, AuthSessionPayload } from './auth.service';
 import { getLoginRateLimitConfig } from '../../config/env';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
+import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { DemoLoginDto } from './dto/demo-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
 
 const loginThrottle = {
@@ -28,13 +31,8 @@ export class AuthController {
   }
 
   @Post('register')
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<AuthSessionPayload> {
-    const auth = await this.authService.register(dto);
-    setAuthCookies(response, auth);
-    return auth;
+  async register(@Body() dto: RegisterDto): Promise<AuthRegisterResponse> {
+    return this.authService.register(dto);
   }
 
   @Post('login')
@@ -100,5 +98,24 @@ export class AuthController {
     const auth = await this.authService.refresh(dto.refreshToken);
     setAuthCookies(response, auth);
     return auth;
+  }
+
+  @Post('password-reset/request')
+  @HttpCode(204)
+  @Throttle(loginThrottle)
+  async requestPasswordReset(@Body() dto: RequestPasswordResetDto): Promise<void> {
+    await this.authService.requestPasswordReset(dto);
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(200)
+  async confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto): Promise<{ success: true }> {
+    return this.authService.confirmPasswordReset(dto);
+  }
+
+  @Post('verify-email')
+  @HttpCode(200)
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ success: true }> {
+    return this.authService.verifyEmail(dto);
   }
 }

@@ -2,8 +2,9 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import cookieParser from 'cookie-parser';
+import { MailService } from '../src/modules/mail/mail.service';
 
 function getAccessTokenFromSetCookie(setCookieHeader: string | string[] | undefined): string {
   const cookies = Array.isArray(setCookieHeader)
@@ -65,6 +66,9 @@ describe('Institution auth', () => {
 
   it('registers and logs in an institution account', async () => {
     const password = 'Secret123!';
+    const sendEmailVerificationEmail = vi
+      .spyOn(MailService.prototype, 'sendEmailVerificationEmail')
+      .mockResolvedValue();
     const register = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
@@ -80,8 +84,26 @@ describe('Institution auth', () => {
       });
 
     expect(register.status).toBe(201);
-    expect(register.body.user.role).toBe('instituicao');
-    expect(getAccessTokenFromSetCookie(register.headers['set-cookie'])).toEqual(expect.any(String));
+    expect(register.body).toEqual({
+      success: true,
+      email: 'casa-esperanca@example.com',
+      role: 'instituicao',
+      requiresEmailVerification: true,
+      requiresApproval: true,
+    });
+    expect(register.headers['set-cookie']).toBeUndefined();
+
+    const verifyUrl = sendEmailVerificationEmail.mock.calls[0]?.[0]?.verifyUrl;
+    expect(verifyUrl).toEqual(expect.any(String));
+
+    const token = new URL(verifyUrl as string).searchParams.get('token');
+    expect(token).toEqual(expect.any(String));
+
+    const verifyEmail = await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token });
+
+    expect(verifyEmail.status).toBe(200);
 
     const login = await request(app.getHttpServer())
       .post('/auth/login')
@@ -92,5 +114,6 @@ describe('Institution auth', () => {
 
     expect(login.status).toBe(200);
     expect(login.body.user.role).toBe('instituicao');
+    expect(getAccessTokenFromSetCookie(login.headers['set-cookie'])).toEqual(expect.any(String));
   });
 });

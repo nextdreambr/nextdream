@@ -249,6 +249,14 @@ export interface AuthSession {
   user: ApiUser;
 }
 
+export interface AuthRegisterResponse {
+  success: true;
+  email: string;
+  role: Exclude<ApiUserRole, 'admin'>;
+  requiresEmailVerification: true;
+  requiresApproval: boolean;
+}
+
 export interface CreateDreamInput {
   title: string;
   description: string;
@@ -349,7 +357,25 @@ export const authApi = {
     state?: string;
     city?: string;
   }) {
-    return apiRequest<AuthSession>('/auth/register', {
+    return apiRequest<AuthRegisterResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  verifyEmail(payload: { token: string }) {
+    return apiRequest<{ success: true }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  requestPasswordReset(payload: { email: string }) {
+    return apiRequest<void>('/auth/password-reset/request', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  confirmPasswordReset(payload: { token: string; newPassword: string }) {
+    return apiRequest<{ success: true }>('/auth/password-reset/confirm', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
