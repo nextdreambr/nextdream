@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MailService } from '../src/modules/mail/mail.service';
 import { InstitutionService } from '../src/modules/institution/institution.service';
 
 describe('InstitutionService.createPatientAccessInvite', () => {
+  const originalAppUrl = process.env.APP_URL;
   const managedPatientsRepository = {};
   const existingInviteQuery = {
     where: vi.fn().mockReturnThis(),
@@ -33,6 +34,15 @@ describe('InstitutionService.createPatientAccessInvite', () => {
       id: 'invite-1',
       ...invite,
     }));
+  });
+
+  afterEach(() => {
+    if (originalAppUrl === undefined) {
+      delete process.env.APP_URL;
+      return;
+    }
+
+    process.env.APP_URL = originalAppUrl;
   });
 
   it('propagates the mail delivery error after persisting the invite', async () => {

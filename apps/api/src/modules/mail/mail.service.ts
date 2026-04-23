@@ -26,7 +26,8 @@ type MailProvider =
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: Transporter | null = null;
+  private smtpTransporter: Transporter | null = null;
+  private testTransporter: Transporter | null = null;
   private resendClient: Resend | null = null;
   private providerSelectionLogged: string | null = null;
 
@@ -141,8 +142,8 @@ export class MailService {
   }
 
   private getSmtpTransporter() {
-    if (this.transporter) {
-      return this.transporter;
+    if (this.smtpTransporter) {
+      return this.smtpTransporter;
     }
 
     const host = this.getTrimmedEnv('SMTP_HOST');
@@ -155,23 +156,23 @@ export class MailService {
     const user = this.getTrimmedEnv('SMTP_USER');
     const pass = this.getTrimmedEnv('SMTP_PASS');
 
-    this.transporter = nodemailer.createTransport({
+    this.smtpTransporter = nodemailer.createTransport({
       host,
       port,
       secure,
       auth: user && pass ? { user, pass } : undefined,
     });
 
-    return this.transporter;
+    return this.smtpTransporter;
   }
 
   private getTestTransporter() {
-    if (this.transporter) {
-      return this.transporter;
+    if (this.testTransporter) {
+      return this.testTransporter;
     }
 
-    this.transporter = nodemailer.createTransport({ jsonTransport: true });
-    return this.transporter;
+    this.testTransporter = nodemailer.createTransport({ jsonTransport: true });
+    return this.testTransporter;
   }
 
   private getResendClient(apiKey: string) {
