@@ -92,21 +92,33 @@ describe('AuthService.acceptPatientInvite', () => {
 
     usersRepository.findOne.mockResolvedValue(null);
     usersRepository.create.mockReturnValue(savedUser);
-    usersRepository.save.mockResolvedValue(savedUser);
+    const events: string[] = [];
+    const txUsersRepository = {
+      save: vi.fn(async (user: User) => {
+        events.push('save-user');
+        return user;
+      }),
+    };
     const dataSource = {
       transaction: vi.fn(async (callback: (manager: {
         getRepository: (entity: unknown) => unknown;
       }) => Promise<unknown>) => {
         const manager = {
           getRepository: (entity: unknown) => {
+            if (entity === User) return txUsersRepository;
             if (entity === EmailVerificationToken) return emailVerificationTokensRepository;
             throw new Error(`Unexpected repository request: ${String(entity)}`);
           },
         };
 
-        return callback(manager);
+        const result = await callback(manager);
+        events.push('commit');
+        return result;
       }),
     } as unknown as DataSource;
+    mailService.sendEmailVerificationEmail.mockImplementation(async () => {
+      events.push('send-email');
+    });
 
     const service = new (AuthService as any)(
       usersRepository,
@@ -131,6 +143,8 @@ describe('AuthService.acceptPatientInvite', () => {
     expect(usersRepository.findOne).toHaveBeenCalledWith({
       where: { email: 'patient@example.com' },
     });
+    expect(txUsersRepository.save).toHaveBeenCalledWith(savedUser);
+    expect(usersRepository.save).not.toHaveBeenCalled();
     expect(emailVerificationTokensRepository.update).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
@@ -152,6 +166,7 @@ describe('AuthService.acceptPatientInvite', () => {
       requiresEmailVerification: true,
       requiresApproval: false,
     });
+    expect(events).toEqual(['save-user', 'commit', 'send-email']);
   });
 
   it('rotates refresh session version before issuing a new token pair', async () => {

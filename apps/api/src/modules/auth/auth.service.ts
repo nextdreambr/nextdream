@@ -138,21 +138,25 @@ export class AuthService {
       approvedAt: dto.role === 'instituicao' ? undefined : new Date(),
     });
 
-    const saved = await this.usersRepository.save(user);
-    await this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const txUsersRepository = manager.getRepository(User);
       const txEmailVerificationTokensRepository = manager.getRepository(EmailVerificationToken);
+      const persistedUser = await txUsersRepository.save(user);
+
       await txEmailVerificationTokensRepository.update(
-        { userId: saved.id, usedAt: IsNull() },
+        { userId: persistedUser.id, usedAt: IsNull() },
         { usedAt: now },
       );
 
       const verificationToken = txEmailVerificationTokensRepository.create({
-        userId: saved.id,
+        userId: persistedUser.id,
         tokenHash,
         expiresAt,
         usedAt: null,
       });
       await txEmailVerificationTokensRepository.save(verificationToken);
+
+      return persistedUser;
     });
 
     await this.mailService.sendEmailVerificationEmail({
