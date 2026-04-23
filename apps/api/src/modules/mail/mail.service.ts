@@ -29,6 +29,7 @@ export class MailService {
   private smtpTransporter: Transporter | null = null;
   private testTransporter: Transporter | null = null;
   private resendClient: Resend | null = null;
+  private resendApiKey: string | null = null;
   private providerSelectionLogged: string | null = null;
 
   private escapeHtml(value: string) {
@@ -54,6 +55,24 @@ export class MailService {
     } catch {
       return undefined;
     }
+  }
+
+  private maskEmail(email: string) {
+    const [local, domain] = email.split('@');
+    if (!local || !domain) {
+      return '***';
+    }
+
+    return `${local[0]}***@${domain}`;
+  }
+
+  private sanitizeFailureLabel(label: string, recipient: string) {
+    return label.split(recipient).join(this.maskEmail(recipient));
+  }
+
+  private getResendTimeoutMs() {
+    const raw = Number(process.env.RESEND_TIMEOUT_MS);
+    return Number.isFinite(raw) && raw > 0 ? raw : 3000;
   }
 
   private renderEmailTemplate(params: {
@@ -176,11 +195,12 @@ export class MailService {
   }
 
   private getResendClient(apiKey: string) {
-    if (this.resendClient) {
+    if (this.resendClient && this.resendApiKey === apiKey) {
       return this.resendClient;
     }
 
     this.resendClient = new Resend(apiKey);
+    this.resendApiKey = apiKey;
     return this.resendClient;
   }
 
@@ -233,16 +253,26 @@ export class MailService {
         kind: 'resend',
         from: resendFrom,
         send: async (message) => {
-          const response = await resendClient.emails.send({
-            from: resendFrom,
-            to: message.to,
-            subject: message.subject,
-            text: message.text,
-            html: message.html,
-          });
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), this.getResendTimeoutMs());
 
-          if (response.error) {
-            throw new Error(response.error.message);
+          try {
+            const response = await resendClient.emails.send(
+              {
+                from: resendFrom,
+                to: message.to,
+                subject: message.subject,
+                text: message.text,
+                html: message.html,
+              },
+              { signal: controller.signal } as any,
+            );
+
+            if (response.error) {
+              throw new Error(response.error.message);
+            }
+          } finally {
+            clearTimeout(timeoutId);
           }
         },
       };
@@ -293,8 +323,10 @@ export class MailService {
   }) {
     const provider = this.resolveProvider();
 
+    const sanitizedFailureLabel = this.sanitizeFailureLabel(params.failureLabel, params.to);
+
     if (!('send' in provider)) {
-      this.logger.warn(`${params.failureLabel} via ${provider.provider}: ${provider.message}`);
+      this.logger.warn(`${sanitizedFailureLabel} via ${provider.provider}: ${provider.message}`);
 
       if (params.throwOnFailure) {
         throw new Error(provider.message);
@@ -311,7 +343,7 @@ export class MailService {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error';
-      const failureMessage = `${params.failureLabel} via ${provider.kind}: ${message}`;
+      const failureMessage = `${sanitizedFailureLabel} via ${provider.kind}: ${message}`;
       this.logger.warn(failureMessage);
 
       if (params.throwOnFailure) {

@@ -37,6 +37,7 @@ describe('MailService', () => {
     SMTP_PASS: process.env.SMTP_PASS,
     SMTP_FROM: process.env.SMTP_FROM,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_TIMEOUT_MS: process.env.RESEND_TIMEOUT_MS,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
   };
 
@@ -101,6 +102,9 @@ describe('MailService', () => {
         subject: 'Convite para acompanhar seu caso - NextDream',
         text: expect.stringContaining('Este convite expira em 72 horas'),
         html: expect.stringContaining('Criar meu acesso'),
+      }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
       }),
     );
   });
@@ -198,10 +202,10 @@ describe('MailService', () => {
         inviteUrl: 'https://nextdream.ong.br/aceitar-convite-paciente?token=abc',
         expiresInHours: 72,
       }),
-    ).rejects.toThrow('Failed to send patient invite email to patient@example.com via resend: resend down');
+    ).rejects.toThrow('Failed to send patient invite email to p***@example.com via resend: resend down');
 
     expect(warn).toHaveBeenCalledWith(
-      'Failed to send patient invite email to patient@example.com via resend: resend down',
+      'Failed to send patient invite email to p***@example.com via resend: resend down',
     );
   });
 });
