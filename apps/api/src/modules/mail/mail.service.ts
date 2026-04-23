@@ -281,4 +281,41 @@ export class MailService {
       throw new Error(`Failed to send patient invite email to ${params.to}: ${message}`);
     }
   }
+
+  async sendSmokeTestEmail(params: { to: string; name?: string }) {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      throw new Error('SMTP transporter is unavailable for smoke test email');
+    }
+
+    const from = process.env.SMTP_FROM ?? 'no-reply@nextdream.local';
+    const subject = 'Smoke test de email - NextDream';
+    const recipientName = params.name?.trim() || 'time NextDream';
+    const template = this.renderEmailTemplate({
+      preheader: 'Confirmação operacional do envio de emails no NextDream',
+      title: 'Smoke test de email',
+      greeting: `Olá, ${recipientName}!`,
+      intro: 'Este email confirma que o envio configurado para o ambiente atual está operacional.',
+      bodyLines: [
+        'Use este comando apenas para validações controladas de entrega.',
+        'Se você não esperava esta mensagem, desconsidere.',
+      ],
+    });
+
+    try {
+      await transporter.sendMail({
+        from,
+        to: params.to,
+        subject,
+        text: template.text,
+        html: template.html,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      this.logger.warn(
+        `Failed to send smoke test email to ${params.to}: ${message}`,
+      );
+      throw new Error(`Failed to send smoke test email to ${params.to}: ${message}`);
+    }
+  }
 }
