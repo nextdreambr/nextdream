@@ -1,6 +1,6 @@
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, CheckCircle, Heart, Lock } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, authApi } from '../../lib/api';
 
 export default function ResetPassword() {
@@ -12,6 +12,13 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const redirectTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (redirectTimeoutRef.current !== null) {
+      window.clearTimeout(redirectTimeoutRef.current);
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -34,7 +41,7 @@ export default function ResetPassword() {
         newPassword,
       });
       setSuccess(true);
-      window.setTimeout(() => navigate('/login'), 1200);
+      redirectTimeoutRef.current = window.setTimeout(() => navigate('/login'), 1200);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

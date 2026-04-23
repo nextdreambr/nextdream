@@ -102,6 +102,7 @@ export class AuthController {
 
   @Post('password-reset/request')
   @HttpCode(204)
+  @Throttle(loginThrottle)
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto): Promise<void> {
     await this.authService.requestPasswordReset(dto);
   }

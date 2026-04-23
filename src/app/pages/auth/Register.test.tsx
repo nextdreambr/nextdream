@@ -45,7 +45,7 @@ describe('Register', () => {
     registerMock.mockReset();
   });
 
-  it('submits institution registration with dedicated institution fields and redirects to the institution dashboard', async () => {
+  it('submits institution registration with dedicated institution fields and redirects to email verification', async () => {
     registerMock.mockResolvedValue({
       success: true,
       email: 'casa@example.com',

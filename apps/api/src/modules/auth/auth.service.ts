@@ -505,17 +505,19 @@ export class AuthService {
   }
 
   private buildPasswordResetUrl(token: string) {
-    const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
-    const resetUrl = new URL('/redefinir-senha', appUrl);
+    const resetUrl = new URL('/redefinir-senha', this.getAppBaseUrl());
     resetUrl.searchParams.set('token', token);
     return resetUrl.toString();
   }
 
   private buildEmailVerificationUrl(token: string) {
-    const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
-    const verifyUrl = new URL('/verificar-email', appUrl);
+    const verifyUrl = new URL('/verificar-email', this.getAppBaseUrl());
     verifyUrl.searchParams.set('token', token);
     return verifyUrl.toString();
+  }
+
+  private getAppBaseUrl() {
+    return (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
   }
 
   private async buildAuthResponse(user: User): Promise<AuthSessionPayload> {

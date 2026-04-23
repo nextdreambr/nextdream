@@ -149,9 +149,7 @@ describe('apiRequest', () => {
       text: async () => '',
     } as Response);
 
-    await (authApi as unknown as {
-      requestPasswordReset: (payload: { email: string }) => Promise<void>;
-    }).requestPasswordReset({
+    await authApi.requestPasswordReset({
       email: 'ana@example.com',
     });
 
@@ -172,9 +170,7 @@ describe('apiRequest', () => {
       text: async () => JSON.stringify({ success: true }),
     } as Response);
 
-    await (authApi as unknown as {
-      confirmPasswordReset: (payload: { token: string; newPassword: string }) => Promise<{ success: true }>;
-    }).confirmPasswordReset({
+    await authApi.confirmPasswordReset({
       token: 'token-123',
       newPassword: 'NovaSenha123!',
     });

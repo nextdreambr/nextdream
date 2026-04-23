@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, Table } from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 export class AddPasswordResetTokens20260423100000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -46,6 +46,16 @@ export class AddPasswordResetTokens20260423100000 implements MigrationInterface 
           referencedColumnNames: ['id'],
           onDelete: 'CASCADE',
         },
+      ],
+      indices: [
+        new TableIndex({
+          name: 'IDX_password_reset_tokens_user_id',
+          columnNames: ['userId'],
+        }),
+        new TableIndex({
+          name: 'IDX_password_reset_tokens_expires_at',
+          columnNames: ['expiresAt'],
+        }),
       ],
     }));
   }
