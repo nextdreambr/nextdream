@@ -485,6 +485,88 @@ describe('Sandbox API', () => {
     expect(institutionDreams.body.total).toBeGreaterThanOrEqual(10);
   });
 
+  it('keeps the patient sandbox catalog paginated with richer status variety', async () => {
+    const session = await demoLogin('paciente');
+    const authHeader = { Authorization: `Bearer ${session.accessToken}` };
+
+    const firstPage = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=6')
+      .set(authHeader);
+    const secondPage = await request(app.getHttpServer())
+      .get('/dreams/mine?page=2&pageSize=6')
+      .set(authHeader);
+
+    expect(firstPage.status).toBe(200);
+    expect(secondPage.status).toBe(200);
+    expect(firstPage.body.items).toHaveLength(6);
+    expect(secondPage.body.items.length).toBeGreaterThan(0);
+
+    const statuses = new Set<string>(
+      [...firstPage.body.items, ...secondPage.body.items].map((dream: { status: string }) => dream.status),
+    );
+
+    expect(Array.from(statuses)).toEqual(
+      expect.arrayContaining([
+        'publicado',
+        'em-conversa',
+        'realizando',
+        'concluido',
+        'pausado',
+        'rascunho',
+      ]),
+    );
+  });
+
+  it('keeps institution sandbox seeds connected across patients, dreams, proposals and conversations', async () => {
+    const session = await demoLogin('instituicao');
+    const authHeader = { Authorization: `Bearer ${session.accessToken}` };
+
+    const patients = await request(app.getHttpServer())
+      .get('/institution/patients')
+      .set(authHeader);
+    const dreams = await request(app.getHttpServer())
+      .get('/dreams/mine?page=1&pageSize=20')
+      .set(authHeader);
+    const proposals = await request(app.getHttpServer())
+      .get('/proposals/received')
+      .set(authHeader);
+    const conversations = await request(app.getHttpServer())
+      .get('/conversations/mine')
+      .set(authHeader);
+    const patientDetail = await request(app.getHttpServer())
+      .get('/institution/patients/managed-patient-1')
+      .set(authHeader);
+
+    expect(patients.status).toBe(200);
+    expect(dreams.status).toBe(200);
+    expect(proposals.status).toBe(200);
+    expect(conversations.status).toBe(200);
+    expect(patientDetail.status).toBe(200);
+
+    expect(patients.body.length).toBeGreaterThanOrEqual(10);
+    expect(dreams.body.total).toBeGreaterThanOrEqual(10);
+    expect(proposals.body.length).toBeGreaterThanOrEqual(5);
+    expect(conversations.body.length).toBeGreaterThanOrEqual(3);
+
+    const managedPatientIds = new Set(
+      dreams.body.items.map((dream: { managedPatientId?: string }) => dream.managedPatientId).filter(Boolean),
+    );
+    expect(managedPatientIds.size).toBeGreaterThanOrEqual(10);
+    expect(
+      dreams.body.items.every((dream: { managedPatientId?: string; patientName?: string; patientContext?: string }) =>
+        Boolean(dream.managedPatientId && dream.patientName && dream.patientContext),
+      ),
+    ).toBe(true);
+    expect(
+      conversations.body.every((conversation: { managedByInstitution?: boolean; institutionName?: string }) =>
+        Boolean(conversation.managedByInstitution && conversation.institutionName),
+      ),
+    ).toBe(true);
+    expect(patientDetail.body.dreams.length).toBeGreaterThan(0);
+    expect(patientDetail.body.proposals.length).toBeGreaterThan(0);
+    expect(patientDetail.body.conversations.length).toBeGreaterThan(0);
+  });
+
   it('serializes seeded moderated messages and blocks financial language in sandbox chat sends', async () => {
     const session = await demoLogin('paciente');
     const authHeader = { Authorization: `Bearer ${session.accessToken}` };
@@ -516,6 +598,12 @@ describe('Sandbox API', () => {
     if (!conversationId || !messages) {
       throw new Error('Expected at least one seeded conversation with moderated messages');
     }
+
+    expect(
+      messages.body.some((message: { body: string; moderated: boolean }) =>
+        message.moderated && /pix, dinheiro ou doa/i.test(message.body),
+      ),
+    ).toBe(true);
 
     const blockedAttempt = await request(app.getHttpServer())
       .post(`/conversations/${conversationId}/messages`)

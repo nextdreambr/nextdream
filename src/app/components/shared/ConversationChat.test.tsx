@@ -72,7 +72,7 @@ describe('ConversationChat', () => {
         id: 'message-1',
         conversationId: 'conversation-1',
         senderId: 'patient-1',
-        body: 'Mensagem retida pela moderação do sandbox por mencionar dinheiro.',
+        body: 'Mensagem retida pela moderação do sandbox: referências a PIX, dinheiro ou doações não aparecem no chat.',
         moderated: true,
         createdAt: '2026-04-20T10:10:00.000Z',
       },
@@ -97,6 +97,7 @@ describe('ConversationChat', () => {
     expect(await screen.findByText('Serenata para a varanda')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver sonho/i })).toHaveAttribute('href', '/apoiador/sonhos/dream-1');
     expect(screen.getByText(/mensagem moderada/i)).toBeInTheDocument();
+    expect(screen.getByText(/pix, dinheiro ou doações não aparecem no chat/i)).toBeInTheDocument();
   });
 
   it('blocks financial language before sending and shows a clear sandbox warning', async () => {
@@ -186,7 +187,7 @@ describe('ConversationChat', () => {
           id: 'message-1',
           conversationId: 'conversation-1',
           senderId: 'patient-1',
-          body: 'Mensagem retida pela moderação do sandbox por mencionar dinheiro.',
+          body: 'Mensagem retida pela moderação do sandbox: referências a PIX, dinheiro ou doações não aparecem no chat.',
           moderated: true,
           createdAt: '2026-04-20T10:10:00.000Z',
         },

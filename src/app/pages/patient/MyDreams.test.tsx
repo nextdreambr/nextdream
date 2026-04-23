@@ -136,4 +136,67 @@ describe('MyDreams', () => {
       });
     });
   });
+
+  it('resets the pagination to the first page when a status filter changes after page navigation', async () => {
+    listMinePageMock.mockReset();
+    listMinePageMock
+      .mockResolvedValueOnce({
+        items: [1, 2, 3, 4, 5, 6].map(makeDream),
+        page: 1,
+        pageSize: 6,
+        total: 10,
+        totalPages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [7, 8, 9, 10].map(makeDream),
+        page: 2,
+        pageSize: 6,
+        total: 10,
+        totalPages: 2,
+      })
+      .mockResolvedValue({
+        items: [makeDream(2), makeDream(4)],
+        page: 1,
+        pageSize: 6,
+        total: 2,
+        totalPages: 1,
+      });
+
+    render(
+      <MemoryRouter>
+        <MyDreams />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Sonho 1');
+
+    fireEvent.click(screen.getByLabelText(/próxima página/i));
+
+    await waitFor(() => {
+      expect(listMinePageMock).toHaveBeenNthCalledWith(2, {
+        page: 2,
+        pageSize: 6,
+        query: '',
+        status: '',
+        category: '',
+        format: '',
+      });
+    });
+
+    expect(await screen.findByText('Sonho 10')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /filtros/i }));
+    fireEvent.click(screen.getByRole('button', { name: /publicado/i }));
+
+    await waitFor(() => {
+      expect(listMinePageMock).toHaveBeenLastCalledWith({
+        page: 1,
+        pageSize: 6,
+        query: '',
+        status: 'publicado',
+        category: '',
+        format: '',
+      });
+    });
+  });
 });

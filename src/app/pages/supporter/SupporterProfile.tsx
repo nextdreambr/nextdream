@@ -2,10 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Bell, Heart, LogOut, MapPin, Shield, Sparkles, Star } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { ApiError, Proposal, notificationsApi, proposalsApi } from '../../lib/api';
+import {
+  ApiError,
+  AppNotification,
+  Conversation,
+  Proposal,
+  conversationsApi,
+  notificationsApi,
+  proposalsApi,
+} from '../../lib/api';
 import {
   loadSandboxProfileState,
   persistSandboxProfileState,
+  SANDBOX_HISTORY_FILTERS,
+  type SandboxHistoryFilter,
   type SandboxProfileState,
 } from '../../lib/sandboxProfileState';
 
@@ -13,17 +23,29 @@ type ProfileSection = 'visao-geral' | 'privacidade' | 'seguranca' | 'historico';
 
 interface HistoryEntry {
   id: string;
+  kind: SandboxHistoryFilter;
   title: string;
   description: string;
   createdAt: string;
   path?: string;
 }
 
+const historyFilterLabels: Record<SandboxHistoryFilter, string> = {
+  todos: 'Todos',
+  sonhos: 'Sonhos',
+  propostas: 'Propostas',
+  conversas: 'Conversas',
+  notificacoes: 'Notificações',
+  visitas: 'Visitas',
+};
+
 export default function SupporterProfile() {
   const { currentUser, logout } = useApp();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<ProfileSection>('visao-geral');
   const [myProposals, setMyProposals] = useState<Proposal[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [profileState, setProfileState] = useState<SandboxProfileState | null>(null);
   const [error, setError] = useState('');
@@ -40,12 +62,16 @@ export default function SupporterProfile() {
 
     async function load() {
       try {
-        const [proposals, preferences] = await Promise.all([
+        const [proposals, conversationList, notificationList, preferences] = await Promise.all([
           proposalsApi.listMine(),
+          conversationsApi.listMine(),
+          notificationsApi.listMine(),
           notificationsApi.getPreferences(),
         ]);
         if (!mounted) return;
         setMyProposals(proposals);
+        setConversations(conversationList);
+        setNotifications(notificationList);
         setEmailEnabled(preferences.emailEnabled);
       } catch (err) {
         if (!mounted) return;
@@ -64,6 +90,7 @@ export default function SupporterProfile() {
   const historyEntries = useMemo<HistoryEntry[]>(() => {
     const proposalEntries = myProposals.map((proposal) => ({
       id: `proposal-${proposal.id}`,
+      kind: 'propostas' as const,
       title: `Sua proposta para "${proposal.dreamTitle ?? 'um sonho'}" foi ${proposal.status}`,
       description: proposal.patientName
         ? `Paciente: ${proposal.patientName}.`
@@ -72,24 +99,48 @@ export default function SupporterProfile() {
       path: '/apoiador/propostas',
     }));
 
+    const conversationEntries = conversations.map((conversation) => ({
+      id: `conversation-${conversation.id}`,
+      kind: 'conversas' as const,
+      title: `Conversa ativa sobre "${conversation.dreamTitle ?? 'um sonho'}"`,
+      description: 'O chat segue disponível para você continuar a combinação desta sessão.',
+      createdAt: conversation.createdAt,
+      path: `/apoiador/chat?conversationId=${conversation.id}`,
+    }));
+
+    const notificationEntries = notifications.map((notification) => ({
+      id: `notification-${notification.id}`,
+      kind: 'notificacoes' as const,
+      title: notification.title,
+      description: notification.message,
+      createdAt: notification.createdAt,
+      path: notification.actionPath,
+    }));
+
     const visitedEntries = (profileState?.visitedDreams ?? []).map((dream) => ({
       id: `visit-${dream.dreamId}`,
+      kind: 'visitas' as const,
       title: dream.title,
       description: 'Sonho visitado e salvo nesta sessão.',
       createdAt: dream.visitedAt,
       path: dream.path,
     }));
 
-    return [...proposalEntries, ...visitedEntries].sort(
+    return [...notificationEntries, ...conversationEntries, ...proposalEntries, ...visitedEntries].sort(
       (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
     );
-  }, [myProposals, profileState?.visitedDreams]);
+  }, [conversations, myProposals, notifications, profileState?.visitedDreams]);
 
   function updateProfileState(updater: (current: SandboxProfileState) => SandboxProfileState) {
     setProfileState((current) => {
       if (!current) return current;
       return updater(current);
     });
+  }
+
+  function persistProfileSnapshot(nextState: SandboxProfileState) {
+    if (!currentUser) return;
+    persistSandboxProfileState(currentUser.id, nextState);
   }
 
   function handleSavePrivacy() {
@@ -107,7 +158,7 @@ export default function SupporterProfile() {
         lastSavedAt: new Date().toISOString(),
       },
     };
-    persistSandboxProfileState(currentUser.id, nextState);
+    persistProfileSnapshot(nextState);
     setProfileState(nextState);
     setSecurityFeedback('Ajustes de segurança salvos no sandbox');
   }
@@ -120,6 +171,11 @@ export default function SupporterProfile() {
   if (!currentUser || !profileState) {
     return <div className="max-w-3xl mx-auto py-8 text-sm text-gray-500">Carregando perfil...</div>;
   }
+
+  const filteredHistoryEntries = historyEntries.filter((entry) => {
+    if (profileState.historyFilter === 'todos') return true;
+    return entry.kind === profileState.historyFilter;
+  });
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -317,12 +373,44 @@ export default function SupporterProfile() {
               Mensagens com PIX, dinheiro e doações seguem bloqueadas. Notificações por e-mail: {emailEnabled ? 'ativas' : 'desativadas'}.
             </div>
 
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 p-4">
+              <div>
+                <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>Checklist de conversa segura revisado</p>
+                <p className="mt-1 text-xs text-gray-500">Marca nesta sessão que você revisou os lembretes de combinação segura.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-label="Checklist de conversa segura revisado"
+                aria-checked={profileState.security.safetyChecklist}
+                onClick={() => {
+                  setSecurityFeedback('');
+                  updateProfileState((current) => ({
+                    ...current,
+                    security: {
+                      ...current.security,
+                      safetyChecklist: !current.security.safetyChecklist,
+                    },
+                  }));
+                }}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                  profileState.security.safetyChecklist ? 'bg-teal-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    profileState.security.safetyChecklist ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={handleSaveSecurity}
               className="rounded-xl border border-teal-200 px-4 py-2.5 text-sm font-medium text-teal-700 hover:bg-teal-50"
             >
-              Registrar ajuste
+              Salvar segurança
             </button>
             {securityFeedback && <p className="text-sm text-green-700">{securityFeedback}</p>}
           </div>
@@ -332,16 +420,41 @@ export default function SupporterProfile() {
           <div className="space-y-4">
             <div>
               <h2 className="text-base text-gray-900" style={{ fontWeight: 700 }}>Histórico desta sessão</h2>
-              <p className="text-sm text-gray-500">Veja propostas enviadas e sonhos visitados ao longo da navegação no sandbox.</p>
+              <p className="text-sm text-gray-500">Veja propostas enviadas, conversas, notificações e sonhos visitados ao longo da navegação no sandbox.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {SANDBOX_HISTORY_FILTERS.map((filter) => {
+                const checked = profileState.historyFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => {
+                      const nextState = {
+                        ...profileState,
+                        historyFilter: filter,
+                      };
+                      setProfileState(nextState);
+                      persistProfileSnapshot(nextState);
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      checked ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                    }`}
+                  >
+                    {historyFilterLabels[filter]}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="space-y-3">
-              {historyEntries.length === 0 ? (
+              {filteredHistoryEntries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-                  Assim que você explorar sonhos ou enviar propostas, os eventos aparecem aqui.
+                  Nenhum evento desta categoria apareceu nesta sessão ainda.
                 </div>
               ) : (
-                historyEntries.map((entry) => (
+                filteredHistoryEntries.map((entry) => (
                   <div key={entry.id} className="rounded-2xl border border-gray-100 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

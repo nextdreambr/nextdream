@@ -128,18 +128,6 @@ describe('InstitutionPatientDetail', () => {
         proposals: 2,
         activeConversations: 1,
       },
-      dreams: [
-        {
-          id: 'dream-1',
-          title: 'Dia de oficinas de pintura',
-          category: 'Arte',
-          status: 'publicado',
-          urgency: 'media',
-          updatedAt: '2026-04-21T11:44:00.000Z',
-        },
-      ],
-      proposals: [],
-      conversations: [],
     });
 
     render(
@@ -150,5 +138,8 @@ describe('InstitutionPatientDetail', () => {
 
     expect(await screen.findByText('Miguel Assistido')).toBeInTheDocument();
     expect(screen.getByText(/ainda não há eventos registrados para este caso/i)).toBeInTheDocument();
+    expect(screen.getByText(/nenhum sonho publicado para este paciente ainda/i)).toBeInTheDocument();
+    expect(screen.getByText(/ainda não há propostas ligadas a este caso/i)).toBeInTheDocument();
+    expect(screen.getByText(/nenhuma conversa iniciada para este paciente/i)).toBeInTheDocument();
   });
 });
