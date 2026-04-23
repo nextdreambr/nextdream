@@ -471,6 +471,49 @@ describe('NextDream API', () => {
     }
   });
 
+  it('resends email verification instead of a password reset link for unverified public accounts', async () => {
+    const sendPasswordResetEmail = vi
+      .spyOn(MailService.prototype, 'sendPasswordResetEmail')
+      .mockResolvedValue();
+    const sendEmailVerificationEmail = vi
+      .spyOn(MailService.prototype, 'sendEmailVerificationEmail')
+      .mockResolvedValue();
+    const isolatedApp = await createIsolatedApp();
+
+    try {
+      const register = await request(isolatedApp.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Ana Souza',
+          email: 'ana-unverified@example.com',
+          password: 'Secret123!',
+          role: 'paciente',
+          city: 'Santos, SP',
+        });
+
+      expect(register.status).toBe(201);
+      expect(sendEmailVerificationEmail).toHaveBeenCalledTimes(1);
+
+      sendEmailVerificationEmail.mockClear();
+      sendPasswordResetEmail.mockClear();
+
+      const requestReset = await request(isolatedApp.getHttpServer())
+        .post('/auth/password-reset/request')
+        .send({ email: 'ana-unverified@example.com' });
+
+      expect(requestReset.status).toBe(204);
+      expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+      expect(sendEmailVerificationEmail).toHaveBeenCalledTimes(1);
+      expect(sendEmailVerificationEmail.mock.calls[0]?.[0]).toMatchObject({
+        to: 'ana-unverified@example.com',
+        name: 'Ana Souza',
+      });
+      expect(sendEmailVerificationEmail.mock.calls[0]?.[0]?.verifyUrl).toEqual(expect.any(String));
+    } finally {
+      await isolatedApp.close();
+    }
+  });
+
   it('requires email verification before allowing login for public signups', async () => {
     const password = 'Secret123!';
     const sendEmailVerificationEmail = vi
