@@ -47,23 +47,11 @@ describe('Register', () => {
 
   it('submits institution registration with dedicated institution fields and redirects to the institution dashboard', async () => {
     registerMock.mockResolvedValue({
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      user: {
-        id: 'institution-1',
-        name: 'Casa Esperanca',
-        email: 'casa@example.com',
-        role: 'instituicao',
-        state: 'PE',
-        city: 'Recife',
-        locationLabel: 'Recife, PE',
-        institutionResponsibleName: 'Ana Souza',
-        institutionResponsiblePhone: '(81) 99999-0000',
-        institutionType: 'ONG',
-        institutionDescription: 'Acolhimento e cuidado humanizado.',
-        verified: true,
-        approved: false,
-      },
+      success: true,
+      email: 'casa@example.com',
+      role: 'instituicao',
+      requiresEmailVerification: true,
+      requiresApproval: true,
     });
 
     render(
@@ -105,8 +93,8 @@ describe('Register', () => {
     });
 
     await waitFor(() => {
-      expect(loginMock).toHaveBeenCalled();
-      expect(navigateMock).toHaveBeenCalledWith('/instituicao/dashboard');
+      expect(loginMock).not.toHaveBeenCalled();
+      expect(navigateMock).toHaveBeenCalledWith('/verificar-email?email=casa%40example.com&role=instituicao');
     });
   });
 

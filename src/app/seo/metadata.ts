@@ -144,6 +144,18 @@ const STATIC_SEO: Record<string, SeoData> = {
     canonicalPath: '/esqueci-senha',
     robots: 'noindex, nofollow',
   },
+  '/redefinir-senha': {
+    title: 'Redefinir Senha | NextDream',
+    description: 'Crie uma nova senha para acessar sua conta NextDream com seguranca.',
+    canonicalPath: '/redefinir-senha',
+    robots: 'noindex, nofollow',
+  },
+  '/verificar-email': {
+    title: 'Verificar E-mail | NextDream',
+    description: 'Confirme seu e-mail para ativar sua conta NextDream com seguranca.',
+    canonicalPath: '/verificar-email',
+    robots: 'noindex, nofollow',
+  },
   '/selecionar-perfil': {
     title: 'Selecionar Perfil | NextDream',
     description: 'Escolha como voce deseja participar da NextDream.',

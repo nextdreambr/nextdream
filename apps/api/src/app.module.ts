@@ -10,6 +10,8 @@ import { AdminReport } from './entities/admin-report.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Message } from './entities/message.entity';
 import { Notification } from './entities/notification.entity';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { PatientInvite } from './entities/patient-invite.entity';
 import { ValidationPipe } from '@nestjs/common';
 import { User } from './entities/user.entity';
@@ -44,6 +46,8 @@ const databaseModule = TypeOrmModule.forRootAsync({
         ManagedPatient,
         Message,
         Notification,
+        EmailVerificationToken,
+        PasswordResetToken,
         AdminContactMessage,
         AdminInvite,
         PatientInvite,

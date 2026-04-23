@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
   apiRequest,
+  authApi,
   setAccessTokenGetter,
   setRefreshTokenGetter,
   setSessionChangeHandler,
@@ -83,6 +84,109 @@ describe('apiRequest', () => {
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.credentials).toBe('include');
+  });
+
+  it('submits public registration expecting email verification instead of an authenticated session', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: async () => JSON.stringify({
+        success: true,
+        email: 'ana@example.com',
+        role: 'paciente',
+        requiresEmailVerification: true,
+        requiresApproval: false,
+      }),
+    } as Response);
+
+    await authApi.register({
+      name: 'Ana',
+      email: 'ana@example.com',
+      password: 'Secret123!',
+      role: 'paciente',
+      city: 'Santos',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/register',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({
+          name: 'Ana',
+          email: 'ana@example.com',
+          password: 'Secret123!',
+          role: 'paciente',
+          city: 'Santos',
+        }),
+      }),
+    );
+  });
+
+  it('confirms an email verification token with the auth API', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ success: true }),
+    } as Response);
+
+    await authApi.verifyEmail({ token: 'verify-token-123' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/verify-email',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ token: 'verify-token-123' }),
+      }),
+    );
+  });
+
+  it('requests a password reset email from the auth API', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 204,
+      text: async () => '',
+    } as Response);
+
+    await (authApi as unknown as {
+      requestPasswordReset: (payload: { email: string }) => Promise<void>;
+    }).requestPasswordReset({
+      email: 'ana@example.com',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/password-reset/request',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ email: 'ana@example.com' }),
+      }),
+    );
+  });
+
+  it('confirms a password reset with the new password and token', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ success: true }),
+    } as Response);
+
+    await (authApi as unknown as {
+      confirmPasswordReset: (payload: { token: string; newPassword: string }) => Promise<{ success: true }>;
+    }).confirmPasswordReset({
+      token: 'token-123',
+      newPassword: 'NovaSenha123!',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/password-reset/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ token: 'token-123', newPassword: 'NovaSenha123!' }),
+      }),
+    );
   });
 
   it('refreshes the session and retries the original request after a 401', async () => {

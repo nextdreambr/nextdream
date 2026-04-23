@@ -2,7 +2,6 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react
 import { Building2, Eye, EyeOff, ArrowRight, CheckCircle, Heart, Mail, Lock, Star, User, Phone, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { isSandboxEnvironment } from '../../config/environment';
-import { useApp } from '../../context/AppContext';
 import { ApiError, ApiUserRole, authApi } from '../../lib/api';
 import { BRAZIL_STATES } from '../../data/brazilCities';
 import { getCitiesForState } from '../../lib/location';
@@ -114,7 +113,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
   paciente: {
     introEyebrow: 'Cadastro de paciente',
     introTitle: 'Sua conta começa com clareza, acolhimento e segurança.',
-    introBody: 'Você entra na área do paciente logo após o cadastro para organizar seus sonhos e acompanhar tudo com tranquilidade.',
+    introBody: 'Depois do cadastro, vamos enviar um link de ativação para liberar seu primeiro acesso com segurança.',
     profileDescription: 'Cadastro pessoal com suporte seguro e navegação simples desde o primeiro acesso.',
     primarySectionTitle: 'Seus dados',
     primarySectionBody: 'Essas informações ajudam a personalizar sua conta e dar contexto ao seu perfil dentro da plataforma.',
@@ -123,7 +122,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
     sidebarEyebrow: 'Como funciona para paciente',
     sidebarTitle: 'Seu espaço no NextDream é feito para organizar sonhos com calma.',
     sidebarBullets: [
-      'Cadastre sua conta pessoal e entre imediatamente na área do paciente.',
+      'Cadastre sua conta pessoal e confirme seu e-mail para ativar o acesso.',
       'Descreva seus sonhos com mais clareza e acompanhe propostas recebidas.',
       'Mantenha conversas, notificações e próximos passos no mesmo lugar.',
     ],
@@ -138,7 +137,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
   apoiador: {
     introEyebrow: 'Cadastro de apoiador',
     introTitle: 'Seu apoio entra com contexto, confiança e intenção clara.',
-    introBody: 'Você entra na área do apoiador logo após o cadastro para explorar sonhos e construir conexões reais.',
+    introBody: 'Depois do cadastro, vamos enviar um link de ativação para liberar sua conta com segurança.',
     profileDescription: 'Cadastro pessoal com foco em descoberta de sonhos, propostas e acompanhamento de conversas.',
     primarySectionTitle: 'Seus dados',
     primarySectionBody: 'Use seus dados principais para criar uma presença confiável e identificável dentro da comunidade.',
@@ -147,7 +146,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
     sidebarEyebrow: 'Como funciona para apoiador',
     sidebarTitle: 'Seu perfil de apoiador foi pensado para explorar e agir com rapidez.',
     sidebarBullets: [
-      'Crie sua conta e entre direto na área para explorar sonhos publicados.',
+      'Crie sua conta, confirme seu e-mail e só então acesse a área para explorar sonhos publicados.',
       'Envie propostas com contexto e acompanhe o andamento de cada caso.',
       'Mantenha conversas abertas com mais visibilidade sobre cada sonho apoiado.',
     ],
@@ -162,7 +161,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
   instituicao: {
     introEyebrow: 'Cadastro institucional',
     introTitle: 'Preencha os dados principais da organização e do responsável pela conta.',
-    introBody: 'Assim que o cadastro for enviado, você entra na área institucional com o status em análise.',
+    introBody: 'Depois do cadastro, o responsável confirma o e-mail e a conta segue para análise da equipe.',
     profileDescription: 'Cadastro institucional com aprovação manual, operação segura e contato responsável.',
     primarySectionTitle: 'Dados da instituição',
     primarySectionBody: 'Esses dados identificam a organização dentro da plataforma e no processo de aprovação.',
@@ -171,7 +170,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
     sidebarEyebrow: 'Como funciona para Hospital ou ONG',
     sidebarTitle: 'Sua instituição entra com contexto e operação segura.',
     sidebarBullets: [
-      'Sua instituição entra na área interna imediatamente após o cadastro.',
+      'O responsável confirma o e-mail da conta antes de qualquer acesso.',
       'A operação de pacientes e sonhos só libera após a aprovação manual da equipe.',
       'O responsável informado será o contato principal da conta.',
     ],
@@ -204,7 +203,6 @@ export default function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { login } = useApp();
   const tipo = searchParams.get('tipo');
 
   if (isSandboxEnvironment()) {
@@ -238,13 +236,6 @@ export default function Register() {
     !password
   );
 
-  const routeByRole = (targetRole: ApiUserRole) => {
-    if (targetRole === 'paciente') return '/paciente/dashboard';
-    if (targetRole === 'apoiador') return '/apoiador/dashboard';
-    if (targetRole === 'instituicao') return '/instituicao/dashboard';
-    return '/admin';
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -262,7 +253,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const session = await authApi.register({
+      const registration = await authApi.register({
         name: name.trim(),
         email: email.trim(),
         password,
@@ -274,8 +265,11 @@ export default function Register() {
         state: state || undefined,
         city: city.trim() || undefined,
       });
-      login(session);
-      navigate(routeByRole(session.user.role));
+      const nextSearch = new URLSearchParams({
+        email: registration.email,
+        role: registration.role,
+      });
+      navigate(`/verificar-email?${nextSearch.toString()}`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -636,7 +630,7 @@ export default function Register() {
               {isInstitution && (
                 <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-xs text-indigo-700 space-y-1">
                   <p className="font-semibold">Cadastro institucional com aprovação manual</p>
-                  <p>Contas de Hospital / ONG entram na área institucional logo após o cadastro, mas ficam em análise antes de operar pacientes e sonhos.</p>
+                  <p>Depois de confirmar o e-mail do responsável, a conta segue em análise antes de operar pacientes e sonhos.</p>
                 </div>
               )}
 

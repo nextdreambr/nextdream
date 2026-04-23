@@ -10,19 +10,24 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { AdminInvite } from '../../entities/admin-invite.entity';
 import ms, { type StringValue } from 'ms';
 import { getEnvOrDefault, getRequiredEnv } from '../../config/env';
+import { EmailVerificationToken } from '../../entities/email-verification-token.entity';
 import { ManagedPatient } from '../../entities/managed-patient.entity';
+import { PasswordResetToken } from '../../entities/password-reset-token.entity';
 import { PatientInvite } from '../../entities/patient-invite.entity';
 import { User } from '../../entities/user.entity';
 import { buildLocationLabel, normalizeLocationPart } from '../../lib/location';
 import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
+import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { DemoLoginDto } from './dto/demo-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { MailService } from '../mail/mail.service';
 
 export interface AuthUserPayload {
@@ -48,6 +53,14 @@ export interface AuthSessionPayload {
   user: AuthUserPayload;
 }
 
+export interface AuthRegisterResponse {
+  success: true;
+  email: string;
+  role: AuthUserPayload['role'];
+  requiresEmailVerification: true;
+  requiresApproval: boolean;
+}
+
 @Injectable()
 export class AuthService {
   private readonly accessTokenExpiresIn: StringValue = this.readJwtTtl('JWT_ACCESS_EXPIRES_IN', '1h');
@@ -55,6 +68,8 @@ export class AuthService {
   private readonly usersRepository: Repository<User>;
   private readonly adminInvitesRepository: Repository<AdminInvite>;
   private readonly patientInvitesRepository: Repository<PatientInvite>;
+  private readonly emailVerificationTokensRepository: Repository<EmailVerificationToken>;
+  private readonly passwordResetTokensRepository: Repository<PasswordResetToken>;
   private readonly managedPatientsRepository: Repository<ManagedPatient>;
   private readonly jwtService: JwtService;
   private readonly mailService: MailService;
@@ -64,6 +79,8 @@ export class AuthService {
     @InjectRepository(User) usersRepository: Repository<User>,
     @InjectRepository(AdminInvite) adminInvitesRepository: Repository<AdminInvite>,
     @InjectRepository(PatientInvite) patientInvitesRepository: Repository<PatientInvite>,
+    @InjectRepository(EmailVerificationToken) emailVerificationTokensRepository: Repository<EmailVerificationToken>,
+    @InjectRepository(PasswordResetToken) passwordResetTokensRepository: Repository<PasswordResetToken>,
     @InjectRepository(ManagedPatient) managedPatientsRepository: Repository<ManagedPatient>,
     @Inject(JwtService) jwtService: JwtService,
     @Inject(MailService) mailService: MailService,
@@ -72,27 +89,36 @@ export class AuthService {
     this.usersRepository = usersRepository;
     this.adminInvitesRepository = adminInvitesRepository;
     this.patientInvitesRepository = patientInvitesRepository;
+    this.emailVerificationTokensRepository = emailVerificationTokensRepository;
+    this.passwordResetTokensRepository = passwordResetTokensRepository;
     this.managedPatientsRepository = managedPatientsRepository;
     this.jwtService = jwtService;
     this.mailService = mailService;
     this.dataSource = dataSource;
   }
 
-  async register(dto: RegisterDto): Promise<AuthSessionPayload> {
+  async register(dto: RegisterDto): Promise<AuthRegisterResponse> {
     if ((dto as { role: string }).role === 'admin') {
       throw new BadRequestException('Public registration cannot create admin users');
     }
 
+    const normalizedEmail = dto.email.toLowerCase();
     const existing = await this.usersRepository.findOne({
-      where: { email: dto.email.toLowerCase() },
+      where: { email: normalizedEmail },
     });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
 
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashOneTimeToken(token);
+    const expiresInHours = this.getEmailVerificationExpiresInHours();
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+    const now = new Date();
+
     const user = this.usersRepository.create({
       name: dto.name.trim(),
-      email: dto.email.toLowerCase(),
+      email: normalizedEmail,
       passwordHash: await bcrypt.hash(dto.password, 10),
       role: dto.role,
       institutionType: dto.role === 'instituicao' ? dto.institutionType?.trim() || undefined : undefined,
@@ -107,18 +133,42 @@ export class AuthService {
         : undefined,
       state: normalizeLocationPart(dto.state),
       city: normalizeLocationPart(dto.city),
-      verified: true,
+      verified: false,
       approved: dto.role !== 'instituicao',
       approvedAt: dto.role === 'instituicao' ? undefined : new Date(),
     });
 
     const saved = await this.usersRepository.save(user);
-    await this.mailService.sendWelcomeEmail({
+    await this.dataSource.transaction(async (manager) => {
+      const txEmailVerificationTokensRepository = manager.getRepository(EmailVerificationToken);
+      await txEmailVerificationTokensRepository.update(
+        { userId: saved.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+
+      const verificationToken = txEmailVerificationTokensRepository.create({
+        userId: saved.id,
+        tokenHash,
+        expiresAt,
+        usedAt: null,
+      });
+      await txEmailVerificationTokensRepository.save(verificationToken);
+    });
+
+    await this.mailService.sendEmailVerificationEmail({
       to: saved.email,
       name: saved.name,
-      role: saved.role,
+      verifyUrl: this.buildEmailVerificationUrl(token),
+      expiresInHours,
     });
-    return this.buildAuthResponse(saved);
+
+    return {
+      success: true,
+      email: saved.email,
+      role: saved.role,
+      requiresEmailVerification: true,
+      requiresApproval: saved.role === 'instituicao',
+    };
   }
 
   async login(dto: LoginDto): Promise<AuthSessionPayload> {
@@ -134,6 +184,9 @@ export class AuthService {
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    if (!user.verified) {
+      throw new UnauthorizedException('Email verification is required before login');
+    }
 
     return this.buildAuthResponse(user);
   }
@@ -141,6 +194,131 @@ export class AuthService {
   async demoLogin(dto: DemoLoginDto): Promise<AuthSessionPayload> {
     void dto;
     throw new BadRequestException('Demo access is only available in sandbox mode');
+  }
+
+  async requestPasswordReset(dto: RequestPasswordResetDto): Promise<void> {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const user = await this.usersRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || user.suspended || !user.verified) {
+      return;
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashOneTimeToken(token);
+    const expiresInHours = this.getPasswordResetExpiresInHours();
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+    const now = new Date();
+
+    await this.dataSource.transaction(async (manager) => {
+      const txPasswordResetTokensRepository = manager.getRepository(PasswordResetToken);
+      await txPasswordResetTokensRepository.update(
+        { userId: user.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+
+      const resetToken = txPasswordResetTokensRepository.create({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        usedAt: null,
+      });
+      await txPasswordResetTokensRepository.save(resetToken);
+    });
+
+    await this.mailService.sendPasswordResetEmail({
+      to: user.email,
+      name: user.name,
+      resetUrl: this.buildPasswordResetUrl(token),
+      expiresInHours,
+    });
+  }
+
+  async confirmPasswordReset(dto: ConfirmPasswordResetDto): Promise<{ success: true }> {
+    const tokenHash = this.hashOneTimeToken(dto.token);
+    const now = new Date();
+
+    await this.dataSource.transaction(async (manager) => {
+      const txUsersRepository = manager.getRepository(User);
+      const txPasswordResetTokensRepository = manager.getRepository(PasswordResetToken);
+      const resetToken = await txPasswordResetTokensRepository.findOne({
+        where: { tokenHash },
+      });
+
+      if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= now) {
+        throw new BadRequestException('Invalid or expired password reset token');
+      }
+
+      const tokenMarked = await txPasswordResetTokensRepository.update(
+        { id: resetToken.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+      if (tokenMarked.affected !== 1) {
+        throw new BadRequestException('Invalid or expired password reset token');
+      }
+
+      const user = await txUsersRepository.findOne({
+        where: { id: resetToken.userId },
+      });
+      if (!user) {
+        throw new BadRequestException('Invalid or expired password reset token');
+      }
+
+      user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+      user.sessionVersion = (user.sessionVersion ?? 0) + 1;
+      await txUsersRepository.save(user);
+
+      await txPasswordResetTokensRepository.update(
+        { userId: user.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+    });
+
+    return { success: true };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto): Promise<{ success: true }> {
+    const tokenHash = this.hashOneTimeToken(dto.token);
+    const now = new Date();
+
+    await this.dataSource.transaction(async (manager) => {
+      const txUsersRepository = manager.getRepository(User);
+      const txEmailVerificationTokensRepository = manager.getRepository(EmailVerificationToken);
+      const verificationToken = await txEmailVerificationTokensRepository.findOne({
+        where: { tokenHash },
+      });
+
+      if (!verificationToken || verificationToken.usedAt || verificationToken.expiresAt <= now) {
+        throw new BadRequestException('Invalid or expired email verification token');
+      }
+
+      const tokenMarked = await txEmailVerificationTokensRepository.update(
+        { id: verificationToken.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+      if (tokenMarked.affected !== 1) {
+        throw new BadRequestException('Invalid or expired email verification token');
+      }
+
+      const user = await txUsersRepository.findOne({
+        where: { id: verificationToken.userId },
+      });
+      if (!user) {
+        throw new BadRequestException('Invalid or expired email verification token');
+      }
+
+      user.verified = true;
+      await txUsersRepository.save(user);
+
+      await txEmailVerificationTokensRepository.update(
+        { userId: user.id, usedAt: IsNull() },
+        { usedAt: now },
+      );
+    });
+
+    return { success: true };
   }
 
   async acceptAdminInvite(dto: AcceptAdminInviteDto): Promise<AuthSessionPayload> {
@@ -326,6 +504,20 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
+  private buildPasswordResetUrl(token: string) {
+    const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
+    const resetUrl = new URL('/redefinir-senha', appUrl);
+    resetUrl.searchParams.set('token', token);
+    return resetUrl.toString();
+  }
+
+  private buildEmailVerificationUrl(token: string) {
+    const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
+    const verifyUrl = new URL('/verificar-email', appUrl);
+    verifyUrl.searchParams.set('token', token);
+    return verifyUrl.toString();
+  }
+
   private async buildAuthResponse(user: User): Promise<AuthSessionPayload> {
     const payload = {
       sub: user.id,
@@ -380,6 +572,20 @@ export class AuthService {
     }
 
     return value as StringValue;
+  }
+
+  private getPasswordResetExpiresInHours() {
+    const raw = Number(getEnvOrDefault('PASSWORD_RESET_TOKEN_TTL_HOURS', '2'));
+    return Number.isFinite(raw) && raw > 0 ? raw : 2;
+  }
+
+  private getEmailVerificationExpiresInHours() {
+    const raw = Number(getEnvOrDefault('EMAIL_VERIFICATION_TOKEN_TTL_HOURS', '24'));
+    return Number.isFinite(raw) && raw > 0 ? raw : 24;
+  }
+
+  private hashOneTimeToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   private isJwtValidationError(error: unknown): boolean {

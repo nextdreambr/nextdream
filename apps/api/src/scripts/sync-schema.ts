@@ -8,9 +8,11 @@ import { AdminReport } from '../entities/admin-report.entity';
 import { AuditLog } from '../entities/audit-log.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { Dream } from '../entities/dream.entity';
+import { EmailVerificationToken } from '../entities/email-verification-token.entity';
 import { ManagedPatient } from '../entities/managed-patient.entity';
 import { Message } from '../entities/message.entity';
 import { Notification } from '../entities/notification.entity';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { PatientInvite } from '../entities/patient-invite.entity';
 import { Proposal } from '../entities/proposal.entity';
 import { User } from '../entities/user.entity';
@@ -64,6 +66,8 @@ async function run() {
       ManagedPatient,
       Message,
       Notification,
+      EmailVerificationToken,
+      PasswordResetToken,
       PatientInvite,
       AdminContactMessage,
       AdminInvite,

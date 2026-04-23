@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { ConflictException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
+import { EmailVerificationToken } from '../src/entities/email-verification-token.entity';
 import { ManagedPatient } from '../src/entities/managed-patient.entity';
 import { PatientInvite } from '../src/entities/patient-invite.entity';
 import { User } from '../src/entities/user.entity';
@@ -24,6 +25,18 @@ describe('AuthService.acceptPatientInvite', () => {
     findOne: vi.fn(),
     save: vi.fn(),
   };
+  const emailVerificationTokensRepository = {
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+  };
+  const passwordResetTokensRepository = {
+    findOne: vi.fn(),
+    create: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+  };
   const managedPatientsRepository = {
     findOne: vi.fn(),
     save: vi.fn(),
@@ -34,6 +47,8 @@ describe('AuthService.acceptPatientInvite', () => {
   };
   const mailService = {
     sendWelcomeEmail: vi.fn(),
+    sendPasswordResetEmail: vi.fn(),
+    sendEmailVerificationEmail: vi.fn(),
   };
 
   beforeEach(() => {
@@ -51,6 +66,8 @@ describe('AuthService.acceptPatientInvite', () => {
       usersRepository,
       adminInvitesRepository,
       patientInvitesRepository,
+      emailVerificationTokensRepository,
+      passwordResetTokensRepository,
       managedPatientsRepository,
       jwtService as unknown as JwtService,
       mailService as unknown as MailService,
@@ -62,13 +79,13 @@ describe('AuthService.acceptPatientInvite', () => {
     );
   });
 
-  it('sends the welcome email after registering a new account', async () => {
+  it('creates a pending account and sends the email verification instead of logging in immediately', async () => {
     const savedUser = {
       id: 'user-1',
       name: 'Paciente Demo',
       email: 'patient@example.com',
       role: 'paciente',
-      verified: true,
+      verified: false,
       approved: true,
       sessionVersion: 0,
     } as User;
@@ -76,16 +93,31 @@ describe('AuthService.acceptPatientInvite', () => {
     usersRepository.findOne.mockResolvedValue(null);
     usersRepository.create.mockReturnValue(savedUser);
     usersRepository.save.mockResolvedValue(savedUser);
-    jwtService.signAsync.mockResolvedValueOnce('access-token').mockResolvedValueOnce('refresh-token');
+    const dataSource = {
+      transaction: vi.fn(async (callback: (manager: {
+        getRepository: (entity: unknown) => unknown;
+      }) => Promise<unknown>) => {
+        const manager = {
+          getRepository: (entity: unknown) => {
+            if (entity === EmailVerificationToken) return emailVerificationTokensRepository;
+            throw new Error(`Unexpected repository request: ${String(entity)}`);
+          },
+        };
+
+        return callback(manager);
+      }),
+    } as unknown as DataSource;
 
     const service = new (AuthService as any)(
       usersRepository,
       adminInvitesRepository,
       patientInvitesRepository,
+      emailVerificationTokensRepository,
+      passwordResetTokensRepository,
       managedPatientsRepository,
       jwtService as unknown as JwtService,
       mailService as unknown as MailService,
-      {} as DataSource,
+      dataSource,
     );
 
     const result = await service.register({
@@ -99,12 +131,27 @@ describe('AuthService.acceptPatientInvite', () => {
     expect(usersRepository.findOne).toHaveBeenCalledWith({
       where: { email: 'patient@example.com' },
     });
-    expect(mailService.sendWelcomeEmail).toHaveBeenCalledWith({
+    expect(emailVerificationTokensRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+      }),
+      { usedAt: expect.any(Date) },
+    );
+    expect(mailService.sendEmailVerificationEmail).toHaveBeenCalledWith({
       to: 'patient@example.com',
       name: 'Paciente Demo',
-      role: 'paciente',
+      verifyUrl: expect.any(String),
+      expiresInHours: expect.any(Number),
     });
-    expect(result.accessToken).toBe('access-token');
+    expect(mailService.sendWelcomeEmail).not.toHaveBeenCalled();
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      email: 'patient@example.com',
+      role: 'paciente',
+      requiresEmailVerification: true,
+      requiresApproval: false,
+    });
   });
 
   it('rotates refresh session version before issuing a new token pair', async () => {
@@ -132,6 +179,8 @@ describe('AuthService.acceptPatientInvite', () => {
       usersRepository,
       adminInvitesRepository,
       patientInvitesRepository,
+      emailVerificationTokensRepository,
+      passwordResetTokensRepository,
       managedPatientsRepository,
       jwtService as unknown as JwtService,
       mailService as unknown as MailService,
@@ -180,6 +229,8 @@ describe('AuthService.acceptPatientInvite', () => {
       usersRepository,
       adminInvitesRepository,
       patientInvitesRepository,
+      emailVerificationTokensRepository,
+      passwordResetTokensRepository,
       managedPatientsRepository,
       jwtService as unknown as JwtService,
       mailService as unknown as MailService,
@@ -282,6 +333,8 @@ describe('AuthService.acceptPatientInvite', () => {
       usersRepository,
       adminInvitesRepository,
       patientInvitesRepository,
+      emailVerificationTokensRepository,
+      passwordResetTokensRepository,
       managedPatientsRepository,
       jwtService as unknown as JwtService,
       mailService as unknown as MailService,
@@ -394,6 +447,8 @@ describe('AuthService.acceptPatientInvite', () => {
       usersRepository,
       adminInvitesRepository,
       patientInvitesRepository,
+      emailVerificationTokensRepository,
+      passwordResetTokensRepository,
       managedPatientsRepository,
       jwtService as unknown as JwtService,
       mailService as unknown as MailService,
