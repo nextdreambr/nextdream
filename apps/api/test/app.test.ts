@@ -3,11 +3,14 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import cookieParser from 'cookie-parser';
 import { AdminInvite } from '../src/entities/admin-invite.entity';
+import { AdminReport } from '../src/entities/admin-report.entity';
+import { AuditLog } from '../src/entities/audit-log.entity';
+import { Message } from '../src/entities/message.entity';
 import { User } from '../src/entities/user.entity';
 
 function getAccessTokenFromSetCookie(setCookieHeader: string | string[] | undefined): string {
@@ -28,6 +31,9 @@ describe('NextDream API', () => {
   let app: INestApplication;
   let usersRepository: Repository<User>;
   let adminInvitesRepository: Repository<AdminInvite>;
+  let messagesRepository: Repository<Message>;
+  let reportsRepository: Repository<AdminReport>;
+  let auditLogsRepository: Repository<AuditLog>;
   let appModule: (typeof import('../src/app.module'))['AppModule'];
   const originalNodeEnv = process.env.NODE_ENV;
   const originalAppUrl = process.env.APP_URL;
@@ -36,6 +42,11 @@ describe('NextDream API', () => {
   const originalLoginThrottleTtlMs = process.env.LOGIN_THROTTLE_TTL_MS;
   const originalSentryTunnelThrottleLimit = process.env.SENTRY_TUNNEL_THROTTLE_LIMIT;
   const originalSentryTunnelThrottleTtlMs = process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS;
+  const originalChatModerationEnabled = process.env.CHAT_MODERATION_ENABLED;
+  const originalChatModerationProvider = process.env.CHAT_MODERATION_PROVIDER;
+  const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
+  const originalOpenAiModerationModel = process.env.OPENAI_MODERATION_MODEL;
+  const originalOpenAiTimeoutMs = process.env.OPENAI_TIMEOUT_MS;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -55,7 +66,28 @@ describe('NextDream API', () => {
     app.use(cookieParser());
     usersRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
     adminInvitesRepository = moduleRef.get<Repository<AdminInvite>>(getRepositoryToken(AdminInvite));
+    messagesRepository = moduleRef.get<Repository<Message>>(getRepositoryToken(Message));
+    reportsRepository = moduleRef.get<Repository<AdminReport>>(getRepositoryToken(AdminReport));
+    auditLogsRepository = moduleRef.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     await app.init();
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.CHAT_MODERATION_ENABLED;
+    delete process.env.CHAT_MODERATION_PROVIDER;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_MODERATION_MODEL;
+    delete process.env.OPENAI_TIMEOUT_MS;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.CHAT_MODERATION_ENABLED;
+    delete process.env.CHAT_MODERATION_PROVIDER;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_MODERATION_MODEL;
+    delete process.env.OPENAI_TIMEOUT_MS;
   });
 
   async function createIsolatedApp() {
@@ -105,6 +137,79 @@ describe('NextDream API', () => {
     };
   }
 
+  function enableOpenAiChatModeration() {
+    process.env.CHAT_MODERATION_ENABLED = 'true';
+    process.env.CHAT_MODERATION_PROVIDER = 'openai';
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.OPENAI_MODERATION_MODEL = 'omni-moderation-latest';
+    process.env.OPENAI_TIMEOUT_MS = '3000';
+  }
+
+  async function createAcceptedConversationFixture(label: string) {
+    const password = 'Secret123!';
+    const patientRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: `Patient ${label}`,
+        email: `patient-${label}@example.com`,
+        password,
+        role: 'paciente',
+        city: 'Santos, SP',
+      });
+    expect(patientRegister.status).toBe(201);
+
+    const supporterRegister = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: `Supporter ${label}`,
+        email: `supporter-${label}@example.com`,
+        password,
+        role: 'apoiador',
+        city: 'Santos, SP',
+      });
+    expect(supporterRegister.status).toBe(201);
+
+    const patientToken = getAccessTokenFromSetCookie(patientRegister.headers["set-cookie"]);
+    const supporterToken = getAccessTokenFromSetCookie(supporterRegister.headers["set-cookie"]);
+
+    const createDream = await request(app.getHttpServer())
+      .post('/dreams')
+      .set('Authorization', `Bearer ${patientToken}`)
+      .send({
+        title: `Sonho ${label}`,
+        description: 'Quero uma conversa tranquila e companhia.',
+        category: 'Convivencia',
+        format: 'presencial',
+        urgency: 'media',
+        privacy: 'publico',
+      });
+    expect(createDream.status).toBe(201);
+
+    const createProposal = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/proposals`)
+      .set('Authorization', `Bearer ${supporterToken}`)
+      .send({
+        message: 'Posso acompanhar com presença e cuidado.',
+        offering: 'Companhia',
+        availability: 'Sábado',
+        duration: '2 horas',
+      });
+    expect(createProposal.status).toBe(201);
+
+    const acceptProposal = await request(app.getHttpServer())
+      .post(`/proposals/${createProposal.body.id}/accept`)
+      .set('Authorization', `Bearer ${patientToken}`);
+    expect(acceptProposal.status).toBe(200);
+
+    return {
+      conversationId: acceptProposal.body.conversationId as string,
+      patientId: patientRegister.body.user.id as string,
+      supporterId: supporterRegister.body.user.id as string,
+      patientToken,
+      supporterToken,
+    };
+  }
+
   afterAll(async () => {
     if (app) {
       await app.close();
@@ -150,6 +255,36 @@ describe('NextDream API', () => {
       delete process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS;
     } else {
       process.env.SENTRY_TUNNEL_THROTTLE_TTL_MS = originalSentryTunnelThrottleTtlMs;
+    }
+
+    if (originalChatModerationEnabled === undefined) {
+      delete process.env.CHAT_MODERATION_ENABLED;
+    } else {
+      process.env.CHAT_MODERATION_ENABLED = originalChatModerationEnabled;
+    }
+
+    if (originalChatModerationProvider === undefined) {
+      delete process.env.CHAT_MODERATION_PROVIDER;
+    } else {
+      process.env.CHAT_MODERATION_PROVIDER = originalChatModerationProvider;
+    }
+
+    if (originalOpenAiApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiApiKey;
+    }
+
+    if (originalOpenAiModerationModel === undefined) {
+      delete process.env.OPENAI_MODERATION_MODEL;
+    } else {
+      process.env.OPENAI_MODERATION_MODEL = originalOpenAiModerationModel;
+    }
+
+    if (originalOpenAiTimeoutMs === undefined) {
+      delete process.env.OPENAI_TIMEOUT_MS;
+    } else {
+      process.env.OPENAI_TIMEOUT_MS = originalOpenAiTimeoutMs;
     }
   });
 
@@ -1461,6 +1596,151 @@ describe('NextDream API', () => {
       });
 
     expect(response.status).toBe(400);
+  });
+
+  it('blocks financial chat messages in production, preserves the moderation payload, and escalates on the third attempt', async () => {
+    enableOpenAiChatModeration();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const fixture = await createAcceptedConversationFixture('financial-moderation');
+
+    const messagesBefore = await request(app.getHttpServer())
+      .get(`/conversations/${fixture.conversationId}/messages`)
+      .set('Authorization', `Bearer ${fixture.patientToken}`);
+    expect(messagesBefore.status).toBe(200);
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const blockedAttempt = await request(app.getHttpServer())
+        .post(`/conversations/${fixture.conversationId}/messages`)
+        .set('Authorization', `Bearer ${fixture.patientToken}`)
+        .send({ body: `Posso mandar um PIX de R$ ${attempt * 10} para ajudar.` });
+
+      expect(blockedAttempt.status).toBe(400);
+      expect(blockedAttempt.body).toMatchObject({
+        message: expect.stringMatching(/pix|dinheiro|doa/i),
+        reason: 'financeiro',
+        moderated: true,
+      });
+    }
+
+    const messagesAfter = await request(app.getHttpServer())
+      .get(`/conversations/${fixture.conversationId}/messages`)
+      .set('Authorization', `Bearer ${fixture.patientToken}`);
+    expect(messagesAfter.status).toBe(200);
+    expect(messagesAfter.body).toHaveLength(messagesBefore.body.length);
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    expect(
+      await auditLogsRepository.countBy({
+        action: 'Chat message blocked: financeiro',
+        target: fixture.patientId,
+        refId: fixture.conversationId,
+      }),
+    ).toBe(3);
+    expect(
+      await reportsRepository.countBy({
+        type: 'chat-moderation',
+        targetType: 'chat',
+        targetId: fixture.conversationId,
+      }),
+    ).toBe(1);
+  });
+
+  it('blocks severe abusive chat messages flagged by OpenAI and opens an admin report immediately', async () => {
+    enableOpenAiChatModeration();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'modr-abuse',
+          model: 'omni-moderation-latest',
+          results: [
+            {
+              flagged: true,
+              categories: {
+                harassment: true,
+                'harassment/threatening': false,
+                hate: false,
+                'hate/threatening': false,
+                self_harm: false,
+                violence: false,
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+    const fixture = await createAcceptedConversationFixture('abusive-moderation');
+
+    const blockedAttempt = await request(app.getHttpServer())
+      .post(`/conversations/${fixture.conversationId}/messages`)
+      .set('Authorization', `Bearer ${fixture.supporterToken}`)
+      .send({ body: 'Seu idiota, me chama em abuso@example.com ou (81) 99999-0000.' });
+
+    expect(blockedAttempt.status).toBe(400);
+    expect(blockedAttempt.body).toMatchObject({
+      message: expect.stringMatching(/ofensiva|respeitosa|desrespeit/i),
+      reason: 'ofensa_grave',
+      moderated: true,
+    });
+    expect(await messagesRepository.countBy({ conversationId: fixture.conversationId })).toBe(0);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+
+    const [, requestInit] = fetchSpy.mock.calls[0] ?? [];
+    const moderationPayload = JSON.parse(String((requestInit as RequestInit | undefined)?.body));
+    expect(moderationPayload.input).toContain('Seu idiota');
+    expect(moderationPayload.input).not.toContain('abuso@example.com');
+    expect(moderationPayload.input).not.toContain('99999-0000');
+
+    expect(
+      await auditLogsRepository.countBy({
+        action: 'Chat message blocked: ofensa_grave',
+        target: fixture.supporterId,
+        refId: fixture.conversationId,
+      }),
+    ).toBe(1);
+    expect(
+      await reportsRepository.countBy({
+        type: 'chat-moderation',
+        targetType: 'chat',
+        targetId: fixture.conversationId,
+      }),
+    ).toBe(1);
+  });
+
+  it('allows chat messages when OpenAI moderation degrades and records the fallback', async () => {
+    enableOpenAiChatModeration();
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('OpenAI timeout'));
+    const fixture = await createAcceptedConversationFixture('degraded-moderation');
+
+    const sentMessage = await request(app.getHttpServer())
+      .post(`/conversations/${fixture.conversationId}/messages`)
+      .set('Authorization', `Bearer ${fixture.supporterToken}`)
+      .send({ body: 'Posso acompanhar você com calma no sábado.' });
+
+    expect(sentMessage.status).toBe(201);
+    expect(sentMessage.body).toMatchObject({
+      conversationId: fixture.conversationId,
+      moderated: false,
+      body: 'Posso acompanhar você com calma no sábado.',
+    });
+    expect(
+      await auditLogsRepository.countBy({
+        action: 'Chat moderation degraded',
+        refId: fixture.conversationId,
+      }),
+    ).toBe(1);
+    expect(
+      await reportsRepository.countBy({
+        type: 'chat-moderation',
+        targetType: 'chat',
+        targetId: fixture.conversationId,
+      }),
+    ).toBe(0);
   });
 
   it('supports conversations messaging and admin moderation endpoints', async () => {
