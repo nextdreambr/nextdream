@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { AdminInvite } from '../../entities/admin-invite.entity';
@@ -110,12 +110,6 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    const token = randomBytes(32).toString('base64url');
-    const tokenHash = this.hashOneTimeToken(token);
-    const expiresInHours = this.getEmailVerificationExpiresInHours();
-    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
-    const now = new Date();
-
     const user = this.usersRepository.create({
       name: dto.name.trim(),
       email: normalizedEmail,
@@ -138,40 +132,30 @@ export class AuthService {
       approvedAt: dto.role === 'instituicao' ? undefined : new Date(),
     });
 
-    const saved = await this.dataSource.transaction(async (manager) => {
+    const registration = await this.dataSource.transaction(async (manager) => {
       const txUsersRepository = manager.getRepository(User);
-      const txEmailVerificationTokensRepository = manager.getRepository(EmailVerificationToken);
       const persistedUser = await txUsersRepository.save(user);
+      const verification = await this.issueEmailVerificationToken(persistedUser.id, manager);
 
-      await txEmailVerificationTokensRepository.update(
-        { userId: persistedUser.id, usedAt: IsNull() },
-        { usedAt: now },
-      );
-
-      const verificationToken = txEmailVerificationTokensRepository.create({
-        userId: persistedUser.id,
-        tokenHash,
-        expiresAt,
-        usedAt: null,
-      });
-      await txEmailVerificationTokensRepository.save(verificationToken);
-
-      return persistedUser;
+      return {
+        user: persistedUser,
+        verification,
+      };
     });
 
     await this.mailService.sendEmailVerificationEmail({
-      to: saved.email,
-      name: saved.name,
-      verifyUrl: this.buildEmailVerificationUrl(token),
-      expiresInHours,
+      to: registration.user.email,
+      name: registration.user.name,
+      verifyUrl: this.buildEmailVerificationUrl(registration.verification.token),
+      expiresInHours: registration.verification.expiresInHours,
     });
 
     return {
       success: true,
-      email: saved.email,
-      role: saved.role,
+      email: registration.user.email,
+      role: registration.user.role,
       requiresEmailVerification: true,
-      requiresApproval: saved.role === 'instituicao',
+      requiresApproval: registration.user.role === 'instituicao',
     };
   }
 
@@ -206,7 +190,18 @@ export class AuthService {
       where: { email: normalizedEmail },
     });
 
-    if (!user || user.suspended || !user.verified) {
+    if (!user || user.suspended) {
+      return;
+    }
+
+    if (!user.verified) {
+      const verification = await this.issueEmailVerificationToken(user.id);
+      await this.mailService.sendEmailVerificationEmail({
+        to: user.email,
+        name: user.name,
+        verifyUrl: this.buildEmailVerificationUrl(verification.token),
+        expiresInHours: verification.expiresInHours,
+      });
       return;
     }
 
@@ -512,6 +507,41 @@ export class AuthService {
     const resetUrl = new URL('/redefinir-senha', this.getAppBaseUrl());
     resetUrl.searchParams.set('token', token);
     return resetUrl.toString();
+  }
+
+  private async issueEmailVerificationToken(userId: string, manager?: EntityManager) {
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashOneTimeToken(token);
+    const expiresInHours = this.getEmailVerificationExpiresInHours();
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+    const now = new Date();
+
+    const persistToken = async (entityManager: EntityManager) => {
+      const emailVerificationTokensRepository = entityManager.getRepository(EmailVerificationToken);
+      await emailVerificationTokensRepository.update(
+        { userId, usedAt: IsNull() },
+        { usedAt: now },
+      );
+
+      const verificationToken = emailVerificationTokensRepository.create({
+        userId,
+        tokenHash,
+        expiresAt,
+        usedAt: null,
+      });
+      await emailVerificationTokensRepository.save(verificationToken);
+    };
+
+    if (manager) {
+      await persistToken(manager);
+    } else {
+      await this.dataSource.transaction(persistToken);
+    }
+
+    return {
+      token,
+      expiresInHours,
+    };
   }
 
   private buildEmailVerificationUrl(token: string) {
