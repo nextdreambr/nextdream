@@ -50,6 +50,9 @@ describe('ConversationsService.serializeConversations', () => {
     const notificationsService = {
       createNotification: vi.fn(),
     };
+    const chatModerationService = {
+      moderateMessage: vi.fn(),
+    };
 
     const service = new (ConversationsService as any)(
       conversationsRepository,
@@ -61,6 +64,7 @@ describe('ConversationsService.serializeConversations', () => {
       reportsRepository,
       institutionService,
       notificationsService,
+      chatModerationService,
     );
 
     const result = await (service as any).serializeConversations([

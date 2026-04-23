@@ -1,6 +1,6 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, Repository } from 'typeorm';
+import { Brackets, EntityManager, In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AdminReport } from '../../entities/admin-report.entity';
 import { AuditLog } from '../../entities/audit-log.entity';
 import { Conversation } from '../../entities/conversation.entity';
@@ -11,6 +11,7 @@ import { User } from '../../entities/user.entity';
 import { JwtPayload } from '../auth/jwt-auth.guard';
 import { InstitutionService } from '../institution/institution.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ChatModerationDecision, ChatModerationService } from './chat-moderation.service';
 import { CloseConversationDto } from './dto/close-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 
@@ -25,6 +26,7 @@ export class ConversationsService {
   private readonly reportsRepository: Repository<AdminReport>;
   private readonly institutionService: InstitutionService;
   private readonly notificationsService: NotificationsService;
+  private readonly chatModerationService: ChatModerationService;
 
   constructor(
     @InjectRepository(Conversation) conversationsRepository: Repository<Conversation>,
@@ -36,6 +38,7 @@ export class ConversationsService {
     @InjectRepository(AdminReport) reportsRepository: Repository<AdminReport>,
     @Inject(InstitutionService) institutionService: InstitutionService,
     @Inject(NotificationsService) notificationsService: NotificationsService,
+    @Inject(ChatModerationService) chatModerationService: ChatModerationService,
   ) {
     this.conversationsRepository = conversationsRepository;
     this.messagesRepository = messagesRepository;
@@ -46,6 +49,7 @@ export class ConversationsService {
     this.reportsRepository = reportsRepository;
     this.institutionService = institutionService;
     this.notificationsService = notificationsService;
+    this.chatModerationService = chatModerationService;
   }
 
   async listMine(currentUser: JwtPayload) {
@@ -122,10 +126,24 @@ export class ConversationsService {
       throw new ForbiddenException('Patient can follow this conversation, but the institution operates the case');
     }
 
+    const body = dto.body.trim();
+    const moderation = await this.chatModerationService.moderateMessage(body);
+    if (moderation.reason === 'degraded_allow') {
+      await this.logDegradedModeration(currentUser, conversation, moderation);
+    }
+    if (moderation.outcome === 'block') {
+      await this.logBlockedMessage(currentUser, conversation, moderation);
+      throw new BadRequestException({
+        message: moderation.message,
+        reason: moderation.reason,
+        moderated: true,
+      });
+    }
+
     const message = this.messagesRepository.create({
       conversationId: conversation.id,
       senderId: currentUser.sub,
-      body: dto.body.trim(),
+      body,
       moderated: false,
     });
 
@@ -215,6 +233,116 @@ export class ConversationsService {
     });
 
     return (await this.serializeConversations([saved]))[0];
+  }
+
+  private async logBlockedMessage(
+    currentUser: JwtPayload,
+    conversation: Conversation,
+    moderation: ChatModerationDecision,
+  ) {
+    const actor = await this.usersRepository.findOneBy({ id: currentUser.sub });
+    const auditSeverity: AuditLog['severity'] = moderation.reason === 'ofensa_grave' ? 'alta' : 'media';
+    const auditLogPayload: Omit<AuditLog, 'id' | 'createdAt' | 'ensureId'> = {
+      action: `Chat message blocked: ${moderation.reason}`,
+      by: actor?.name ?? currentUser.email,
+      target: currentUser.sub,
+      type: 'chat',
+      severity: auditSeverity,
+      outcome: 'warn',
+      details: this.buildModerationAuditDetails(moderation),
+      refPath: '/admin/chats',
+      refId: conversation.id,
+    };
+
+    if (moderation.reason === 'ofensa_grave') {
+      await this.auditLogsRepository.save(this.auditLogsRepository.create(auditLogPayload));
+      await this.createModerationReport(
+        conversation.id,
+        `Mensagem bloqueada por linguagem ofensiva ou desrespeitosa. Usuário: ${currentUser.sub}.`,
+      );
+      return;
+    }
+
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const escalationReason = `Usuário ${currentUser.sub} teve a terceira tentativa financeira bloqueada em 24 horas.`;
+
+    await this.auditLogsRepository.manager.transaction(async (manager) => {
+      await manager.save(AuditLog, manager.create(AuditLog, auditLogPayload));
+
+      const blockedAttemptsInWindow = await manager.count(AuditLog, {
+        where: {
+          action: 'Chat message blocked: financeiro',
+          target: currentUser.sub,
+          createdAt: MoreThanOrEqual(windowStart),
+        },
+      });
+
+      const previousBlockedAttemptsInWindow = blockedAttemptsInWindow - 1;
+      if (previousBlockedAttemptsInWindow >= 3 || blockedAttemptsInWindow < 3) {
+        return;
+      }
+
+      const existingEscalation = await manager.count(AdminReport, {
+        where: {
+          type: 'chat-moderation',
+          targetType: 'chat',
+          targetId: conversation.id,
+          reason: escalationReason,
+          status: 'aberto',
+        },
+      });
+
+      if (existingEscalation === 0) {
+        await this.createModerationReport(conversation.id, escalationReason, manager);
+      }
+    });
+  }
+
+  private async logDegradedModeration(
+    currentUser: JwtPayload,
+    conversation: Conversation,
+    moderation: ChatModerationDecision,
+  ) {
+    const actor = await this.usersRepository.findOneBy({ id: currentUser.sub });
+    await this.auditLogsRepository.save(
+      this.auditLogsRepository.create({
+        action: 'Chat moderation degraded',
+        by: actor?.name ?? currentUser.email,
+        target: currentUser.sub,
+        type: 'chat',
+        severity: 'media',
+        outcome: 'warn',
+        details: this.buildModerationAuditDetails(moderation),
+        refPath: '/admin/chats',
+        refId: conversation.id,
+      }),
+    );
+  }
+
+  private buildModerationAuditDetails(moderation: ChatModerationDecision) {
+    return JSON.stringify({
+      source: moderation.source,
+      reason: moderation.reason,
+      fingerprint: moderation.fingerprint,
+      snippet: moderation.redactedBody.slice(0, 160),
+    });
+  }
+
+  private async createModerationReport(
+    conversationId: string,
+    reason: string,
+    manager: EntityManager = this.reportsRepository.manager,
+  ) {
+    await manager.save(
+      AdminReport,
+      manager.create(AdminReport, {
+        type: 'chat-moderation',
+        targetType: 'chat',
+        targetId: conversationId,
+        reason,
+        status: 'aberto',
+      }),
+    );
   }
 
   private async requireConversationAccess(currentUser: JwtPayload, conversationId: string) {

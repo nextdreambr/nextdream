@@ -94,6 +94,17 @@ describe('production deploy hardening assets', () => {
     expect(workflow).toContain('VITE_SANDBOX_HOSTNAME=${{ vars.VITE_SANDBOX_HOSTNAME }}');
   });
 
+  it('requires the OpenAI moderation secret in production deploys', () => {
+    const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
+
+    expect(workflow).toContain('OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}');
+    expect(workflow).toContain('CHAT_MODERATION_ENABLED=true');
+    expect(workflow).toContain('CHAT_MODERATION_PROVIDER=openai');
+    expect(workflow).toContain('OPENAI_MODERATION_MODEL=omni-moderation-latest');
+    expect(workflow).toContain('OPENAI_TIMEOUT_MS=3000');
+    expect(workflow).toContain('OPENAI_API_KEY=${OPENAI_API_KEY}');
+  });
+
   it('maps the Resend runtime configuration into production deploys', () => {
     const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
     const envExample = readRepoFile('.env.production.example');
