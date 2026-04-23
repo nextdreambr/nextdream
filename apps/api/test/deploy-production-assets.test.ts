@@ -94,6 +94,43 @@ describe('production deploy hardening assets', () => {
     expect(workflow).toContain('VITE_SANDBOX_HOSTNAME=${{ vars.VITE_SANDBOX_HOSTNAME }}');
   });
 
+  it('requires the OpenAI moderation secret in production deploys', () => {
+    const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
+
+    expect(workflow).toContain('OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}');
+    expect(workflow).toContain('CHAT_MODERATION_ENABLED=true');
+    expect(workflow).toContain('CHAT_MODERATION_PROVIDER=openai');
+    expect(workflow).toContain('OPENAI_MODERATION_MODEL=omni-moderation-latest');
+    expect(workflow).toContain('OPENAI_TIMEOUT_MS=3000');
+    expect(workflow).toContain('OPENAI_API_KEY=${OPENAI_API_KEY}');
+  });
+
+  it('maps the Resend runtime configuration into production deploys', () => {
+    const workflow = readRepoFile('.github/workflows/deploy-prod.yml');
+    const envExample = readRepoFile('.env.production.example');
+
+    expect(workflow).toContain('RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}');
+    expect(workflow).toContain('RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}');
+    expect(workflow).toContain('RESEND_API_KEY=${RESEND_API_KEY}');
+    expect(workflow).toContain('RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL}');
+
+    expect(envExample).toContain('#   RESEND_API_KEY -> RESEND_API_KEY');
+    expect(envExample).toContain('#   RESEND_FROM_EMAIL -> RESEND_FROM_EMAIL');
+    expect(envExample).toContain('RESEND_API_KEY=<PROD_RESEND_API_KEY>');
+    expect(envExample).toContain('RESEND_FROM_EMAIL=<PROD_RESEND_FROM_EMAIL>');
+  });
+
+  it('exposes an internal mail smoke test command for controlled real sends', () => {
+    const apiPackage = JSON.parse(readRepoFile('apps/api/package.json')) as {
+      scripts: Record<string, string>;
+    };
+    const smokeScript = readRepoFile('apps/api/src/scripts/mail-smoke.ts');
+
+    expect(apiPackage.scripts['mail:smoke']).toBe('npm run build && node dist/scripts/mail-smoke.js');
+    expect(smokeScript).toContain('MAIL_SMOKE_TO');
+    expect(smokeScript).toContain('sendSmokeTestEmail');
+  });
+
   it('defines isolated sandbox deploy assets for the same VM', () => {
     const sandboxCompose = readRepoFile('docker-compose.sandbox.yml');
     const sandboxScript = readRepoFile('scripts/deploy-sandbox-remote.sh');

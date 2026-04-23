@@ -10,8 +10,10 @@ import { User } from '../../entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
 import { InstitutionModule } from '../institution/institution.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ChatModerationService } from './chat-moderation.service';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
+import { OpenAiChatModerationService } from './openai-chat-moderation.service';
 
 @Module({
   imports: [
@@ -21,7 +23,7 @@ import { ConversationsService } from './conversations.service';
     NotificationsModule,
   ],
   controllers: [ConversationsController],
-  providers: [ConversationsService],
+  providers: [ConversationsService, ChatModerationService, OpenAiChatModerationService],
   exports: [ConversationsService],
 })
 export class ConversationsModule {}
