@@ -6,12 +6,14 @@ const {
   testSendMailMock,
   resendConstructorMock,
   resendSendMock,
+  captureApiExceptionMock,
 } = vi.hoisted(() => ({
   createTransportMock: vi.fn(),
   smtpSendMailMock: vi.fn(),
   testSendMailMock: vi.fn(),
   resendConstructorMock: vi.fn(),
   resendSendMock: vi.fn(),
+  captureApiExceptionMock: vi.fn(),
 }));
 
 vi.mock('nodemailer', () => ({
@@ -25,7 +27,24 @@ vi.mock('resend', () => ({
   Resend: resendConstructorMock,
 }));
 
+vi.mock('../src/observability/sentry', () => ({
+  captureApiException: captureApiExceptionMock,
+}));
+
 import { MailService } from '../src/modules/mail/mail.service';
+
+function extractStructuredMailEvents(spy: { mock: { calls: Array<[unknown]> } }) {
+  return spy.mock.calls
+    .map(([message]) => {
+      if (typeof message !== 'string' || !message.startsWith('{')) {
+        return null;
+      }
+
+      const parsed = JSON.parse(message) as { event?: string };
+      return parsed.event === 'mail_delivery' ? parsed : null;
+    })
+    .filter(Boolean);
+}
 
 describe('MailService', () => {
   const originalEnv = {
@@ -84,6 +103,8 @@ describe('MailService', () => {
     process.env.RESEND_FROM_EMAIL = 'NextDream <no-reply@nextdream.ong.br>';
 
     const service = new MailService();
+    const log = vi.spyOn((service as unknown as { logger: { log: (message: string) => void } }).logger, 'log')
+      .mockImplementation(() => {});
 
     await service.sendPatientInviteEmail({
       to: 'patient@example.com',
@@ -107,6 +128,24 @@ describe('MailService', () => {
         signal: expect.any(AbortSignal),
       }),
     );
+    expect(extractStructuredMailEvents(log)).toEqual([
+      expect.objectContaining({
+        event: 'mail_delivery',
+        flow: 'patient_invite',
+        provider: 'resend',
+        result: 'attempt',
+        to: 'p***@example.com',
+      }),
+      expect.objectContaining({
+        event: 'mail_delivery',
+        flow: 'patient_invite',
+        provider: 'resend',
+        result: 'accepted',
+        to: 'p***@example.com',
+        providerMessageId: 'email-1',
+      }),
+    ]);
+    expect(captureApiExceptionMock).not.toHaveBeenCalled();
   });
 
   it('uses the local test transport when NODE_ENV=test even if Resend is configured', async () => {
@@ -172,6 +211,8 @@ describe('MailService', () => {
     delete process.env.RESEND_FROM_EMAIL;
 
     const service = new MailService();
+    const warn = vi.spyOn((service as unknown as { logger: { warn: (message: string) => void } }).logger, 'warn')
+      .mockImplementation(() => {});
 
     await expect(
       service.sendPatientInviteEmail({
@@ -182,6 +223,28 @@ describe('MailService', () => {
         expiresInHours: 72,
       }),
     ).rejects.toThrow('Mail provider "resend" is misconfigured: missing RESEND_FROM_EMAIL.');
+
+    expect(extractStructuredMailEvents(warn)).toEqual([
+      expect.objectContaining({
+        event: 'mail_delivery',
+        flow: 'patient_invite',
+        provider: 'resend',
+        result: 'failed',
+        to: 'p***@example.com',
+        reason: 'Mail provider "resend" is misconfigured: missing RESEND_FROM_EMAIL.',
+      }),
+    ]);
+    expect(captureApiExceptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Mail provider "resend" is misconfigured: missing RESEND_FROM_EMAIL.',
+      }),
+      expect.objectContaining({
+        flow: 'patient_invite',
+        provider: 'resend',
+        result: 'failed',
+        to: 'p***@example.com',
+      }),
+    );
   });
 
   it('logs and rethrows Resend API failures with provider context', async () => {
@@ -204,8 +267,27 @@ describe('MailService', () => {
       }),
     ).rejects.toThrow('Failed to send patient invite email to p***@example.com via resend: resend down');
 
-    expect(warn).toHaveBeenCalledWith(
-      'Failed to send patient invite email to p***@example.com via resend: resend down',
+    expect(extractStructuredMailEvents(warn)).toEqual([
+      expect.objectContaining({
+        event: 'mail_delivery',
+        flow: 'patient_invite',
+        provider: 'resend',
+        result: 'failed',
+        to: 'p***@example.com',
+        reason: 'resend down',
+      }),
+    ]);
+    expect(captureApiExceptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'resend down',
+      }),
+      expect.objectContaining({
+        flow: 'patient_invite',
+        provider: 'resend',
+        result: 'failed',
+        to: 'p***@example.com',
+        reason: 'resend down',
+      }),
     );
   });
 });

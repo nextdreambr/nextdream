@@ -1,8 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
+import { captureApiException } from '../../observability/sentry';
 
 type MailProviderKind = 'test' | 'smtp' | 'resend';
+type MailFlow =
+  | 'welcome'
+  | 'notification'
+  | 'admin_invite'
+  | 'patient_invite'
+  | 'email_verification'
+  | 'password_reset'
+  | 'smoke_test';
+
+type MailSendResult = {
+  providerMessageId?: string;
+};
 
 type MailDelivery = {
   to: string;
@@ -15,7 +28,7 @@ type MailProvider =
   | {
       kind: MailProviderKind;
       from: string;
-      send: (message: MailDelivery) => Promise<void>;
+      send: (message: MailDelivery) => Promise<MailSendResult>;
     }
   | {
       kind: 'disabled' | 'config-error';
@@ -68,6 +81,13 @@ export class MailService {
 
   private sanitizeFailureLabel(label: string, recipient: string) {
     return label.split(recipient).join(this.maskEmail(recipient));
+  }
+
+  private logMailEvent(level: 'log' | 'warn', event: Record<string, unknown>) {
+    this.logger[level](JSON.stringify({
+      event: 'mail_delivery',
+      ...event,
+    }));
   }
 
   private getResendTimeoutMs() {
@@ -214,13 +234,17 @@ export class MailService {
         kind: 'test',
         from,
         send: async (message) => {
-          await transporter.sendMail({
+          const info = await transporter.sendMail({
             from,
             to: message.to,
             subject: message.subject,
             text: message.text,
             html: message.html,
           });
+
+          return {
+            providerMessageId: typeof info?.messageId === 'string' ? info.messageId : undefined,
+          };
         },
       };
     }
@@ -271,6 +295,10 @@ export class MailService {
             if (response.error) {
               throw new Error(response.error.message);
             }
+
+            return {
+              providerMessageId: typeof response.data?.id === 'string' ? response.data.id : undefined,
+            };
           } finally {
             clearTimeout(timeoutId);
           }
@@ -295,13 +323,17 @@ export class MailService {
         kind: 'smtp',
         from,
         send: async (message) => {
-          await transporter.sendMail({
+          const info = await transporter.sendMail({
             from,
             to: message.to,
             subject: message.subject,
             text: message.text,
             html: message.html,
           });
+
+          return {
+            providerMessageId: typeof info?.messageId === 'string' ? info.messageId : undefined,
+          };
         },
       };
     }
@@ -314,6 +346,7 @@ export class MailService {
   }
 
   private async deliverEmail(params: {
+    flow: MailFlow;
     failureLabel: string;
     to: string;
     subject: string;
@@ -322,11 +355,30 @@ export class MailService {
     throwOnFailure: boolean;
   }) {
     const provider = this.resolveProvider();
-
     const sanitizedFailureLabel = this.sanitizeFailureLabel(params.failureLabel, params.to);
+    const baseEvent = {
+      flow: params.flow,
+      provider: 'send' in provider ? provider.kind : provider.provider,
+      to: this.maskEmail(params.to),
+      subject: params.subject,
+      throwOnFailure: params.throwOnFailure,
+    };
 
     if (!('send' in provider)) {
-      this.logger.warn(`${sanitizedFailureLabel} via ${provider.provider}: ${provider.message}`);
+      const result = provider.kind === 'disabled' ? 'skipped' : 'failed';
+      this.logMailEvent(result === 'failed' ? 'warn' : 'log', {
+        ...baseEvent,
+        result,
+        reason: provider.message,
+      });
+
+      if (result === 'failed') {
+        captureApiException(new Error(provider.message), {
+          ...baseEvent,
+          result,
+          reason: provider.message,
+        });
+      }
 
       if (params.throwOnFailure) {
         throw new Error(provider.message);
@@ -334,17 +386,37 @@ export class MailService {
       return;
     }
 
+    this.logMailEvent('log', {
+      ...baseEvent,
+      result: 'attempt',
+    });
+
     try {
-      await provider.send({
+      const sendResult = await provider.send({
         to: params.to,
         subject: params.subject,
         text: params.text,
         html: params.html,
       });
+
+      this.logMailEvent('log', {
+        ...baseEvent,
+        result: 'accepted',
+        providerMessageId: sendResult.providerMessageId,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error';
       const failureMessage = `${sanitizedFailureLabel} via ${provider.kind}: ${message}`;
-      this.logger.warn(failureMessage);
+      this.logMailEvent('warn', {
+        ...baseEvent,
+        result: 'failed',
+        reason: message,
+      });
+      captureApiException(error instanceof Error ? error : new Error(message), {
+        ...baseEvent,
+        result: 'failed',
+        reason: message,
+      });
 
       if (params.throwOnFailure) {
         throw new Error(failureMessage);
@@ -370,6 +442,7 @@ export class MailService {
     });
 
     await this.deliverEmail({
+      flow: 'welcome',
       failureLabel: `Failed to send welcome email to ${params.to}`,
       to: params.to,
       subject,
@@ -390,6 +463,7 @@ export class MailService {
     ].join('\n');
 
     await this.deliverEmail({
+      flow: 'notification',
       failureLabel: `Failed to send notification email to ${params.to}`,
       to: params.to,
       subject,
@@ -414,6 +488,7 @@ export class MailService {
     });
 
     await this.deliverEmail({
+      flow: 'admin_invite',
       failureLabel: `Failed to send admin invite email to ${params.to}`,
       to: params.to,
       subject,
@@ -445,6 +520,7 @@ export class MailService {
     });
 
     await this.deliverEmail({
+      flow: 'patient_invite',
       failureLabel: `Failed to send patient invite email to ${params.to}`,
       to: params.to,
       subject,
@@ -475,6 +551,7 @@ export class MailService {
     });
 
     await this.deliverEmail({
+      flow: 'email_verification',
       failureLabel: `Failed to send email verification email to ${params.to}`,
       to: params.to,
       subject,
@@ -505,6 +582,7 @@ export class MailService {
     });
 
     await this.deliverEmail({
+      flow: 'password_reset',
       failureLabel: `Failed to send password reset email to ${params.to}`,
       to: params.to,
       subject,
@@ -532,6 +610,7 @@ export class MailService {
     });
 
     await this.deliverEmail({
+      flow: 'smoke_test',
       failureLabel: `Failed to send mail smoke test to ${params.to}`,
       to: params.to,
       subject,
