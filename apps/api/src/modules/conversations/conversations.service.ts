@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, MoreThanOrEqual, Repository } from 'typeorm';
+import { Brackets, EntityManager, In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AdminReport } from '../../entities/admin-report.entity';
 import { AuditLog } from '../../entities/audit-log.entity';
 import { Conversation } from '../../entities/conversation.entity';
@@ -241,21 +241,21 @@ export class ConversationsService {
     moderation: ChatModerationDecision,
   ) {
     const actor = await this.usersRepository.findOneBy({ id: currentUser.sub });
-    await this.auditLogsRepository.save(
-      this.auditLogsRepository.create({
-        action: `Chat message blocked: ${moderation.reason}`,
-        by: actor?.name ?? currentUser.email,
-        target: currentUser.sub,
-        type: 'chat',
-        severity: moderation.reason === 'ofensa_grave' ? 'alta' : 'media',
-        outcome: 'warn',
-        details: this.buildModerationAuditDetails(moderation),
-        refPath: '/admin/chats',
-        refId: conversation.id,
-      }),
-    );
+    const auditSeverity: AuditLog['severity'] = moderation.reason === 'ofensa_grave' ? 'alta' : 'media';
+    const auditLogPayload: Omit<AuditLog, 'id' | 'createdAt' | 'ensureId'> = {
+      action: `Chat message blocked: ${moderation.reason}`,
+      by: actor?.name ?? currentUser.email,
+      target: currentUser.sub,
+      type: 'chat',
+      severity: auditSeverity,
+      outcome: 'warn',
+      details: this.buildModerationAuditDetails(moderation),
+      refPath: '/admin/chats',
+      refId: conversation.id,
+    };
 
     if (moderation.reason === 'ofensa_grave') {
+      await this.auditLogsRepository.save(this.auditLogsRepository.create(auditLogPayload));
       await this.createModerationReport(
         conversation.id,
         `Mensagem bloqueada por linguagem ofensiva ou desrespeitosa. Usuário: ${currentUser.sub}.`,
@@ -263,20 +263,39 @@ export class ConversationsService {
       return;
     }
 
-    const blockedAttemptsInWindow = await this.auditLogsRepository.count({
-      where: {
-        action: 'Chat message blocked: financeiro',
-        target: currentUser.sub,
-        createdAt: MoreThanOrEqual(new Date(Date.now() - 24 * 60 * 60 * 1000)),
-      },
-    });
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const escalationReason = `Usuário ${currentUser.sub} teve a terceira tentativa financeira bloqueada em 24 horas.`;
 
-    if (blockedAttemptsInWindow === 3) {
-      await this.createModerationReport(
-        conversation.id,
-        `Usuário ${currentUser.sub} teve a terceira tentativa financeira bloqueada em 24 horas.`,
-      );
-    }
+    await this.auditLogsRepository.manager.transaction(async (manager) => {
+      await manager.save(AuditLog, manager.create(AuditLog, auditLogPayload));
+
+      const blockedAttemptsInWindow = await manager.count(AuditLog, {
+        where: {
+          action: 'Chat message blocked: financeiro',
+          target: currentUser.sub,
+          createdAt: MoreThanOrEqual(windowStart),
+        },
+      });
+
+      const previousBlockedAttemptsInWindow = blockedAttemptsInWindow - 1;
+      if (previousBlockedAttemptsInWindow >= 3 || blockedAttemptsInWindow < 3) {
+        return;
+      }
+
+      const existingEscalation = await manager.count(AdminReport, {
+        where: {
+          type: 'chat-moderation',
+          targetType: 'chat',
+          targetId: conversation.id,
+          reason: escalationReason,
+          status: 'aberto',
+        },
+      });
+
+      if (existingEscalation === 0) {
+        await this.createModerationReport(conversation.id, escalationReason, manager);
+      }
+    });
   }
 
   private async logDegradedModeration(
@@ -309,9 +328,14 @@ export class ConversationsService {
     });
   }
 
-  private async createModerationReport(conversationId: string, reason: string) {
-    await this.reportsRepository.save(
-      this.reportsRepository.create({
+  private async createModerationReport(
+    conversationId: string,
+    reason: string,
+    manager: EntityManager = this.reportsRepository.manager,
+  ) {
+    await manager.save(
+      AdminReport,
+      manager.create(AdminReport, {
         type: 'chat-moderation',
         targetType: 'chat',
         targetId: conversationId,

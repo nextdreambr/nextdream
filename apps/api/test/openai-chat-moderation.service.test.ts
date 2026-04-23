@@ -125,6 +125,30 @@ describe('OpenAiChatModerationService', () => {
     });
   });
 
+  it('returns degraded_allow when OpenAI responds with an invalid payload', async () => {
+    const service = new OpenAiChatModerationService();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'modr-invalid',
+          model: 'omni-moderation-latest',
+          results: [],
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    await expect(service.moderateText('Posso acompanhar com calma.')).resolves.toMatchObject({
+      outcome: 'degraded_allow',
+      model: 'omni-moderation-latest',
+    });
+  });
+
   it('returns degraded_allow when the OpenAI request fails', async () => {
     const service = new OpenAiChatModerationService();
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('timeout'));

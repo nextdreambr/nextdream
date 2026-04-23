@@ -95,7 +95,16 @@ export class OpenAiChatModerationService {
 
       const payload = (await response.json()) as OpenAiModerationResponse;
       const firstResult = payload.results?.[0];
-      if (hasSevereDisrespect(firstResult?.categories)) {
+      if (!Array.isArray(payload.results) || payload.results.length === 0 || !firstResult?.categories) {
+        this.logger.warn('OpenAI moderation returned an unexpected payload.');
+        return {
+          outcome: 'degraded_allow',
+          model: payload.model,
+          redactedBody,
+        };
+      }
+
+      if (hasSevereDisrespect(firstResult.categories)) {
         return {
           outcome: 'block',
           model: payload.model,

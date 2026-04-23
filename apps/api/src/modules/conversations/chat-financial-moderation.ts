@@ -5,7 +5,7 @@ const BLOCKED_FINANCIAL_PATTERNS = [
   /\bvaquinha\b/u,
   /\bpagamentos?\b/u,
   /\btransferenc(?:ia|ias)\b/u,
-  /(?:^|[^\p{L}\p{N}])r\$(?=$|[^\p{L}\p{N}])/u,
+  /(?:^|[^\p{L}\p{N}])r\$(?:\s*\d+(?:[.,]\d{1,2})?)?(?=$|[^\p{L}\p{N}])/iu,
   /\breais?\b/u,
 ] as const;
 
