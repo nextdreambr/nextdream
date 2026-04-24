@@ -79,8 +79,11 @@ export class MailService {
     return `${local[0]}***@${domain}`;
   }
 
-  private sanitizeFailureLabel(label: string, recipient: string) {
-    return label.split(recipient).join(this.maskEmail(recipient));
+  private sanitizeTelemetryText(value: string) {
+    return value.replace(
+      /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
+      (match) => this.maskEmail(match),
+    );
   }
 
   private logMailEvent(level: 'log' | 'warn', event: Record<string, unknown>) {
@@ -355,33 +358,34 @@ export class MailService {
     throwOnFailure: boolean;
   }) {
     const provider = this.resolveProvider();
-    const sanitizedFailureLabel = this.sanitizeFailureLabel(params.failureLabel, params.to);
+    const sanitizedFailureLabel = this.sanitizeTelemetryText(params.failureLabel);
     const baseEvent = {
       flow: params.flow,
       provider: 'send' in provider ? provider.kind : provider.provider,
       to: this.maskEmail(params.to),
-      subject: params.subject,
+      hasSubject: params.subject.length > 0,
       throwOnFailure: params.throwOnFailure,
     };
 
     if (!('send' in provider)) {
       const result = provider.kind === 'disabled' ? 'skipped' : 'failed';
+      const sanitizedReason = this.sanitizeTelemetryText(provider.message);
       this.logMailEvent(result === 'failed' ? 'warn' : 'log', {
         ...baseEvent,
         result,
-        reason: provider.message,
+        reason: sanitizedReason,
       });
 
       if (result === 'failed') {
-        captureApiException(new Error(provider.message), {
+        captureApiException(new Error(sanitizedReason), {
           ...baseEvent,
           result,
-          reason: provider.message,
+          reason: sanitizedReason,
         });
       }
 
       if (params.throwOnFailure) {
-        throw new Error(provider.message);
+        throw new Error(sanitizedReason);
       }
       return;
     }
@@ -405,17 +409,18 @@ export class MailService {
         providerMessageId: sendResult.providerMessageId,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown error';
-      const failureMessage = `${sanitizedFailureLabel} via ${provider.kind}: ${message}`;
+      const rawMessage = error instanceof Error ? error.message : 'unknown error';
+      const sanitizedMessage = this.sanitizeTelemetryText(rawMessage);
+      const failureMessage = `${sanitizedFailureLabel} via ${provider.kind}: ${sanitizedMessage}`;
       this.logMailEvent('warn', {
         ...baseEvent,
         result: 'failed',
-        reason: message,
+        reason: sanitizedMessage,
       });
-      captureApiException(error instanceof Error ? error : new Error(message), {
+      captureApiException(new Error(sanitizedMessage), {
         ...baseEvent,
         result: 'failed',
-        reason: message,
+        reason: sanitizedMessage,
       });
 
       if (params.throwOnFailure) {

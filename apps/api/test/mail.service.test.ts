@@ -135,6 +135,7 @@ describe('MailService', () => {
         provider: 'resend',
         result: 'attempt',
         to: 'p***@example.com',
+        hasSubject: true,
       }),
       expect.objectContaining({
         event: 'mail_delivery',
@@ -142,9 +143,12 @@ describe('MailService', () => {
         provider: 'resend',
         result: 'accepted',
         to: 'p***@example.com',
+        hasSubject: true,
         providerMessageId: 'email-1',
       }),
     ]);
+    expect(extractStructuredMailEvents(log)[0]).not.toHaveProperty('subject');
+    expect(extractStructuredMailEvents(log)[1]).not.toHaveProperty('subject');
     expect(captureApiExceptionMock).not.toHaveBeenCalled();
   });
 
@@ -247,11 +251,11 @@ describe('MailService', () => {
     );
   });
 
-  it('logs and rethrows Resend API failures with provider context', async () => {
+  it('sanitizes Resend API failures before logging, capturing, and rethrowing', async () => {
     process.env.NODE_ENV = 'production';
     process.env.RESEND_API_KEY = 're_test_123';
     process.env.RESEND_FROM_EMAIL = 'NextDream <no-reply@nextdream.ong.br>';
-    resendSendMock.mockRejectedValue(new Error('resend down'));
+    resendSendMock.mockRejectedValue(new Error('invalid recipient patient@example.com'));
 
     const service = new MailService();
     const warn = vi.spyOn((service as unknown as { logger: { warn: (message: string) => void } }).logger, 'warn')
@@ -265,7 +269,7 @@ describe('MailService', () => {
         inviteUrl: 'https://nextdream.ong.br/aceitar-convite-paciente?token=abc',
         expiresInHours: 72,
       }),
-    ).rejects.toThrow('Failed to send patient invite email to p***@example.com via resend: resend down');
+    ).rejects.toThrow('Failed to send patient invite email to p***@example.com via resend: invalid recipient p***@example.com');
 
     expect(extractStructuredMailEvents(warn)).toEqual([
       expect.objectContaining({
@@ -274,19 +278,21 @@ describe('MailService', () => {
         provider: 'resend',
         result: 'failed',
         to: 'p***@example.com',
-        reason: 'resend down',
+        hasSubject: true,
+        reason: 'invalid recipient p***@example.com',
       }),
     ]);
     expect(captureApiExceptionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'resend down',
+        message: 'invalid recipient p***@example.com',
       }),
       expect.objectContaining({
         flow: 'patient_invite',
         provider: 'resend',
         result: 'failed',
         to: 'p***@example.com',
-        reason: 'resend down',
+        hasSubject: true,
+        reason: 'invalid recipient p***@example.com',
       }),
     );
   });
