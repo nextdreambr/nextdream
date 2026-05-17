@@ -1,304 +1,221 @@
-import { useState } from 'react';
-import { 
-  Building2, 
-  HeartHandshake, 
-  Megaphone, 
-  CheckCircle, 
-  Send, 
-  Sparkles, 
-  Briefcase,
+import {
+  Building2,
+  CheckCircle,
+  Heart,
+  HeartHandshake,
   Mail,
-  Heart
+  Megaphone,
+  Route,
+  ShieldCheck,
+  Users,
 } from 'lucide-react';
 import { Link } from 'react-router';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import { PublicEditorialVisual } from '../components/public/PublicEditorialVisual';
+import { CareCallout, PublicPageHero, SectionHeader, StoryCard, WarmSection } from '../components/public/PublicPagePrimitives';
 
-const partnershipTypes = [
-  { value: '', label: 'Selecione o tipo de parceria' },
-  { value: 'ong', label: 'ONG / Instituição (Hospital, Asilo, etc)' },
-  { value: 'empresa', label: 'Voluntariado Corporativo (Empresa)' },
-  { value: 'imprensa', label: 'Mídia e Imprensa' },
-  { value: 'influenciador', label: 'Influenciador Digital / Embaixador' },
-  { value: 'outro', label: 'Outro' },
+const networkReasons = [
+  'Conhecem o território e os limites de quem está sendo cuidado.',
+  'Ajudam histórias a chegarem com consentimento e contexto.',
+  'Organizam presença possível, sem transformar sonho em campanha.',
 ];
 
+const partnershipPaths = [
+  {
+    icon: Building2,
+    title: 'Instituições de cuidado',
+    text: 'Equipes e casas de apoio podem aproximar sonhos de pessoas acompanhadas com autorização e contexto.',
+  },
+  {
+    icon: Users,
+    title: 'Comunidades locais',
+    text: 'Redes de bairro, escolas e coletivos ajudam a encontrar apoios possíveis, sem abordagem religiosa ou proselitismo.',
+  },
+  {
+    icon: HeartHandshake,
+    title: 'Grupos de voluntariado',
+    text: 'Pessoas organizadas podem oferecer tempo, habilidades e companhia com preparo e responsabilidade.',
+  },
+  {
+    icon: Megaphone,
+    title: 'Comunicação responsável',
+    text: 'Criadores e veículos podem apresentar a iniciativa sem sensacionalismo e com linguagem de cuidado.',
+  },
+];
+
+const partnershipSteps = [
+  {
+    icon: Mail,
+    title: 'Conversamos sobre contexto',
+    text: 'Entendemos território, pessoas acompanhadas e cuidados necessários em contexto agregado.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Combinamos limites',
+    text: 'Definimos consentimento, privacidade e como histórias podem circular.',
+  },
+  {
+    icon: Route,
+    title: 'Abrimos caminhos seguros',
+    text: 'A rede aproxima sonhos de apoiadores sem pressa e sem apelo.',
+  },
+];
+
+const partnershipBrief = [
+  'Quem é a rede, instituição ou comunidade.',
+  'Qual território ou contexto agregado acompanha.',
+  'Que tipo de presença ou habilidade pode oferecer.',
+  'Quem deve receber a primeira resposta.',
+];
+
+const partnershipMailto =
+  'mailto:contato@nextdream.ong.br?subject=NextDream%20-%20Conversa%20sobre%20parceria&body=Ol%C3%A1%2C%20equipe%20NextDream.%0A%0AQuero%20conversar%20sobre%20uma%20parceria.%0A%0ARede%2Finstitui%C3%A7%C3%A3o%3A%0ATerrit%C3%B3rio%20ou%20contexto%20agregado%3A%0ATipo%20de%20presen%C3%A7a%20ou%20habilidade%20poss%C3%ADvel%3A%0AMelhor%20contato%20para%20retorno%3A%0A%0AObserva%C3%A7%C3%A3o%3A%20vou%20evitar%20nomes%2C%20diagn%C3%B3sticos%2C%20documentos%2C%20telefones%2C%20endere%C3%A7os%20ou%20relatos%20identific%C3%A1veis.';
+
 export default function Partnerships() {
-  const [name, setName] = useState('');
-  const [org, setOrg] = useState('');
-  const [email, setEmail] = useState('');
-  const [type, setType] = useState('');
-  const [message, setMessage] = useState('');
-  const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  const canSend = name.trim() && email.trim() && type && message.trim().length >= 10;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSend) return;
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-    }, 1500);
-  };
-
-  const handleReset = () => {
-    setName('');
-    setOrg('');
-    setEmail('');
-    setType('');
-    setMessage('');
-    setSent(false);
-  };
-
   return (
-    <div className="min-h-screen">
-      {/* ── Hero ─────────────────────────────────────────── */}
-      <section className="relative bg-gradient-to-br from-pink-600 via-pink-500 to-rose-500 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-16 -left-16 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-16 -right-8 w-60 h-60 rounded-full bg-rose-300/20 blur-3xl" />
-        </div>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16 md:py-24 relative text-center">
-          <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 text-white/90 px-4 py-1.5 rounded-full text-sm mb-6">
-            <HeartHandshake className="w-3.5 h-3.5" />
-            Juntos somos mais fortes
-          </div>
-          <h1 className="text-white mb-4" style={{ fontWeight: 800, fontSize: '2.5rem', lineHeight: 1.15 }}>
-            Seja um Parceiro NextDream
-          </h1>
-          <p className="text-pink-100 max-w-2xl mx-auto text-lg leading-relaxed">
-            Nós acreditamos no poder das conexões humanas. Convidamos ONGs, empresas e comunicadores a se unirem 
-            à nossa missão de levar tempo, atenção e companheirismo a quem precisa.
-          </p>
-        </div>
-      </section>
+    <div className="min-h-screen overflow-x-hidden bg-[#ffffff] text-[#172033]">
+      <PublicPageHero
+        eyebrow="Parcerias"
+        title="Instituições podem ajudar sonhos a chegarem com cuidado."
+        intro="Construímos caminhos com equipes, comunidades e grupos que conhecem pessoas, territórios e limites."
+        visual={<PublicEditorialVisual kind="partnerships" />}
+        imageCaption="Parceria, para o NextDream, é criar contexto seguro para que mais encontros humanos aconteçam."
+        actions={[
+          { to: '#formulario-parceria', label: 'Conversar sobre parceria', icon: Mail, variant: 'secondary' },
+        ]}
+      />
 
-      {/* ── Pilares ──────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-gray-900 mb-3" style={{ fontWeight: 700, fontSize: '1.875rem' }}>
-            Como você pode fazer parte?
-          </h2>
-          <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-base">
-            O NextDream é uma plataforma sem fins lucrativos ou transações financeiras. 
-            Nossas parcerias visam ampliar a rede de apoio emocional e presença.
-          </p>
-        </div>
+      <WarmSection tone="sage">
+        <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+          <SectionHeader
+            eyebrow="Por que a rede importa"
+            title="O sonho chega melhor quando alguém de confiança ajuda a abrir caminho."
+            intro="Parceiros não são apenas canais de divulgação. Eles ajudam a proteger contexto, consentimento e viabilidade."
+          />
 
-        <div className="grid md:grid-cols-3 gap-6 mb-16">
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center mb-6 text-pink-500">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-gray-900 mb-2" style={{ fontWeight: 700, fontSize: '1.25rem' }}>ONGs e Instituições</h3>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Asilos, orfanatos e hospitais podem cadastrar seus assistidos como "Pacientes" para que eles recebam
-              visitas, conversas e atenção dos nossos "Apoiadores".
-            </p>
-          </div>
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center mb-6 text-pink-500">
-              <Briefcase className="w-6 h-6" />
-            </div>
-            <h3 className="text-gray-900 mb-2" style={{ fontWeight: 700, fontSize: '1.25rem' }}>Voluntariado Corporativo</h3>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Empresas que desejam engajar seus funcionários em ações de impacto social podem criar campanhas 
-              de tempo e companhia através da nossa plataforma.
-            </p>
-          </div>
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center mb-6 text-pink-500">
-              <Megaphone className="w-6 h-6" />
-            </div>
-            <h3 className="text-gray-900 mb-2" style={{ fontWeight: 700, fontSize: '1.25rem' }}>Mídia e Divulgação</h3>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Veículos de comunicação e influenciadores digitais podem ajudar a dar visibilidade aos sonhos 
-              e atrair mais voluntários dispostos a doar seu tempo.
-            </p>
-          </div>
-        </div>
-
-        {/* ── Formulário e Imagem ──────────────────────────── */}
-        <div className="grid lg:grid-cols-2 gap-12 items-start bg-gray-50 rounded-[2.5rem] p-6 sm:p-12 border border-gray-100">
-          
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-gray-900 mb-4" style={{ fontWeight: 700, fontSize: '2rem', lineHeight: 1.2 }}>
-                Vamos construir <br/><span className="text-pink-600">algo incrível juntos?</span>
-              </h2>
-              <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
-                Preencha o formulário ao lado com os dados da sua organização. Nossa equipe de parcerias analisará 
-                seu perfil e entrará em contato para agendar um bate-papo em até 48 horas úteis.
-              </p>
-            </div>
-            
-            <div className="relative rounded-3xl overflow-hidden aspect-[4/3] shadow-sm">
-              <ImageWithFallback 
-                src="https://images.unsplash.com/photo-1769837230054-7f3a7356dde1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2x1bnRlZXJpbmclMjB0ZWFtd29yayUyMGNvbW11bml0eXxlbnwxfHx8fDE3NzI4MDAzNDJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="Voluntários trabalhando em equipe"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6 text-white">
-                <p className="text-sm font-medium opacity-90">Juntos pelo próximo</p>
+          <div className="grid gap-4 md:grid-cols-3">
+            {networkReasons.map((reason, index) => (
+              <div key={reason} className="rounded-[1.35rem] border border-white/80 bg-white/78 p-5 shadow-sm">
+                <span className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fff4d8] text-sm font-extrabold text-[#a8544a]">
+                  0{index + 1}
+                </span>
+                <p className="text-sm font-extrabold leading-relaxed text-[#245b53]">{reason}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </WarmSection>
+
+      <WarmSection tone="white">
+        <SectionHeader
+          eyebrow="Tipos de parceiro"
+          title="Cada rede cuida de um trecho diferente."
+          intro="O ponto comum é responsabilidade: aproximar pessoas sem transformar vulnerabilidade em vitrine."
+          align="center"
+        />
+
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          {partnershipPaths.map((path, index) => (
+            <StoryCard key={path.title} icon={path.icon} title={path.title} className={index % 2 ? 'lg:translate-y-6' : ''}>
+              <p>{path.text}</p>
+            </StoryCard>
+          ))}
+        </div>
+      </WarmSection>
+
+      <WarmSection id="formulario-parceria" tone="cream">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div className="space-y-6">
+            <SectionHeader
+              eyebrow="Como funciona a parceria"
+              title="Uma conversa simples antes de qualquer mobilização."
+              intro="Não precisa chegar com uma proposta pronta. O primeiro passo é entender se existe um caminho seguro."
+            />
+
+            <div className="space-y-4">
+              {partnershipSteps.map((step, index) => (
+                <div key={step.title} className="grid grid-cols-[3rem_1fr] gap-4 rounded-[1.35rem] border border-white/80 bg-white/76 p-4 shadow-sm">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f4ee] text-[#245b53]">
+                    <step.icon className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#a8544a]">
+                      Etapa {index + 1}
+                    </p>
+                    <h3 className="mt-1 text-lg font-extrabold text-[#241b24]">{step.title}</h3>
+                    <p className="mt-2 text-sm font-semibold leading-relaxed text-[#5c4b52]">{step.text}</p>
+                  </div>
+                </div>
+              ))}
             </div>
+
+            <figure>
+              <PublicEditorialVisual kind="partnershipsCare" size="compact" />
+              <figcaption className="mt-4 border-l-4 border-[#facc15] pl-4 text-sm font-bold leading-relaxed text-[#4b5563]">
+                A parceria ideal respeita o tempo de cada pessoa e cria apoio realista para quem cuida.
+              </figcaption>
+            </figure>
           </div>
 
           <div>
-            {sent ? (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12 text-center h-full flex flex-col justify-center">
-                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle className="w-10 h-10 text-green-500" />
-                </div>
-                <h2 className="text-gray-900 mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>
-                  Proposta recebida!
-                </h2>
-                <p className="text-gray-500 max-w-sm mx-auto leading-relaxed mb-8">
-                  Agradecemos o interesse em fazer parte do NextDream! Entraremos em contato com você no e-mail <strong className="text-gray-700">{email}</strong> em breve.
+            <div className="rounded-[1.65rem] border border-[#eadfd2] bg-white p-6 shadow-[0_16px_40px_rgba(92,62,51,0.07)] sm:p-8">
+              <div className="mb-6">
+                <h3 className="text-3xl font-extrabold leading-tight text-[#241b24]">
+                  Comece por uma mensagem curta.
+                </h3>
+                <p className="mt-3 text-sm font-semibold leading-relaxed text-[#5c4b52]">
+                  O primeiro contato acontece por e-mail. Assim evitamos um formulário que parece captar dados
+                  sensíveis antes de haver contexto.
                 </p>
-
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <button
-                    onClick={handleReset}
-                    className="inline-flex items-center justify-center px-6 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors text-sm"
-                    style={{ fontWeight: 500 }}
-                  >
-                    Nova proposta
-                  </button>
-                  <Link
-                    to="/"
-                    className="inline-flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-xl transition-colors text-sm"
-                    style={{ fontWeight: 600 }}
-                  >
-                    <Heart className="w-4 h-4" />
-                    Voltar ao início
-                  </Link>
-                </div>
               </div>
-            ) : (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                <div className="mb-6">
-                  <h3 className="text-gray-900 mb-1" style={{ fontWeight: 700, fontSize: '1.25rem' }}>
-                    Envie sua proposta
-                  </h3>
-                  <p className="text-gray-500 text-sm">
-                    Preencha os campos abaixo.
-                  </p>
-                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-700 block mb-1.5">
-                        Seu Nome <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="João da Silva"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:bg-white transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-700 block mb-1.5">
-                        Organização / Empresa
-                      </label>
-                      <input
-                        type="text"
-                        value={org}
-                        onChange={e => setOrg(e.target.value)}
-                        placeholder="Nome da instituição"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:bg-white transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-700 block mb-1.5">
-                      E-mail corporativo / oficial <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        placeholder="contato@suaempresa.com"
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:bg-white transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-700 block mb-1.5">
-                      Tipo de parceria <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={type}
-                      onChange={e => setType(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:bg-white transition-colors"
-                      style={{
-                        WebkitAppearance: 'none',
-                        MozAppearance: 'none',
-                        appearance: 'none',
-                        color: type ? '#374151' : '#9ca3af',
-                      }}
-                    >
-                      {partnershipTypes.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-700 block mb-1.5">
-                      Como podemos atuar juntos? <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={message}
-                      onChange={e => setMessage(e.target.value)}
-                      placeholder="Descreva brevemente o seu projeto ou ideia de parceria (mínimo de 10 caracteres)..."
-                      rows={4}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:bg-white resize-none transition-colors"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!canSend || sending}
-                    className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl transition-all text-sm mt-2
-                      ${canSend && !sending
-                        ? 'bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-200/50 hover:shadow-lg hover:shadow-pink-200/50'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                    style={{ fontWeight: 600 }}
-                  >
-                    {sending ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Enviar proposta
-                      </>
-                    )}
-                  </button>
-                  <p className="text-center text-xs text-gray-400 mt-3 flex items-center justify-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Responderemos em até 48 horas úteis
-                  </p>
-                </form>
+              <div className="rounded-[1.25rem] border border-[#fde68a] bg-[#fffbeb] p-4">
+                <p className="text-sm font-extrabold leading-relaxed text-[#854d0e]">
+                  Não envie nomes, diagnósticos, documentos, telefones, endereços ou relatos identificáveis.
+                  Use contexto agregado e informações mínimas para iniciar a conversa.
+                </p>
               </div>
-            )}
+
+              <div className="mt-6 grid gap-3">
+                {partnershipBrief.map((item) => (
+                  <div key={item} className="flex items-start gap-3 rounded-[1rem] bg-[#fff8ef] p-4 text-sm font-bold leading-relaxed text-[#5c4b52]">
+                    <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#245b53]" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <a
+                  href={partnershipMailto}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#a8544a] px-6 py-3 text-sm font-extrabold text-white shadow-[0_14px_32px_rgba(168,84,74,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#8b3d44] focus:outline-none focus:ring-4 focus:ring-[#f4cbbd]"
+                >
+                  <Mail className="h-4 w-4" />
+                  Escrever sobre parceria
+                </a>
+                <Link
+                  to="/contato"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#c9e5dc] bg-white px-6 py-3 text-sm font-extrabold text-[#245b53] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#e5f4ee] focus:outline-none focus:ring-4 focus:ring-[#c9e5dc]"
+                >
+                  <Heart className="h-4 w-4" />
+                  Ver outros canais
+                </Link>
+              </div>
+
+              <p className="mt-4 text-xs font-bold leading-relaxed text-[#6b5b60]">
+                O retorno depende do contexto apresentado e dos canais disponíveis da equipe.
+              </p>
+            </div>
           </div>
         </div>
-      </section>
+      </WarmSection>
+
+      <WarmSection tone="sage">
+        <CareCallout icon={HeartHandshake} title="Parceria é confiança aplicada.">
+          <p>
+            Buscamos redes responsáveis, capazes de aproximar histórias reais de pessoas que podem cuidar com respeito, privacidade e presença.
+          </p>
+        </CareCallout>
+      </WarmSection>
     </div>
   );
 }

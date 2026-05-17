@@ -1,321 +1,437 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
-import { Heart, Star, ArrowRight, Shield, MapPin, Clock, Sparkles, Users, HandHeart } from 'lucide-react';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-import { motion } from 'motion/react';
-import { dreamsApi, PublicDream as ApiPublicDream } from '../lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import type { LucideIcon } from 'lucide-react';
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  HandHeart,
+  HeartHandshake,
+  LockKeyhole,
+  MapPin,
+  Quote,
+  ShieldCheck,
+  Star,
+  UsersRound,
+} from 'lucide-react';
+import { HomeHero } from '../components/home/HomeHero';
+import { getSafeDreamVisual, SafeDreamArtwork, type SafeDreamScene } from '../components/shared/SafeDreamVisual';
+import { dreamsApi, type PublicDream } from '../lib/api';
+import careTextureImage from '../../assets/public/rede-de-cuidado-textura.webp';
 
-const heroImage = "https://images.unsplash.com/photo-1646148327698-614edde70c94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYXBweSUyMGNoaWxkJTIwaG9zcGl0YWwlMjB2b2x1bnRlZXIlMjBwbGF5aW5nfGVufDF8fHx8MTc3MjgxOTc1OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
-
-const fadeIn = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+type Step = {
+  icon: LucideIcon;
+  title: string;
+  text: string;
 };
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15 }
-  }
+type DreamPreview = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  supportType: string;
+  formatLabel: string;
+  location?: string;
+  status: string;
+  href: string;
+  source: 'api' | 'fallback';
+  visualScene: SafeDreamScene;
+  imageAlt: string;
 };
 
-export default function Landing() {
-  const navigate = useNavigate();
-  const [dreams, setDreams] = useState<ApiPublicDream[]>([]);
+const fallbackDreamPreviews: DreamPreview[] = [
+  {
+    id: 'preview-musica',
+    title: 'Uma tarde com música ao vivo',
+    description: 'Uma família gostaria de organizar um momento leve com música e presença.',
+    category: 'Arte e Música',
+    supportType: getSafeDreamVisual('Arte e Música').supportType,
+    formatLabel: 'Presencial ou online',
+    location: 'Localidade aproximada combinada depois',
+    status: 'Exemplo seguro',
+    href: '/apoiador/explorar',
+    source: 'fallback',
+    visualScene: getSafeDreamVisual('Arte e Música').scene,
+    imageAlt: getSafeDreamVisual('Arte e Música').alt,
+  },
+  {
+    id: 'preview-conversa',
+    title: 'Visita para conversar sobre futebol',
+    description: 'Um momento de conversa e companhia para tornar a semana mais leve.',
+    category: 'Conversa e Companhia',
+    supportType: getSafeDreamVisual('Conversa e Companhia').supportType,
+    formatLabel: 'Presencial ou online',
+    location: 'Localidade aproximada combinada depois',
+    status: 'Exemplo seguro',
+    href: '/apoiador/explorar',
+    source: 'fallback',
+    visualScene: getSafeDreamVisual('Conversa e Companhia').scene,
+    imageAlt: getSafeDreamVisual('Conversa e Companhia').alt,
+  },
+  {
+    id: 'preview-desenho',
+    title: 'Oficina de desenho em família',
+    description: 'Uma experiência simples e criativa, pensada com cuidado para uma pessoa e sua família.',
+    category: 'Aprendizado e Educação',
+    supportType: getSafeDreamVisual('Aprendizado e Educação').supportType,
+    formatLabel: 'Presencial ou online',
+    location: 'Localidade aproximada combinada depois',
+    status: 'Exemplo seguro',
+    href: '/apoiador/explorar',
+    source: 'fallback',
+    visualScene: getSafeDreamVisual('Aprendizado e Educação').scene,
+    imageAlt: getSafeDreamVisual('Aprendizado e Educação').alt,
+  },
+];
+
+const steps: Step[] = [
+  {
+    icon: Star,
+    title: 'Compartilhe um sonho',
+    text: 'Uma pessoa ou família conta uma cena possível.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Cuidado antes de expor',
+    text: 'A história respeita privacidade, limites e consentimento.',
+  },
+  {
+    icon: HandHeart,
+    title: 'Apoio pode virar conversa',
+    text: 'Apoiadores oferecem presença, tempo ou habilidades possíveis.',
+  },
+];
+
+const paths = [
+  {
+    icon: Star,
+    title: 'Compartilhar um sonho',
+    text: 'Conte uma história com cuidado e privacidade.',
+    cta: 'Começar com cuidado',
+    to: '/cadastro?tipo=paciente',
+    tone: 'bg-[#fff4d8] border-[#efd7ac] text-[#8b3d44]',
+  },
+  {
+    icon: HeartHandshake,
+    title: 'Apoiar alguém',
+    text: 'Ofereça presença, tempo ou uma habilidade.',
+    cta: 'Quero apoiar',
+    to: '/apoiador/explorar',
+    tone: 'bg-[#e5f4ee] border-[#b7d8cd] text-[#245b53]',
+  },
+  {
+    icon: Building2,
+    title: 'Instituição ou comunidade',
+    text: 'Ajude sonhos a encontrarem caminhos seguros.',
+    cta: 'Conversar sobre parceria',
+    to: '/parcerias',
+    tone: 'bg-[#f6f0ff] border-[#d8cdeb] text-[#584478]',
+  },
+];
+
+const formatLabels: Record<PublicDream['format'], string> = {
+  remoto: 'Online',
+  presencial: 'Presencial',
+  ambos: 'Presencial ou online',
+};
+
+function toDreamPreview(dream: PublicDream): DreamPreview {
+  const visual = getSafeDreamVisual(dream.category);
+
+  return {
+    id: dream.id,
+    title: dream.title,
+    description: dream.description,
+    category: dream.category,
+    supportType: visual.supportType,
+    formatLabel: formatLabels[dream.format],
+    location: dream.patientCity,
+    status: 'História publicada',
+    href: `/sonhos/${dream.id}`,
+    source: 'api',
+    visualScene: visual.scene,
+    imageAlt: visual.alt,
+  };
+}
+
+function useDreamPreviews() {
+  const [dreams, setDreams] = useState<PublicDream[] | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    let active = true;
 
-    (async () => {
+    async function loadDreams() {
       try {
         const items = await dreamsApi.listPublic();
-        if (!isMounted) return;
+        if (!active) return;
         setDreams(items);
       } catch {
-        if (!isMounted) return;
+        if (!active) return;
         setDreams([]);
       }
-    })();
+    }
+
+    void loadDreams();
 
     return () => {
-      isMounted = false;
+      active = false;
     };
   }, []);
 
+  return useMemo(() => {
+    if (dreams === null) return [];
+
+    const previews = dreams
+      .filter((dream) => dream.status === 'publicado' && dream.privacy === 'publico')
+      .slice(0, 3)
+      .map(toDreamPreview);
+
+    return previews.length > 0 ? previews : fallbackDreamPreviews;
+  }, [dreams]);
+}
+
+function SectionKicker({ children }: { children: string }) {
   return (
-    <div className="overflow-x-hidden bg-white">
-      {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 md:pt-48 md:pb-40 lg:min-h-[90vh] flex items-center justify-center">
-        {/* Background Image */}
-        <div className="absolute inset-0 z-0">
-          <ImageWithFallback 
-            src={heroImage} 
-            alt="Conexão humana" 
-            className="w-full h-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gray-900/65" />
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent" />
+    <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.2em] text-[#a8544a]">
+      {children}
+    </p>
+  );
+}
+
+function DreamPreviewCard({ dream, className = '' }: { dream: DreamPreview; className?: string }) {
+  return (
+    <article
+      className={`group flex h-full flex-col overflow-hidden rounded-[1.85rem] border border-[#eadfd2] bg-white shadow-[0_22px_64px_rgba(92,62,51,0.09)] transition-transform hover:-translate-y-1 ${className}`}
+    >
+      <div className="relative aspect-[1.34] overflow-hidden">
+        <SafeDreamArtwork scene={dream.visualScene} alt={dream.imageAlt} className="min-h-[14rem]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#241b24]/58 via-transparent to-transparent" />
+        <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-between gap-2">
+          <span className="rounded-full bg-[#fff4d8]/94 px-3 py-1 text-xs font-extrabold text-[#8b3d44] shadow-sm backdrop-blur">
+            {dream.category}
+          </span>
+          <span className="rounded-full bg-[#e5f4ee]/94 px-3 py-1 text-xs font-extrabold text-[#245b53] shadow-sm backdrop-blur">
+            {dream.status}
+          </span>
         </div>
+      </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <motion.div 
-            initial="hidden" 
-            animate="visible" 
-            variants={staggerContainer}
-          >
-            <motion.div variants={fadeIn} className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/20 px-5 py-2 rounded-full text-sm font-bold mb-8 shadow-sm">
-              <Heart className="w-4 h-4 fill-pink-500 text-pink-500" />
-              Sem dinheiro. Só humanidade.
-            </motion.div>
-            
-            <motion.h1 variants={fadeIn} className="text-4xl sm:text-5xl lg:text-7xl text-white mb-8 tracking-tight" style={{ fontWeight: 900, lineHeight: 1.1 }}>
-              Realize sonhos com o poder da <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">conexão real</span>.
-            </motion.h1>
-            
-            <motion.p variants={fadeIn} className="text-lg md:text-2xl text-gray-200 mb-12 leading-relaxed max-w-2xl mx-auto font-medium">
-              O NextDream conecta quem tem um desejo especial com quem tem tempo, habilidade e vontade de fazer o bem.
-            </motion.p>
-            
-            <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-5 justify-center mb-16">
-              <Link
-                to="/cadastro?tipo=apoiador"
-                className="flex items-center justify-center gap-3 bg-pink-600 hover:bg-pink-500 text-white px-8 py-4 rounded-2xl transition-all shadow-lg shadow-pink-900/50 hover:-translate-y-1 text-lg"
-                style={{ fontWeight: 700 }}
-              >
-                <HandHeart className="w-6 h-6" />
-                Quero Ajudar
-              </Link>
-              <Link
-                to="/cadastro?tipo=paciente"
-                className="flex items-center justify-center gap-3 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white hover:bg-white/20 hover:border-white/50 px-8 py-4 rounded-2xl transition-all text-lg"
-                style={{ fontWeight: 700 }}
-              >
-                <Star className="w-6 h-6" />
-                Preciso de Apoio
-              </Link>
-            </motion.div>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-2xl font-extrabold leading-tight text-[#241b24]">{dream.title}</h3>
+        <p className="mt-3 line-clamp-3 text-sm font-semibold leading-relaxed text-[#5c4b52] md:text-base">
+          {dream.description}
+        </p>
 
-            <motion.div variants={fadeIn} className="flex flex-col sm:flex-row items-center justify-center gap-8 text-gray-300 text-sm font-medium">
-              <div className="flex items-center gap-3">
-                <span><strong className="text-white">Comunidade ativa</strong> em todo o Brasil</span>
-              </div>
-              <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-gray-500" />
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-pink-400" />
-                <span>Ambiente 100% seguro</span>
-              </div>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── COMO FUNCIONA ─────────────────────────────────────── */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeIn}
-            className="text-center max-w-2xl mx-auto mb-16"
-          >
-            <span className="text-pink-600 font-bold tracking-wider text-sm uppercase mb-3 block">Simples e Humano</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">Como a magia acontece</h2>
-            <p className="text-gray-500 text-lg">Três passos para transformar a vida de alguém sem precisar abrir a carteira.</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            <div className="hidden md:block absolute top-12 left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-pink-100 via-pink-300 to-pink-100 z-0" />
-            
-            {[
-              { icon: Star, title: "O Pedido", desc: "Pacientes e idosos compartilham seus sonhos, desejos e necessidades na plataforma." },
-              { icon: Users, title: "O Encontro", desc: "Apoiadores veem os sonhos e enviam propostas oferecendo seu tempo ou habilidades." },
-              { icon: Sparkles, title: "A Realização", desc: "Vocês conversam pelo chat, combinam os detalhes e vivem um momento inesquecível." }
-            ].map((step, idx) => (
-              <motion.div 
-                key={idx}
-                initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}
-                className="relative z-10 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-pink-100 transition-all text-center group"
-              >
-                <div className="w-20 h-20 mx-auto bg-pink-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-pink-600 transition-all duration-300">
-                  <step.icon className="w-8 h-8 text-pink-600 group-hover:text-white transition-colors" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{step.title}</h3>
-                <p className="text-gray-500 leading-relaxed">{step.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── SONHOS EM DESTAQUE ───────────────────────────────── */}
-      <section className="py-24 bg-gray-50 border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="max-w-2xl">
-              <span className="text-pink-600 font-bold tracking-wider text-sm uppercase mb-3 block">Sonhos Abertos</span>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">Esperando por você</h2>
-              <p className="text-gray-500 text-lg">Pessoas reais com desejos simples. Escolha com quem você quer se conectar hoje.</p>
-            </motion.div>
-            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
-              <Link to="/cadastro?tipo=apoiador" className="inline-flex items-center gap-2 text-pink-600 font-bold hover:text-pink-800 transition-colors group">
-                Explorar todos os sonhos
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </motion.div>
-          </div>
-
-          <motion.div 
-            initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
-            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
-          >
-            {dreams.slice(0, 3).map((dream) => {
-              const title = dream.title;
-              const initials = (dream.patientName ?? 'ND')
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((chunk) => chunk[0]?.toUpperCase() ?? '')
-                .join('');
-
-              return (
-              <motion.div key={dream.id} variants={fadeIn}>
-                <Link
-                  to={`/sonhos/${dream.id}`}
-                  className="group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col h-full"
-                >
-                  <div className="relative h-56 overflow-hidden">
-                    <ImageWithFallback
-                      src={heroImage}
-                      alt={title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-pink-700/60 to-transparent opacity-80" />
-                    <div className="absolute top-4 left-4">
-                      <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-pink-100 text-pink-700 bg-opacity-90 backdrop-blur-sm shadow-sm">
-                        {dream.category}
-                      </span>
-                    </div>
-                    <div className="absolute bottom-4 left-4 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-white border-2 border-white flex items-center justify-center shadow-md overflow-hidden">
-                        <span className="text-pink-600 text-sm font-bold">{initials || 'ND'}</span>
-                      </div>
-                      <div>
-                        <p className="text-white text-sm font-bold leading-none mb-1">{dream.patientName ?? 'Paciente'}</p>
-                        <p className="text-white/90 text-xs flex items-center gap-1 font-medium">
-                          <MapPin className="w-3 h-3" />{dream.patientCity ?? 'Cidade não informada'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6 flex flex-col flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 leading-snug group-hover:text-pink-600 transition-colors">
-                      {title}
-                    </h3>
-                    <p className="text-gray-500 text-sm leading-relaxed flex-1 line-clamp-3 mb-6">
-                      {dream.description}
-                    </p>
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
-                      <span className="inline-flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-                        <Clock className="w-4 h-4" />
-                        {dream.format}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate('/cadastro?tipo=apoiador');
-                        }}
-                        className="inline-flex items-center gap-2 bg-pink-50 text-pink-700 hover:bg-pink-600 hover:text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors"
-                      >
-                        <Heart className="w-4 h-4" />
-                        Quero ajudar
-                      </button>
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-              );
-            })}
-          </motion.div>
-          {dreams.length === 0 && (
-            <div className="bg-white border border-gray-100 rounded-3xl p-10 text-center">
-              <p className="text-gray-800 mb-2" style={{ fontWeight: 700 }}>Nenhum sonho público disponível agora.</p>
-              <p className="text-gray-500 text-sm mb-6">Novas histórias aparecem aqui assim que forem publicadas.</p>
-              <Link
-                to="/cadastro?tipo=apoiador"
-                className="inline-flex items-center gap-2 bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-xl transition-colors"
-                style={{ fontWeight: 600 }}
-              >
-                Quero ser apoiador
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
+        <div className="mt-5 grid gap-2 text-sm font-bold text-[#66585e] sm:grid-cols-2">
+          <p className="inline-flex items-center gap-2">
+            <UsersRound className="h-4 w-4 text-[#a8544a]" />
+            {dream.supportType}
+          </p>
+          <p className="inline-flex items-center gap-2">
+            <HeartHandshake className="h-4 w-4 text-[#245b53]" />
+            {dream.formatLabel}
+          </p>
+          {dream.location && (
+            <p className="inline-flex items-center gap-2 sm:col-span-2">
+              <MapPin className="h-4 w-4 text-[#245b53]" />
+              {dream.location}
+            </p>
           )}
         </div>
-      </section>
 
-      {/* ── COMMUNITY VALUES ───────────────────────────────────── */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}
-            className="text-center max-w-2xl mx-auto mb-16"
-          >
-            <span className="text-pink-600 font-bold tracking-wider text-sm uppercase mb-3 block">Compromissos da Comunidade</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">Conexões com segurança e respeito</h2>
-            <p className="text-gray-500 text-lg">A plataforma prioriza privacidade, conduta responsável e apoio sem transações financeiras.</p>
-          </motion.div>
-
-          <motion.div 
-            initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8"
-          >
-            {[
-              { title: 'Privacidade por padrão', text: 'Dados de contato não são expostos antes de uma conexão válida entre as partes.' },
-              { title: 'Sem dinheiro na plataforma', text: 'Pedidos de transferência, PIX ou qualquer valor financeiro são proibidos.' },
-              { title: 'Moderação e denúncia', text: 'Conteúdo e interações passam por revisão, com canal de denúncia e resposta operacional.' },
-            ].map((item) => (
-              <motion.div key={item.title} variants={fadeIn} className="bg-pink-50/50 rounded-3xl p-8 border border-pink-100/50">
-                <h3 className="text-gray-900 text-lg mb-3" style={{ fontWeight: 700 }}>{item.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{item.text}</p>
-              </motion.div>
-            ))}
-          </motion.div>
+        <div className="mt-5 rounded-2xl bg-[#e5f4ee] px-4 py-3 text-sm font-extrabold leading-relaxed text-[#245b53]">
+          Apoio por presença, tempo ou habilidade.
         </div>
-      </section>
 
-      {/* ── CTA FINAL ────────────────────────────────────────── */}
-      <section className="py-24 bg-gray-900 relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-pink-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-rose-600/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/3" />
+        <Link
+          to={dream.href}
+          className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-extrabold text-[#a8544a] transition-colors hover:text-[#8b3d44]"
+        >
+          {dream.source === 'api' ? 'Ver detalhes' : 'Ver sonhos'}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function CareLineStep({ step, index, isLast }: { step: Step; index: number; isLast: boolean }) {
+  return (
+    <li className="relative h-full">
+      {!isLast && (
+        <div
+          className="absolute left-6 top-14 h-[calc(100%+1rem)] w-px bg-[#b7d8cd] md:left-1/2 md:top-8 md:h-px md:w-full"
+          aria-hidden
+        />
+      )}
+      <div className="relative flex h-full flex-col rounded-[1.45rem] border border-white/70 bg-white/82 p-5 shadow-[0_18px_52px_rgba(49,91,78,0.08)] backdrop-blur md:min-h-[14rem]">
+        <div className="mb-6 flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#245b53] text-white shadow-[0_12px_28px_rgba(36,91,83,0.18)]">
+            <step.icon className="h-5 w-5" />
+          </div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#a8544a]">Passo {index + 1}</p>
         </div>
-        
-        <div className="max-w-4xl mx-auto px-4 relative z-10 text-center">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
-            <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6">
-              O tempo é o presente mais valioso.
-            </h2>
-            <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
-              Junte-se à nossa comunidade hoje. Seja para realizar um sonho ou para ajudar a realizá-lo. Todo mundo sai transformado.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/cadastro?tipo=paciente"
-                className="flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-500 text-white px-8 py-4 rounded-2xl transition-all shadow-lg hover:-translate-y-1 font-bold text-lg">
-                <Star className="w-5 h-5" />
-                Preciso de Apoio
-              </Link>
-              <Link to="/cadastro?tipo=apoiador"
-                className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-2xl transition-all font-bold text-lg">
-                <HandHeart className="w-5 h-5" />
-                Quero ser Apoiador
-              </Link>
+        <h3 className="text-xl font-extrabold leading-tight">{step.title}</h3>
+        <p className="mt-3 text-sm font-semibold leading-relaxed text-[#50645d]">{step.text}</p>
+      </div>
+    </li>
+  );
+}
+
+export default function Landing() {
+  const dreamPreviews = useDreamPreviews();
+
+  return (
+    <div className="overflow-x-hidden bg-[#fffaf4] text-[#241b24]">
+      <HomeHero />
+
+      <section
+        id="sonhos"
+        className="relative overflow-hidden px-4 py-14 sm:px-6 lg:py-20"
+        style={{
+          backgroundImage: `linear-gradient(180deg, rgba(255,250,244,0.98), rgba(255,250,244,0.9)), url(${careTextureImage})`,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+        }}
+      >
+        <div className="absolute right-0 top-10 hidden h-80 w-32 rounded-l-[4rem] bg-[#f7d9c6]/70 lg:block" />
+        <div className="relative mx-auto max-w-7xl">
+          <div className="mb-9 grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+            <div className="max-w-3xl">
+              <SectionKicker>Sonhos cadastrados</SectionKicker>
+              <h2 className="text-4xl font-extrabold leading-[0.98] md:text-6xl">
+                Histórias públicas, mostradas com cuidado.
+              </h2>
+              <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-[#5c4b52] md:text-lg">
+                Uma prévia de sonhos públicos que podem encontrar apoio por presença, tempo ou habilidade.
+              </p>
             </div>
-            <p className="text-gray-400 text-sm mt-8 flex items-center justify-center gap-2">
-              <Shield className="w-4 h-4" />
-              100% gratuito. Nenhuma cobrança financeira permitida.
+            <Link
+              to="/apoiador/explorar"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#c9e5dc] bg-white px-5 py-3 text-sm font-extrabold text-[#245b53] shadow-sm transition-colors hover:bg-[#effaf6]"
+            >
+              Ver todos os sonhos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
+            {dreamPreviews.map((dream, index) => (
+              <DreamPreviewCard
+                key={dream.id}
+                dream={dream}
+                className={index === 1 ? 'lg:mt-10' : index === 2 ? 'lg:mt-5' : ''}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="relative overflow-hidden bg-[#e8f4ee] px-4 py-14 sm:px-6 lg:py-20"
+        style={{
+          backgroundImage: `linear-gradient(135deg, rgba(232,244,238,0.95), rgba(255,248,239,0.72)), url(${careTextureImage})`,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+        }}
+      >
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.68fr_1.32fr] lg:items-center">
+          <div>
+            <SectionKicker>Como funciona</SectionKicker>
+            <h2 className="text-4xl font-extrabold leading-[0.98] md:text-6xl">
+              Uma linha de cuidado até o encontro.
+            </h2>
+            <p className="mt-5 max-w-xl text-base font-semibold leading-relaxed text-[#50645d]">
+              O fluxo evita pressa: primeiro escuta, depois privacidade, então uma proposta possível.
             </p>
-          </motion.div>
+          </div>
+
+          <ol className="relative grid items-stretch gap-4 md:grid-cols-3">
+            {steps.map((step, index) => (
+              <CareLineStep key={step.title} step={step} index={index} isLast={index === steps.length - 1} />
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="px-4 pb-8 pt-14 sm:px-6 lg:pb-10 lg:pt-20">
+        <div className="mx-auto grid max-w-7xl gap-6 rounded-[2rem] border border-[#eadfd2] bg-[#fff8ef]/92 p-4 shadow-[0_18px_54px_rgba(92,62,51,0.06)] md:p-6 lg:grid-cols-[0.7fr_1.3fr] lg:items-stretch">
+          <div className="flex flex-col justify-between rounded-[1.45rem] border border-white/70 bg-white/68 p-6">
+            <div>
+              <SectionKicker>Caminhos principais</SectionKicker>
+              <h2 className="text-4xl font-extrabold leading-[0.98] md:text-5xl">
+                Escolha como estar perto.
+              </h2>
+            </div>
+            <p className="mt-5 text-base font-semibold leading-relaxed text-[#5c4b52]">
+              Três portas simples para começar com cuidado, apoiar uma história ou construir uma parceria segura.
+            </p>
+          </div>
+
+          <div className="grid items-stretch gap-4 md:grid-cols-3">
+            {paths.map((path) => (
+              <Link
+                key={path.title}
+                to={path.to}
+                className={`group relative flex h-full min-h-[16.5rem] overflow-hidden rounded-[1.45rem] border p-5 transition-transform hover:-translate-y-1 ${path.tone}`}
+              >
+                <span className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/45" />
+                <span className="absolute bottom-4 left-5 right-5 h-px bg-current/18" />
+                <div className="relative flex h-full flex-col justify-between">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/78 shadow-sm">
+                    <path.icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-extrabold leading-tight">{path.title}</h3>
+                    <p className="mt-3 text-sm font-bold leading-relaxed text-[#5c4b52]">{path.text}</p>
+                    <span className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold">
+                      {path.cta}
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-16 pt-0 sm:px-6 lg:pb-20">
+        <div
+          className="mx-auto grid max-w-7xl gap-6 overflow-hidden rounded-[2rem] border border-[#eadfd2] bg-[#fff8ef] p-5 text-[#241b24] shadow-[0_18px_58px_rgba(92,62,51,0.07)] md:p-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"
+          style={{
+            backgroundImage: `linear-gradient(135deg, rgba(255,248,239,0.94), rgba(229,244,238,0.82)), url(${careTextureImage})`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+          }}
+        >
+          <div>
+            <span className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#a8544a] shadow-sm">
+              <Quote className="h-5 w-5" />
+            </span>
+            <SectionKicker>Segurança e consentimento</SectionKicker>
+            <h2 className="max-w-2xl text-3xl font-extrabold leading-[1.02] text-[#241b24] md:text-4xl">
+              Cada história merece cuidado antes de virar encontro.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-[#5c4b52]">
+              Nenhuma exposição acontece sem consentimento. A conexão só avança com privacidade,
+              respeito aos limites e apoio por presença, tempo ou habilidade.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              { icon: LockKeyhole, text: 'Privacidade primeiro' },
+              { icon: ShieldCheck, text: 'Consentimento antes de qualquer exposição' },
+              { icon: CheckCircle2, text: 'Apoio por presença, tempo ou habilidade' },
+            ].map((item) => (
+              <div key={item.text} className="rounded-[1.2rem] border border-white/80 bg-white/72 p-4 text-[#245b53] shadow-sm backdrop-blur">
+                <item.icon className="mb-4 h-5 w-5 text-[#a8544a]" />
+                <p className="text-sm font-extrabold leading-relaxed text-[#245b53]">{item.text}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </div>
