@@ -199,12 +199,12 @@ function SectionKicker({ children }: { children: string }) {
   );
 }
 
-function DreamPreviewCard({ dream, className = '' }: { dream: DreamPreview; className?: string }) {
+function DreamPreviewCard({ dream }: { dream: DreamPreview }) {
   return (
     <article
-      className={`group flex h-full flex-col overflow-hidden rounded-[1.85rem] border border-[#eadfd2] bg-white shadow-[0_22px_64px_rgba(92,62,51,0.09)] transition-transform hover:-translate-y-1 ${className}`}
+      className="group flex h-full flex-col overflow-hidden rounded-[1.85rem] border border-[#eadfd2] bg-white shadow-[0_22px_64px_rgba(92,62,51,0.09)] transition-transform hover:-translate-y-1"
     >
-      <div className="relative aspect-[1.34] overflow-hidden">
+      <div className="relative aspect-[1.34] shrink-0 overflow-hidden">
         <SafeDreamArtwork scene={dream.visualScene} alt={dream.imageAlt} className="min-h-[14rem]" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#241b24]/58 via-transparent to-transparent" />
         <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-between gap-2">
@@ -218,12 +218,14 @@ function DreamPreviewCard({ dream, className = '' }: { dream: DreamPreview; clas
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-2xl font-extrabold leading-tight text-[#241b24]">{dream.title}</h3>
-        <p className="mt-3 line-clamp-3 text-sm font-semibold leading-relaxed text-[#5c4b52] md:text-base">
+        <h3 className="line-clamp-2 min-h-[3.75rem] text-2xl font-extrabold leading-tight text-[#241b24]">
+          {dream.title}
+        </h3>
+        <p className="mt-3 min-h-[4.875rem] line-clamp-3 text-sm font-semibold leading-relaxed text-[#5c4b52] md:text-base">
           {dream.description}
         </p>
 
-        <div className="mt-5 grid gap-2 text-sm font-bold text-[#66585e] sm:grid-cols-2">
+        <div className="mt-5 grid min-h-[4.5rem] content-start gap-2 text-sm font-bold text-[#66585e] sm:grid-cols-2">
           <p className="inline-flex items-center gap-2">
             <UsersRound className="h-4 w-4 text-[#a8544a]" />
             {dream.supportType}
@@ -240,13 +242,13 @@ function DreamPreviewCard({ dream, className = '' }: { dream: DreamPreview; clas
           )}
         </div>
 
-        <div className="mt-5 rounded-2xl bg-[#e5f4ee] px-4 py-3 text-sm font-extrabold leading-relaxed text-[#245b53]">
+        <div className="mt-5 flex min-h-[4rem] items-center rounded-2xl bg-[#e5f4ee] px-4 py-3 text-sm font-extrabold leading-relaxed text-[#245b53]">
           Apoio por presença, tempo ou habilidade.
         </div>
 
         <Link
           to={dream.href}
-          className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-extrabold text-[#a8544a] transition-colors hover:text-[#8b3d44]"
+          className="mt-auto inline-flex min-h-[3.5rem] items-center gap-2 pt-5 text-sm font-extrabold text-[#a8544a] transition-colors hover:text-[#8b3d44]"
         >
           {dream.source === 'api' ? 'Ver detalhes' : 'Ver sonhos'}
           <ArrowRight className="h-4 w-4" />
@@ -316,13 +318,9 @@ export default function Landing() {
             </Link>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
-            {dreamPreviews.map((dream, index) => (
-              <DreamPreviewCard
-                key={dream.id}
-                dream={dream}
-                className={index === 1 ? 'lg:mt-10' : index === 2 ? 'lg:mt-5' : ''}
-              />
+          <div className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+            {dreamPreviews.map((dream) => (
+              <DreamPreviewCard key={dream.id} dream={dream} />
             ))}
           </div>
         </div>
