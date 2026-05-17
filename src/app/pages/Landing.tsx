@@ -156,7 +156,7 @@ function toDreamPreview(dream: PublicDream): DreamPreview {
 }
 
 function useDreamPreviews() {
-  const [dreams, setDreams] = useState<PublicDream[]>([]);
+  const [dreams, setDreams] = useState<PublicDream[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -180,6 +180,8 @@ function useDreamPreviews() {
   }, []);
 
   return useMemo(() => {
+    if (dreams === null) return [];
+
     const previews = dreams
       .filter((dream) => dream.status === 'publicado' && dream.privacy === 'publico')
       .slice(0, 3)

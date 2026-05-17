@@ -141,12 +141,14 @@ export default function HowItWorks() {
           align="center"
         />
 
-        <ol className="relative grid gap-4 md:grid-cols-4">
+        <div className="relative">
           <div className="absolute left-8 right-8 top-11 hidden h-px bg-[#c9e5dc] md:block" aria-hidden />
-          {journeyPhases.map((phase, index) => (
-            <JourneyPhase key={phase.title} phase={phase} index={index} />
-          ))}
-        </ol>
+          <ol className="relative grid gap-4 md:grid-cols-4">
+            {journeyPhases.map((phase, index) => (
+              <JourneyPhase key={phase.title} phase={phase} index={index} />
+            ))}
+          </ol>
+        </div>
       </WarmSection>
 
       <WarmSection tone="white">

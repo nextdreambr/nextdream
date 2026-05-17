@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router';
 import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isSandboxEnvironment } from '../../config/environment';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
@@ -9,9 +9,14 @@ export function PublicLayout() {
   const sandbox = isSandboxEnvironment();
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const currentYear = new Date().getFullYear();
   const navLinkClassName = isHome
     ? 'text-sm font-bold text-[#5c4b52] transition-colors hover:text-[#a8544a]'
     : 'text-sm font-bold text-[#5c4b52] transition-colors hover:text-[#a8544a]';
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#fffaf4] text-[#241b24]">
@@ -152,7 +157,7 @@ export function PublicLayout() {
             </div>
           </div>
           <div className="flex flex-col justify-between gap-3 border-t border-white/10 pt-5 text-xs text-[#d8c9bf] sm:flex-row">
-            <p>© 2026 NextDream. Construído para conexões humanas com cuidado.</p>
+            <p>© {currentYear} NextDream. Construído para conexões humanas com cuidado.</p>
             <p>Presença, privacidade e consentimento primeiro.</p>
           </div>
         </div>

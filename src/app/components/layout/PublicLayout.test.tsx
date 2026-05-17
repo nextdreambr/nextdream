@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { PublicLayout } from './PublicLayout';
 
@@ -21,13 +21,14 @@ describe('PublicLayout footer', () => {
 
   it('keeps the essential footer links available', () => {
     renderPublicLayout();
+    const footer = screen.getByRole('contentinfo');
 
-    expect(screen.getAllByRole('link', { name: /como funciona/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /segurança/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /faq/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /fale conosco/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: /termos de uso/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /privacidade/i })).toBeInTheDocument();
+    expect(within(footer).getByRole('link', { name: /como funciona/i })).toBeInTheDocument();
+    expect(within(footer).getByRole('link', { name: /segurança/i })).toBeInTheDocument();
+    expect(within(footer).getByRole('link', { name: /faq/i })).toBeInTheDocument();
+    expect(within(footer).getByRole('link', { name: /fale conosco/i })).toBeInTheDocument();
+    expect(within(footer).getByRole('link', { name: /termos de uso/i })).toBeInTheDocument();
+    expect(within(footer).getByRole('link', { name: /privacidade/i })).toBeInTheDocument();
   });
 
   it('keeps the human care statement in the footer', () => {

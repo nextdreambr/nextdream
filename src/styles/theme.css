@@ -171,7 +171,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    text-rendering: optimizeLegibility;
+
+    text-rendering: optimizelegibility;
   }
 
   /**
@@ -279,6 +280,7 @@
   .public-tape::before {
     content: '';
     position: absolute;
+    pointer-events: none;
     left: 14%;
     top: -16px;
     height: 34px;

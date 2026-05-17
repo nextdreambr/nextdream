@@ -89,7 +89,7 @@ export function PublicPageHero({
           {actions?.length ? (
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               {actions.map((action) => (
-                <PublicHeroLink key={action.label} action={action} />
+                <PublicHeroLink key={`${action.to}-${action.label}`} action={action} />
               ))}
             </div>
           ) : null}
