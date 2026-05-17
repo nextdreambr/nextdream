@@ -2,43 +2,52 @@
 
 :root {
   --font-size: 16px;
-  --background: #FFF5F9;
-  --foreground: #1A1225;
+  --public-ink: #241b24;
+  --public-muted: #5c4b52;
+  --public-paper: #ffffff;
+  --public-paper-deep: #fff8ef;
+  --public-sage: #e5f4ee;
+  --public-rose: #a8544a;
+  --public-terracotta: #b66a58;
+  --public-teal: #245b53;
+  --public-honey: #fff4d8;
+  --background: #fff8ef;
+  --foreground: #241b24;
   --card: #ffffff;
-  --card-foreground: #1A1225;
+  --card-foreground: #1F2933;
   --popover: #ffffff;
-  --popover-foreground: #1A1225;
-  --primary: #D91B8C;
+  --popover-foreground: #1F2933;
+  --primary: #245b53;
   --primary-foreground: #ffffff;
-  --secondary: #FCE4F2;
-  --secondary-foreground: #9D1060;
-  --muted: #FCE4F2;
-  --muted-foreground: #9D6080;
-  --accent: #FDE8F4;
-  --accent-foreground: #9D1060;
-  --destructive: #DC2626;
+  --secondary: #fff4d8;
+  --secondary-foreground: #8b3d44;
+  --muted: #fff8ef;
+  --muted-foreground: #66585e;
+  --accent: #e5f4ee;
+  --accent-foreground: #245b53;
+  --destructive: #B42318;
   --destructive-foreground: #ffffff;
-  --border: rgba(217, 27, 140, 0.12);
+  --border: rgba(168, 84, 74, 0.18);
   --input: transparent;
-  --input-background: #FCE4F2;
-  --switch-background: #f9a8d4;
+  --input-background: #ffffff;
+  --switch-background: #c9e5dc;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #D91B8C;
+  --ring: #a8544a;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #1A1225;
-  --sidebar-primary: #D91B8C;
+  --sidebar-foreground: #1F2933;
+  --sidebar-primary: #245b53;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #FCE4F2;
-  --sidebar-accent-foreground: #9D1060;
-  --sidebar-border: rgba(217, 27, 140, 0.12);
-  --sidebar-ring: #D91B8C;
+  --sidebar-accent: #e5f4ee;
+  --sidebar-accent-foreground: #245b53;
+  --sidebar-border: rgba(168, 84, 74, 0.18);
+  --sidebar-ring: #a8544a;
 }
 
 .dark {
@@ -117,6 +126,42 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-pink-50: #FFF7F8;
+  --color-pink-100: #F7E4EA;
+  --color-pink-200: #EECBD7;
+  --color-pink-300: #E0A5BC;
+  --color-pink-400: #CF789F;
+  --color-pink-500: #BE4D81;
+  --color-pink-600: #A9366A;
+  --color-pink-700: #8D2B59;
+  --color-pink-800: #702447;
+  --color-pink-900: #572039;
+  --color-rose-50: #FFF7F5;
+  --color-rose-100: #F9E5E1;
+  --color-rose-200: #F0CFC8;
+  --color-rose-300: #E4AA9F;
+  --color-rose-400: #D27F72;
+  --color-rose-500: #BC5C55;
+  --color-rose-600: #9F473F;
+  --color-teal-50: #F2FBF8;
+  --color-teal-100: #DDF3EC;
+  --color-teal-200: #BEE5DA;
+  --color-teal-300: #92D0C2;
+  --color-teal-400: #63B6A7;
+  --color-teal-500: #419B8E;
+  --color-teal-600: #2F7F75;
+  --color-teal-700: #27665F;
+  --color-indigo-50: #F5F7FB;
+  --color-indigo-100: #E3E8F3;
+  --color-indigo-200: #CBD4E8;
+  --color-indigo-300: #AAB8D8;
+  --color-indigo-400: #8093C3;
+  --color-indigo-500: #6578AD;
+  --color-indigo-600: #4D5F93;
+  --color-indigo-700: #3E4B76;
+  --color-orange-500: #B75B1B;
+  --color-orange-600: #984915;
 }
 
 @layer base {
@@ -125,7 +170,8 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   /**
@@ -141,18 +187,21 @@
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    letter-spacing: 0;
   }
 
   h2 {
     font-size: var(--text-xl);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    letter-spacing: 0;
   }
 
   h3 {
     font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    letter-spacing: 0;
   }
 
   h4 {
@@ -189,5 +238,54 @@
   select option {
     color: #374151;
     background-color: #ffffff;
+  }
+
+  a,
+  button,
+  input,
+  textarea,
+  select {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+@layer components {
+  .public-paper-grain {
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(168, 84, 74, 0.055) 1px, transparent 0),
+      linear-gradient(135deg, rgba(255, 250, 244, 0.86), rgba(229, 244, 238, 0.34));
+    background-size: 24px 24px, 100% 100%;
+  }
+
+  .public-stitched-edge {
+    background-image: linear-gradient(90deg, rgba(168, 84, 74, 0.32) 50%, transparent 0);
+    background-position: left bottom;
+    background-repeat: repeat-x;
+    background-size: 12px 1px;
+  }
+
+  .public-soft-shadow {
+    box-shadow: 0 24px 70px rgba(92, 62, 51, 0.12);
+  }
+
+  .public-organic-radius {
+    border-radius: 20px;
+  }
+
+  .public-tape {
+    position: relative;
+  }
+
+  .public-tape::before {
+    content: '';
+    position: absolute;
+    left: 14%;
+    top: -16px;
+    height: 34px;
+    width: 132px;
+    rotate: -4deg;
+    border: 1px solid rgba(250, 204, 21, 0.32);
+    background: rgba(254, 249, 195, 0.72);
+    box-shadow: 0 12px 20px rgba(92, 62, 51, 0.08);
   }
 }
