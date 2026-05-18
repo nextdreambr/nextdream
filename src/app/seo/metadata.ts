@@ -20,15 +20,15 @@ const FAQ_JSON_LD = {
       name: 'O que é o NextDream?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'O NextDream conecta pacientes e idosos a apoiadores voluntários para realizar sonhos com segurança, sem transações financeiras.',
+        text: 'O NextDream conecta pessoas vivendo momentos delicados de saúde, familiares e apoiadores dispostos a oferecer presença, tempo, companhia e habilidades com cuidado.',
       },
     },
     {
       '@type': 'Question',
-      name: 'O NextDream é gratuito?',
+      name: 'Que tipo de apoio existe?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. A plataforma é 100% gratuita para pacientes, familiares e apoiadores voluntários.',
+        text: 'O apoio esperado é presença, tempo, companhia ou habilidade, respeitando consentimento, privacidade e limites de cada pessoa.',
       },
     },
     {
@@ -36,15 +36,15 @@ const FAQ_JSON_LD = {
       name: 'Como funciona a segurança na plataforma?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'A comunicação acontece no chat interno, com moderação e monitoramento para proteger os usuários.',
+        text: 'A conversa direta acontece depois do aceite. Dados de contato ficam protegidos e situações inseguras podem ser reportadas para análise da equipe.',
       },
     },
     {
       '@type': 'Question',
-      name: 'Existe troca de dinheiro entre usuários?',
+      name: 'Meu sonho será público?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Nao. O NextDream nao permite PIX, doacoes ou qualquer transacao financeira entre usuarios.',
+        text: 'Não automaticamente. A história deve respeitar consentimento, privacidade e o que a pessoa se sentir confortável em compartilhar.',
       },
     },
   ],
@@ -73,7 +73,7 @@ const STATIC_SEO: Record<string, SeoData> = {
   '/': {
     title: 'NextDream | Sonhos que encontram apoio humano de verdade',
     description:
-      'Conectamos pacientes e idosos a apoiadores voluntarios para transformar sonhos em momentos reais, com cuidado, seguranca e presenca.',
+      'NextDream conecta pessoas em momentos delicados de saude, familiares e instituicoes a apoiadores para realizar sonhos com tempo, presenca e cuidado.',
     canonicalPath: '/',
     ogType: 'website',
   },
@@ -105,7 +105,7 @@ const STATIC_SEO: Record<string, SeoData> = {
   '/parcerias': {
     title: 'Parcerias | NextDream',
     description:
-      'Descubra como sua empresa, hospital ou instituicao pode apoiar a realizacao de sonhos com a NextDream.',
+      'Veja como instituicoes, comunidades e redes podem aproximar sonhos de caminhos seguros, com contexto, consentimento e cuidado.',
     canonicalPath: '/parcerias',
   },
   '/termos': {
