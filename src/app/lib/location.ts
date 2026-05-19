@@ -1,12 +1,4 @@
-import { BRAZIL_STATES } from '../data/brazilCities';
-
-export function getBrazilState(uf?: string) {
-  return BRAZIL_STATES.find((state) => state.uf === uf);
-}
-
-export function getCitiesForState(uf?: string) {
-  return getBrazilState(uf)?.cities ?? [];
-}
+export { getBrazilState, getCitiesForState } from '../data/brazilCities';
 
 export function formatLocationLabel(location: { city?: string; state?: string; locationLabel?: string }) {
   if (location.locationLabel) {
