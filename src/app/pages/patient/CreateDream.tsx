@@ -9,6 +9,7 @@ import { ImagePickerModal, type StockImage } from '../../components/shared/Image
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { BRAZIL_STATES } from '../../data/brazilCities';
 import { ApiError, dreamsApi } from '../../lib/api';
+import { getCitiesForState } from '../../lib/location';
 
 const steps = ['Conte seu sonho', 'Preferências', 'Privacidade', 'Revisar e publicar'];
 
@@ -84,8 +85,7 @@ export default function CreateDream() {
     }
   };
 
-  const selectedState = BRAZIL_STATES.find(s => s.uf === form.state);
-  const cities = selectedState?.cities ?? [];
+  const cities = getCitiesForState(form.state);
 
   return (
     <div data-sandbox-tour-id="patient-create-dream-form" className="max-w-2xl mx-auto">

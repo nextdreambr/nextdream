@@ -147,4 +147,45 @@ describe('Register', () => {
     expect(screen.getByLabelText(/nome completo/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/nome da instituição/i)).not.toBeInTheDocument();
   });
+
+  it('loads cities from the full dataset and clears the selected city when the state changes', () => {
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    const stateSelect = screen.getByLabelText(/estado \(opcional\)/i);
+    const citySelect = screen.getByLabelText(/cidade \(opcional\)/i);
+
+    fireEvent.change(stateSelect, { target: { value: 'SP' } });
+
+    expect(screen.getByRole('option', { name: 'Adamantina' })).toBeInTheDocument();
+    fireEvent.change(citySelect, { target: { value: 'Adamantina' } });
+    expect(citySelect).toHaveValue('Adamantina');
+
+    fireEvent.change(stateSelect, { target: { value: 'PE' } });
+
+    expect(citySelect).toHaveValue('');
+    expect(screen.getByRole('option', { name: 'Afogados da Ingazeira' })).toBeInTheDocument();
+  });
+
+  it('blocks registration when state is selected without city', () => {
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/nome completo/i), { target: { value: 'Maria Paciente' } });
+    fireEvent.change(screen.getByLabelText(/^e-mail$/i), { target: { value: 'maria@example.com' } });
+    fireEvent.change(screen.getByLabelText(/senha/i), { target: { value: 'Secret123!' } });
+    fireEvent.change(screen.getByLabelText(/estado \(opcional\)/i), { target: { value: 'PE' } });
+    fireEvent.click(screen.getByLabelText(/li e aceito os/i));
+
+    fireEvent.submit(screen.getByRole('button', { name: /criar conta de paciente/i }).closest('form') as HTMLFormElement);
+
+    expect(registerMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/selecione estado e cidade juntos/i)).toBeInTheDocument();
+  });
 });
