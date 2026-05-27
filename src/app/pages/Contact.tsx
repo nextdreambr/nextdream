@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router';
 import { PublicEditorialVisual } from '../components/public/PublicEditorialVisual';
 import { CareCallout, PublicPageHero, StoryCard, WarmSection } from '../components/public/PublicPagePrimitives';
+import { useI18n } from '../i18n/I18nProvider';
 
 type ContactPath = {
   icon: LucideIcon;
@@ -77,6 +78,7 @@ const listeningCards = [
 ];
 
 function ContactPathCard({ path }: { path: ContactPath }) {
+  const { localizedPath } = useI18n();
   const content = (
     <>
       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/84 shadow-sm">
@@ -95,7 +97,7 @@ function ContactPathCard({ path }: { path: ContactPath }) {
 
   if (path.to) {
     return (
-      <Link to={path.to} className={className}>
+      <Link to={localizedPath(path.to)} className={className}>
         {content}
       </Link>
     );

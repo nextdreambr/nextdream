@@ -3,9 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminContactMessage } from '../../entities/admin-contact-message.entity';
 import { AdminInvite } from '../../entities/admin-invite.entity';
 import { AdminReport } from '../../entities/admin-report.entity';
+import { AdminSettings } from '../../entities/admin-settings.entity';
 import { AuditLog } from '../../entities/audit-log.entity';
 import { Conversation } from '../../entities/conversation.entity';
 import { Dream } from '../../entities/dream.entity';
+import { ManagedPatient } from '../../entities/managed-patient.entity';
 import { Message } from '../../entities/message.entity';
 import { Proposal } from '../../entities/proposal.entity';
 import { User } from '../../entities/user.entity';
@@ -21,10 +23,12 @@ import { AdminService } from './admin.service';
       Dream,
       Proposal,
       Conversation,
+      ManagedPatient,
       Message,
       AdminContactMessage,
       AdminInvite,
       AdminReport,
+      AdminSettings,
       AuditLog,
     ]),
     AuthModule,

@@ -110,7 +110,7 @@ describe('InstitutionCreateDream', () => {
 
     fireEvent.change(screen.getByLabelText(/título do sonho/i), { target: { value: 'Oficina de musica e pintura' } });
     fireEvent.change(screen.getByLabelText(/descreva seu sonho/i), { target: { value: 'Uma tarde artística mediada pela instituição.' } });
-    fireEvent.click(screen.getByRole('button', { name: /alta/i }));
+    fireEvent.click(screen.getByRole('button', { name: /mais próxima/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
 
     expect(screen.getByRole('heading', { name: /preferências de apoio/i })).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('InstitutionCreateDream', () => {
     fireEvent.click(screen.getByRole('button', { name: /ambos/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
 
-    expect(screen.getByRole('heading', { name: /configurações de privacidade/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /privacidade antes de publicar/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /somente verificados/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
 

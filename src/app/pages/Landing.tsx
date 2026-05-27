@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { HomeHero } from '../components/home/HomeHero';
 import { getSafeDreamVisual, SafeDreamArtwork, type SafeDreamScene } from '../components/shared/SafeDreamVisual';
-import { dreamsApi, type PublicDream } from '../lib/api';
+import { DreamLanguageAssist } from '../components/shared/DreamLanguageAssist';
+import { dreamsApi, type DreamLanguage, type DreamTranslation, type PublicDream } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 import careTextureImage from '../../assets/public/rede-de-cuidado-textura.webp';
 
 type Step = {
@@ -29,61 +31,24 @@ type DreamPreview = {
   id: string;
   title: string;
   description: string;
+  originalLanguage?: DreamLanguage;
+  translations?: Partial<Record<DreamLanguage, DreamTranslation>>;
   category: string;
   supportType: string;
   formatLabel: string;
   location?: string;
   status: string;
   href: string;
-  source: 'api' | 'fallback';
   visualScene: SafeDreamScene;
   imageAlt: string;
 };
 
-const fallbackDreamPreviews: DreamPreview[] = [
-  {
-    id: 'preview-musica',
-    title: 'Uma tarde com música ao vivo',
-    description: 'Uma família gostaria de organizar um momento leve com música e presença.',
-    category: 'Arte e Música',
-    supportType: getSafeDreamVisual('Arte e Música').supportType,
-    formatLabel: 'Presencial ou online',
-    location: 'Localidade aproximada combinada depois',
-    status: 'Exemplo seguro',
-    href: '/apoiador/explorar',
-    source: 'fallback',
-    visualScene: getSafeDreamVisual('Arte e Música').scene,
-    imageAlt: getSafeDreamVisual('Arte e Música').alt,
-  },
-  {
-    id: 'preview-conversa',
-    title: 'Visita para conversar sobre futebol',
-    description: 'Um momento de conversa e companhia para tornar a semana mais leve.',
-    category: 'Conversa e Companhia',
-    supportType: getSafeDreamVisual('Conversa e Companhia').supportType,
-    formatLabel: 'Presencial ou online',
-    location: 'Localidade aproximada combinada depois',
-    status: 'Exemplo seguro',
-    href: '/apoiador/explorar',
-    source: 'fallback',
-    visualScene: getSafeDreamVisual('Conversa e Companhia').scene,
-    imageAlt: getSafeDreamVisual('Conversa e Companhia').alt,
-  },
-  {
-    id: 'preview-desenho',
-    title: 'Oficina de desenho em família',
-    description: 'Uma experiência simples e criativa, pensada com cuidado para uma pessoa e sua família.',
-    category: 'Aprendizado e Educação',
-    supportType: getSafeDreamVisual('Aprendizado e Educação').supportType,
-    formatLabel: 'Presencial ou online',
-    location: 'Localidade aproximada combinada depois',
-    status: 'Exemplo seguro',
-    href: '/apoiador/explorar',
-    source: 'fallback',
-    visualScene: getSafeDreamVisual('Aprendizado e Educação').scene,
-    imageAlt: getSafeDreamVisual('Aprendizado e Educação').alt,
-  },
-];
+const publishedDreamSection = {
+  kicker: 'Sonhos cadastrados',
+  title: 'Histórias públicas, mostradas com cuidado.',
+  description: 'Uma prévia de sonhos públicos que podem encontrar apoio por presença, tempo ou habilidade.',
+  cta: 'Ver todos os sonhos',
+};
 
 const steps: Step[] = [
   {
@@ -143,20 +108,21 @@ function toDreamPreview(dream: PublicDream): DreamPreview {
     id: dream.id,
     title: dream.title,
     description: dream.description,
+    originalLanguage: dream.originalLanguage,
+    translations: dream.translations,
     category: dream.category,
     supportType: visual.supportType,
     formatLabel: formatLabels[dream.format],
     location: dream.patientCity,
     status: 'História publicada',
     href: `/sonhos/${dream.id}`,
-    source: 'api',
     visualScene: visual.scene,
     imageAlt: visual.alt,
   };
 }
 
 function useDreamPreviews() {
-  const [dreams, setDreams] = useState<PublicDream[] | null>(null);
+  const [dreams, setDreams] = useState<PublicDream[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -180,14 +146,10 @@ function useDreamPreviews() {
   }, []);
 
   return useMemo(() => {
-    if (dreams === null) return [];
-
-    const previews = dreams
+    return dreams
       .filter((dream) => dream.status === 'publicado' && dream.privacy === 'publico')
       .slice(0, 3)
       .map(toDreamPreview);
-
-    return previews.length > 0 ? previews : fallbackDreamPreviews;
   }, [dreams]);
 }
 
@@ -200,6 +162,9 @@ function SectionKicker({ children }: { children: string }) {
 }
 
 function DreamPreviewCard({ dream }: { dream: DreamPreview }) {
+  const { localizedPath } = useI18n();
+  const linkClassName = 'mt-auto inline-flex min-h-[3.5rem] items-center gap-2 pt-5 text-sm font-extrabold text-[#a8544a] transition-colors hover:text-[#8b3d44]';
+
   return (
     <article
       className="group flex h-full flex-col overflow-hidden rounded-[1.85rem] border border-[#eadfd2] bg-white shadow-[0_22px_64px_rgba(92,62,51,0.09)] transition-transform hover:-translate-y-1"
@@ -217,13 +182,16 @@ function DreamPreviewCard({ dream }: { dream: DreamPreview }) {
         </div>
       </div>
 
+      <DreamLanguageAssist dream={dream} variant="card">
+        {({ title, description, controls }) => (
       <div className="flex flex-1 flex-col p-5">
         <h3 className="line-clamp-2 min-h-[3.75rem] text-2xl font-extrabold leading-tight text-[#241b24]">
-          {dream.title}
+          {title}
         </h3>
         <p className="mt-3 min-h-[4.875rem] line-clamp-3 text-sm font-semibold leading-relaxed text-[#5c4b52] md:text-base">
-          {dream.description}
+          {description}
         </p>
+        {controls}
 
         <div className="mt-5 grid min-h-[4.5rem] content-start gap-2 text-sm font-bold text-[#66585e] sm:grid-cols-2">
           <p className="inline-flex items-center gap-2">
@@ -246,14 +214,13 @@ function DreamPreviewCard({ dream }: { dream: DreamPreview }) {
           Apoio por presença, tempo ou habilidade.
         </div>
 
-        <Link
-          to={dream.href}
-          className="mt-auto inline-flex min-h-[3.5rem] items-center gap-2 pt-5 text-sm font-extrabold text-[#a8544a] transition-colors hover:text-[#8b3d44]"
-        >
-          {dream.source === 'api' ? 'Ver detalhes' : 'Ver sonhos'}
+        <Link to={localizedPath(dream.href)} className={linkClassName}>
+          Ver detalhes
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
+        )}
+      </DreamLanguageAssist>
     </article>
   );
 }
@@ -283,48 +250,51 @@ function CareLineStep({ step, index, isLast }: { step: Step; index: number; isLa
 
 export default function Landing() {
   const dreamPreviews = useDreamPreviews();
+  const { localizedPath } = useI18n();
 
   return (
     <div className="overflow-x-hidden bg-[#fffaf4] text-[#241b24]">
       <HomeHero />
 
-      <section
-        id="sonhos"
-        className="relative overflow-hidden px-4 py-14 sm:px-6 lg:py-20"
-        style={{
-          backgroundImage: `linear-gradient(180deg, rgba(255,250,244,0.98), rgba(255,250,244,0.9)), url(${careTextureImage})`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-        }}
-      >
-        <div className="absolute right-0 top-10 hidden h-80 w-32 rounded-l-[4rem] bg-[#f7d9c6]/70 lg:block" />
-        <div className="relative mx-auto max-w-7xl">
-          <div className="mb-9 grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
-            <div className="max-w-3xl">
-              <SectionKicker>Sonhos cadastrados</SectionKicker>
-              <h2 className="text-4xl font-extrabold leading-[0.98] md:text-6xl">
-                Histórias públicas, mostradas com cuidado.
-              </h2>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-[#5c4b52] md:text-lg">
-                Uma prévia de sonhos públicos que podem encontrar apoio por presença, tempo ou habilidade.
-              </p>
+      {dreamPreviews.length > 0 && (
+        <section
+          id="sonhos"
+          className="relative overflow-hidden px-4 py-14 sm:px-6 lg:py-20"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(255,250,244,0.98), rgba(255,250,244,0.9)), url(${careTextureImage})`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+          }}
+        >
+          <div className="absolute right-0 top-10 hidden h-80 w-32 rounded-l-[4rem] bg-[#f7d9c6]/70 lg:block" />
+          <div className="relative mx-auto max-w-7xl">
+            <div className="mb-9 grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+              <div className="max-w-3xl">
+                <SectionKicker>{publishedDreamSection.kicker}</SectionKicker>
+                <h2 className="text-4xl font-extrabold leading-[0.98] md:text-6xl">
+                  {publishedDreamSection.title}
+                </h2>
+                <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-[#5c4b52] md:text-lg">
+                  {publishedDreamSection.description}
+                </p>
+              </div>
+              <Link
+                to={localizedPath('/apoiador/explorar')}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#c9e5dc] bg-white px-5 py-3 text-sm font-extrabold text-[#245b53] shadow-sm transition-colors hover:bg-[#effaf6]"
+              >
+                {publishedDreamSection.cta}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
-            <Link
-              to="/apoiador/explorar"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#c9e5dc] bg-white px-5 py-3 text-sm font-extrabold text-[#245b53] shadow-sm transition-colors hover:bg-[#effaf6]"
-            >
-              Ver todos os sonhos
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
 
-          <div className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
-            {dreamPreviews.map((dream) => (
-              <DreamPreviewCard key={dream.id} dream={dream} />
-            ))}
+            <div className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+              {dreamPreviews.map((dream) => (
+                <DreamPreviewCard key={dream.id} dream={dream} />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section
         className="relative overflow-hidden bg-[#e8f4ee] px-4 py-14 sm:px-6 lg:py-20"
@@ -371,7 +341,7 @@ export default function Landing() {
             {paths.map((path) => (
               <Link
                 key={path.title}
-                to={path.to}
+                to={localizedPath(path.to)}
                 className={`group relative flex h-full min-h-[16.5rem] overflow-hidden rounded-[1.45rem] border p-5 transition-transform hover:-translate-y-1 ${path.tone}`}
               >
                 <span className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/45" />

@@ -36,10 +36,10 @@ export default function MyProposals() {
   };
 
   const statusGroups = [
-    { key: 'aceita', label: 'Aceitas', emoji: '✅' },
-    { key: 'em-analise', label: 'Em análise', emoji: '⏳' },
-    { key: 'enviada', label: 'Enviadas', emoji: '📬' },
-    { key: 'recusada', label: 'Recusadas', emoji: '❌' },
+    { key: 'aceita', label: 'Aceitas' },
+    { key: 'em-analise', label: 'Em análise' },
+    { key: 'enviada', label: 'Enviadas' },
+    { key: 'recusada', label: 'Recusadas' },
   ];
 
   return (
@@ -55,7 +55,6 @@ export default function MyProposals() {
           const count = myProposals.filter(p => p.status === group.key).length;
           return (
             <div key={group.key} className="bg-white rounded-2xl border border-gray-100 p-3 text-center">
-              <p className="text-lg mb-1">{group.emoji}</p>
               <p className="text-xl text-gray-800" style={{ fontWeight: 700 }}>{count}</p>
               <p className="text-gray-500 text-xs">{group.label}</p>
             </div>
@@ -67,7 +66,7 @@ export default function MyProposals() {
         <EmptyState
           icon={Send}
           title="Nenhuma proposta ainda"
-          description="Explore sonhos publicados e envie sua primeira proposta. Pode ser o começo de uma conexão incrível."
+          description="Explore sonhos publicados e envie sua primeira proposta com respeito aos limites da pessoa."
           actionLabel="Explorar sonhos"
           onAction={() => navigate('/apoiador/explorar')}
         />
@@ -89,8 +88,8 @@ export default function MyProposals() {
                 ${proposal.status === 'aceita' ? 'border-green-200' : proposal.status === 'recusada' ? 'border-gray-200 opacity-70' : 'border-gray-100'} text-left w-full cursor-pointer`}>
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-xl shrink-0">
-                  {proposal.dreamTitle?.includes('praia') ? '🌅' : proposal.dreamTitle?.includes('histórias') ? '💬' : proposal.dreamTitle?.includes('sarau') ? '📚' : '✨'}
+                <div className="w-10 h-10 rounded-xl bg-[#e5f4ee] flex items-center justify-center text-[#245b53] shrink-0">
+                  <Send className="w-4 h-4" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-800">{proposal.dreamTitle ?? 'Sonho'}</p>

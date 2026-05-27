@@ -1,7 +1,8 @@
 import { Link } from 'react-router';
-import { Heart, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { ApiError, authApi } from '../../lib/api';
+import { AuthCareFrame } from '../../components/auth/AuthCareFrame';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -29,71 +30,69 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-pink-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Heart className="w-6 h-6 text-white fill-white" />
-          </div>
-          <h1 className="text-gray-800" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Recuperar senha</h1>
-          <p className="text-gray-500 text-sm mt-1">Enviaremos um link para redefinir sua senha</p>
-        </div>
+    <AuthCareFrame
+      title="Recupere o acesso com segurança."
+      description="Enviaremos um link para redefinir sua senha sem expor dados da conta ou detalhes da sua jornada."
+      footer={(
+        <Link to="/login" className="inline-flex items-center justify-center gap-2 text-sm font-extrabold text-[#a8544a] hover:text-[#8b3d44]">
+          <ArrowLeft className="w-4 h-4" /> Voltar para o login
+        </Link>
+      )}
+    >
+      <div className="mb-7">
+        <Mail className="mb-4 h-9 w-9 text-[#a8544a]" />
+        <h2 className="text-2xl font-extrabold leading-tight text-[#241b24]">Enviar link de recuperação</h2>
+        <p className="mt-2 text-sm font-semibold leading-relaxed text-[#5c4b52]">
+          Use o e-mail cadastrado. Se ele existir na plataforma, enviaremos as instruções.
+        </p>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-8">
-          {!sent ? (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="forgot-password-email" className="text-sm text-gray-700 block mb-1.5">
-                  E-mail
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    id="forgot-password-email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="seu@email.com"
-                    autoComplete="email"
-                    required
-                    className="w-full pl-10 pr-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-pink-300 text-white py-3.5 rounded-xl font-semibold transition-colors"
-              >
-                {loading ? 'Enviando link...' : 'Enviar link de recuperação'}
-              </button>
-            </form>
-          ) : (
-            <div className="text-center py-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="text-gray-800 mb-2">E-mail enviado!</h3>
-              <p className="text-gray-500 text-sm">
-                Se o endereço informado estiver cadastrado, enviaremos um link para redefinir sua senha.
-              </p>
+      {!sent ? (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
             </div>
           )}
-        </div>
 
-        <div className="text-center mt-6">
-          <Link to="/login" className="flex items-center justify-center gap-2 text-pink-600 hover:text-pink-700 text-sm">
-            <ArrowLeft className="w-4 h-4" /> Voltar para o login
-          </Link>
+          <div>
+            <label htmlFor="forgot-password-email" className="mb-1.5 block text-sm font-bold text-[#5c4b52]">
+              E-mail
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9b8e88]" />
+              <input
+                id="forgot-password-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu@email.com"
+                autoComplete="email"
+                required
+                className="w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] py-3 pl-10 pr-4 text-sm focus:border-[#a8544a] focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-full bg-[#a8544a] py-3.5 font-extrabold text-white transition-colors hover:bg-[#8b3d44] disabled:bg-[#e4aaa0]"
+          >
+            {loading ? 'Enviando link...' : 'Enviar link de recuperação'}
+          </button>
+        </form>
+      ) : (
+        <div className="rounded-2xl border border-[#c9e5dc] bg-[#e5f4ee] px-5 py-6 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white">
+            <CheckCircle className="h-6 w-6 text-[#245b53]" />
+          </div>
+          <h3 className="mb-2 text-xl font-extrabold text-[#241b24]">E-mail enviado!</h3>
+          <p className="text-sm font-semibold leading-relaxed text-[#50645d]">
+            Se o endereço informado estiver cadastrado, enviaremos um link para redefinir sua senha.
+          </p>
         </div>
-      </div>
-    </div>
+      )}
+    </AuthCareFrame>
   );
 }

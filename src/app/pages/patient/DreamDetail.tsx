@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ArrowLeft, CheckCircle, Clock, MessageCircle, XCircle } from 'lucide-react';
-import { DreamStatusBadge, ProposalStatusBadge, UrgencyBadge } from '../../components/shared/StatusBadge';
+import { ArrowLeft, CheckCircle, Clock, MessageCircle, XCircle, HeartHandshake, ShieldCheck } from 'lucide-react';
+import { DreamStatusBadge, ProposalStatusBadge } from '../../components/shared/StatusBadge';
 import { ApiError, Proposal, PublicDream, dreamsApi, proposalsApi } from '../../lib/api';
+import { HumanCard, ProductHero, ProductPageShell, SensitiveNotice } from '../../components/shared/VisualSystem';
 
 export default function DreamDetail() {
   const { id } = useParams();
@@ -68,10 +69,10 @@ export default function DreamDetail() {
   if (!dream) {
     return (
       <div className="max-w-3xl mx-auto py-10 space-y-4">
-        <p className="text-sm text-red-700">{error || 'Sonho não encontrado.'}</p>
+        <p className="text-sm text-[#8b3d44]">{error || 'Sonho não encontrado.'}</p>
         <button
           onClick={() => navigate('/paciente/sonhos')}
-          className="bg-pink-600 hover:bg-pink-700 text-white text-sm px-4 py-2 rounded-xl"
+          className="bg-[#a8544a] hover:bg-[#8b3d44] text-white text-sm px-4 py-2 rounded-xl"
         >
           Voltar para meus sonhos
         </button>
@@ -80,43 +81,54 @@ export default function DreamDetail() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm">
+    <ProductPageShell tone="care" width="content">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm font-bold text-[#6b5d63] hover:text-[#8b3d44]">
         <ArrowLeft className="w-4 h-4" /> Voltar
       </button>
 
-      <div className="bg-white rounded-2xl border border-pink-100 p-6 space-y-4">
+      <ProductHero
+        tone="care"
+        icon={HeartHandshake}
+        eyebrow={dream.category}
+        title={dream.title}
+        description="Acompanhe propostas com calma. Aceitar uma proposta abre conversa segura; recusar ou aguardar também é uma escolha válida."
+        aside={(
+          <SensitiveNotice tone="care" icon={ShieldCheck} title="Consentimento continua seu">
+            Dados de contato só avançam após aceite. Leia disponibilidade, limites e mensagem antes de decidir.
+          </SensitiveNotice>
+        )}
+      />
+
+      <HumanCard tone="care" className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-gray-800 mb-2" style={{ fontSize: '1.1rem' }}>{dream.title}</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <DreamStatusBadge status={dream.status} />
-              <UrgencyBadge urgency={dream.urgency} />
-              <span className="text-xs text-pink-600">{dream.category}</span>
+              <span className="rounded-full bg-[#fff4d8] px-3 py-1 text-xs font-bold text-[#8b3d44]">{dream.category}</span>
             </div>
           </div>
           <span className="text-xs text-gray-500">{new Date(dream.createdAt).toLocaleDateString('pt-BR')}</span>
         </div>
 
-        <p className="text-sm text-gray-600 leading-relaxed">{dream.description}</p>
+        <p className="text-sm text-[#5c4b52] leading-relaxed">{dream.description}</p>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-pink-50 rounded-xl p-3">
+          <div className="bg-[#fff8ef] rounded-xl p-3">
             <p className="text-xs text-gray-500 mb-1">Formato</p>
             <p className="text-sm text-gray-700">{dream.format}</p>
           </div>
-          <div className="bg-pink-50 rounded-xl p-3">
+          <div className="bg-[#fff8ef] rounded-xl p-3">
             <p className="text-xs text-gray-500 mb-1">Privacidade</p>
             <p className="text-sm text-gray-700">{dream.privacy}</p>
           </div>
         </div>
-      </div>
+      </HumanCard>
 
-      <div className="bg-white rounded-2xl border border-pink-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-pink-100 flex items-center justify-between">
-          <h2 className="text-sm text-gray-800">Propostas ({proposals.length})</h2>
+      <div className="bg-white rounded-2xl border border-[#eadfd2] overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#eadfd2] flex items-center justify-between">
+          <h2 className="text-sm font-extrabold text-[#241b24]">Propostas ({proposals.length})</h2>
           {pendingProposals.length > 0 && (
-            <span className="text-xs text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+            <span className="text-xs text-[#8b3d44] bg-[#fff4d8] px-2.5 py-1 rounded-full">
               {pendingProposals.length} pendente(s)
             </span>
           )}
@@ -125,7 +137,7 @@ export default function DreamDetail() {
         {proposals.length === 0 ? (
           <div className="p-6 text-sm text-gray-500">Ainda não há propostas para este sonho.</div>
         ) : (
-          <div className="divide-y divide-pink-50">
+          <div className="divide-y divide-[#eadfd2]">
             {proposals.map((proposal) => {
               const pending = proposal.status === 'enviada' || proposal.status === 'em-analise';
               return (
@@ -138,18 +150,18 @@ export default function DreamDetail() {
                     <ProposalStatusBadge status={proposal.status} />
                   </div>
 
-                  <p className="text-sm text-gray-600">{proposal.message}</p>
+                  <p className="text-sm text-[#5c4b52] leading-relaxed">{proposal.message}</p>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <div className="bg-gray-50 rounded-lg p-2.5">
+                    <div className="bg-[#fff8ef] rounded-lg p-2.5">
                       <p className="text-xs text-gray-400">Oferece</p>
                       <p className="text-xs text-gray-700 mt-0.5">{proposal.offering}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-2.5">
+                    <div className="bg-[#fff8ef] rounded-lg p-2.5">
                       <p className="text-xs text-gray-400">Disponibilidade</p>
                       <p className="text-xs text-gray-700 mt-0.5">{proposal.availability}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-2.5">
+                    <div className="bg-[#fff8ef] rounded-lg p-2.5">
                       <p className="text-xs text-gray-400">Duração</p>
                       <p className="text-xs text-gray-700 mt-0.5">{proposal.duration}</p>
                     </div>
@@ -160,7 +172,7 @@ export default function DreamDetail() {
                       <button
                         onClick={() => handleAccept(proposal.id)}
                         disabled={actingProposalId === proposal.id}
-                        className="flex-1 bg-pink-600 hover:bg-pink-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-2"
+                        className="flex-1 bg-[#a8544a] hover:bg-[#8b3d44] text-white rounded-full py-2.5 text-sm font-extrabold flex items-center justify-center gap-2"
                       >
                         {actingProposalId === proposal.id ? (
                           <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -170,7 +182,7 @@ export default function DreamDetail() {
                       </button>
                       <button
                         disabled
-                        className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-400 text-sm flex items-center gap-1.5 cursor-not-allowed"
+                        className="px-4 py-2.5 rounded-xl border border-[#ead8c4] text-[#8f8286] text-sm flex items-center gap-1.5 cursor-not-allowed"
                       >
                         <XCircle className="w-4 h-4" /> Recusar
                       </button>
@@ -180,7 +192,7 @@ export default function DreamDetail() {
                   {proposal.status === 'aceita' && (
                     <button
                       onClick={() => navigate('/paciente/chat')}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5"
+                      className="bg-[#245b53] hover:bg-[#17453f] text-white px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5"
                     >
                       <MessageCircle className="w-3.5 h-3.5" /> Abrir chat
                     </button>
@@ -193,15 +205,15 @@ export default function DreamDetail() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+        <div className="bg-[#fff4d8] border border-[#ead8c4] rounded-2xl p-4 text-sm text-[#8b3d44]">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-pink-100 p-4 flex items-center gap-2 text-xs text-gray-500">
+      <div className="bg-white rounded-2xl border border-[#eadfd2] p-4 flex items-center gap-2 text-xs text-[#5c4b52]">
         <Clock className="w-4 h-4" />
-        Atualize a página para acompanhar novas propostas em tempo real.
+        Você pode aguardar, conversar com pessoas de confiança e revisar cada proposta antes de aceitar.
       </div>
-    </div>
+    </ProductPageShell>
   );
 }

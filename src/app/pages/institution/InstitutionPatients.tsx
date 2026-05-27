@@ -130,7 +130,7 @@ export default function InstitutionPatients() {
         <div>
           <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Pacientes acompanhados</h1>
           <p className="text-sm text-gray-500">
-            Gerencie a carteira da instituição com edição rápida e localização padronizada.
+            Gerencie os pacientes acompanhados com edição rápida e localização padronizada.
           </p>
         </div>
 
@@ -250,7 +250,7 @@ export default function InstitutionPatients() {
               </div>
               <p className="text-sm text-gray-800">Nenhum paciente acompanhado ainda</p>
               <p className="text-xs text-gray-500">
-                Use o formulário ao lado para começar a montar sua carteira de acompanhamento.
+                Use o formulário ao lado para começar a organizar os pacientes acompanhados.
               </p>
             </div>
           ) : (

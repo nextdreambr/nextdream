@@ -60,6 +60,7 @@ describe('NextDream API', () => {
   const originalChatModerationProvider = process.env.CHAT_MODERATION_PROVIDER;
   const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
   const originalOpenAiModerationModel = process.env.OPENAI_MODERATION_MODEL;
+  const originalOpenAiTranslationModel = process.env.OPENAI_TRANSLATION_MODEL;
   const originalOpenAiTimeoutMs = process.env.OPENAI_TIMEOUT_MS;
 
   beforeAll(async () => {
@@ -92,6 +93,7 @@ describe('NextDream API', () => {
     delete process.env.CHAT_MODERATION_PROVIDER;
     delete process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_MODERATION_MODEL;
+    delete process.env.OPENAI_TRANSLATION_MODEL;
     delete process.env.OPENAI_TIMEOUT_MS;
   });
 
@@ -101,6 +103,7 @@ describe('NextDream API', () => {
     delete process.env.CHAT_MODERATION_PROVIDER;
     delete process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_MODERATION_MODEL;
+    delete process.env.OPENAI_TRANSLATION_MODEL;
     delete process.env.OPENAI_TIMEOUT_MS;
   });
 
@@ -375,6 +378,12 @@ describe('NextDream API', () => {
       process.env.OPENAI_MODERATION_MODEL = originalOpenAiModerationModel;
     }
 
+    if (originalOpenAiTranslationModel === undefined) {
+      delete process.env.OPENAI_TRANSLATION_MODEL;
+    } else {
+      process.env.OPENAI_TRANSLATION_MODEL = originalOpenAiTranslationModel;
+    }
+
     if (originalOpenAiTimeoutMs === undefined) {
       delete process.env.OPENAI_TIMEOUT_MS;
     } else {
@@ -548,10 +557,10 @@ describe('NextDream API', () => {
         .send({
           email: 'ana@example.com',
           password,
-        });
+      });
 
       expect(loginBeforeVerify.status).toBe(401);
-      expect(loginBeforeVerify.body.message).toBe('Email verification is required before login');
+      expect(loginBeforeVerify.body.message).toBe('A verificação de email é obrigatória antes do login');
 
       const verifyUrl = sendEmailVerificationEmail.mock.calls[0]?.[0]?.verifyUrl;
       expect(verifyUrl).toEqual(expect.any(String));
@@ -644,10 +653,82 @@ describe('NextDream API', () => {
 
     expect(createDream.status).toBe(201);
     expect(createDream.body.status).toBe('publicado');
+    expect(createDream.body.originalLanguage).toBe('pt-BR');
+    expect(createDream.body.translations).toEqual({});
 
     const listPublicDreams = await request(app.getHttpServer()).get('/dreams/public');
     expect(listPublicDreams.status).toBe(200);
     expect(listPublicDreams.body).toHaveLength(1);
+    expect(listPublicDreams.body[0]).toMatchObject({
+      originalLanguage: 'pt-BR',
+      translations: {},
+    });
+
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.OPENAI_TRANSLATION_MODEL = 'gpt-5-mini';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          output: [
+            {
+              content: [
+                {
+                  type: 'output_text',
+                  text: JSON.stringify({
+                    title: 'See the sunrise on the beach',
+                    description: 'I want to feel the sand under my feet again.',
+                  }),
+                },
+              ],
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    const translateDream = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/translations`)
+      .set('Authorization', `Bearer ${supporterToken}`)
+      .send({ targetLanguage: 'en-US' });
+
+    expect(translateDream.status).toBe(201);
+    expect(translateDream.body).toMatchObject({
+      title: 'See the sunrise on the beach',
+      description: 'I want to feel the sand under my feet again.',
+      source: 'machine',
+    });
+
+    const cachedTranslation = await request(app.getHttpServer())
+      .post(`/dreams/${createDream.body.id}/translations`)
+      .set('Authorization', `Bearer ${supporterToken}`)
+      .send({ targetLanguage: 'en-US' });
+
+    expect(cachedTranslation.status).toBe(201);
+    expect(cachedTranslation.body.title).toBe('See the sunrise on the beach');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    fetchSpy.mockRestore();
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_TRANSLATION_MODEL;
+
+    const translatedDetail = await request(app.getHttpServer())
+      .get(`/dreams/${createDream.body.id}`)
+      .set('Authorization', `Bearer ${supporterToken}`);
+
+    expect(translatedDetail.status).toBe(200);
+    expect(translatedDetail.body).toMatchObject({
+      title: 'Ver o nascer do sol na praia',
+      description: 'Quero sentir a areia nos pés novamente.',
+      translations: {
+        'en-US': expect.objectContaining({
+          title: 'See the sunrise on the beach',
+          source: 'machine',
+        }),
+      },
+    });
 
     const createProposal = await request(app.getHttpServer())
       .post(`/dreams/${createDream.body.id}/proposals`)
@@ -2181,8 +2262,9 @@ describe('NextDream API', () => {
       .get('/admin/users')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminUsers.status).toBe(200);
-    expect(adminUsers.body.length).toBeGreaterThan(0);
-    expect(adminUsers.body.every((item: { role: string }) => item.role !== 'admin')).toBe(true);
+    expect(adminUsers.body.total).toBeGreaterThan(0);
+    expect(adminUsers.body.items.length).toBeGreaterThan(0);
+    expect(adminUsers.body.items.every((item: { role: string }) => item.role !== 'admin')).toBe(true);
 
     const adminAdmins = await request(app.getHttpServer())
       .get('/admin/admins')
@@ -2276,6 +2358,30 @@ describe('NextDream API', () => {
     expect(acceptManualInvite.status).toBe(200);
     expect(acceptManualInvite.body.user.role).toBe('admin');
 
+    const adminAdminsPage = await request(app.getHttpServer())
+      .get('/admin/admins/page?page=1&pageSize=1&query=manual&status=ativo')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
+    expect(adminAdminsPage.status).toBe(200);
+    expect(adminAdminsPage.body.total).toBe(1);
+    expect(adminAdminsPage.body.items[0].email).toBe('manual-invite@example.com');
+
+    const suspendAdminWithoutReason = await request(app.getHttpServer())
+      .patch(`/admin/admins/${acceptManualInvite.body.user.id}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
+      .send({ isActive: false, currentPassword: 'NewSecret123!' });
+    expect(suspendAdminWithoutReason.status).toBe(400);
+
+    const suspendAdminWithReason = await request(app.getHttpServer())
+      .patch(`/admin/admins/${acceptManualInvite.body.user.id}`)
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
+      .send({
+        isActive: false,
+        currentPassword: 'NewSecret123!',
+        reason: 'Conta administrativa criada apenas para teste.',
+      });
+    expect(suspendAdminWithReason.status).toBe(200);
+    expect(suspendAdminWithReason.body.suspended).toBe(true);
+
     const suspendUser = await request(app.getHttpServer())
       .post(`/admin/users/${supporterLogin.body.user.id}/suspend`)
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
@@ -2287,7 +2393,7 @@ describe('NextDream API', () => {
       .get('/admin/dreams')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminDreams.status).toBe(200);
-    expect(adminDreams.body.length).toBeGreaterThan(0);
+    expect(adminDreams.body.items.length).toBeGreaterThan(0);
 
     const updateDreamStatus = await request(app.getHttpServer())
       .post(`/admin/dreams/${createDream.body.id}/status`)
@@ -2300,7 +2406,7 @@ describe('NextDream API', () => {
       .get('/admin/proposals')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminProposals.status).toBe(200);
-    expect(adminProposals.body.length).toBeGreaterThan(0);
+    expect(adminProposals.body.items.length).toBeGreaterThan(0);
 
     const updateProposalStatus = await request(app.getHttpServer())
       .post(`/admin/proposals/${createProposal.body.id}/status`)
@@ -2313,23 +2419,23 @@ describe('NextDream API', () => {
       .get('/admin/chats')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminChats.status).toBe(200);
-    expect(adminChats.body.length).toBeGreaterThan(0);
+    expect(adminChats.body.items.length).toBeGreaterThan(0);
 
     const adminMessages = await request(app.getHttpServer())
       .get('/admin/messages')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminMessages.status).toBe(200);
-    expect(Array.isArray(adminMessages.body)).toBe(true);
-    expect(adminMessages.body).toHaveLength(0);
+    expect(Array.isArray(adminMessages.body.items)).toBe(true);
+    expect(adminMessages.body.items).toHaveLength(0);
 
     const adminReports = await request(app.getHttpServer())
       .get('/admin/reports')
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminReports.status).toBe(200);
-    expect(adminReports.body.length).toBeGreaterThan(0);
+    expect(adminReports.body.items.length).toBeGreaterThan(0);
 
     const updateReportStatus = await request(app.getHttpServer())
-      .post(`/admin/reports/${adminReports.body[0].id}/status`)
+      .post(`/admin/reports/${adminReports.body.items[0].id}/status`)
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`)
       .send({ status: 'resolvido', resolution: 'Resolvido no teste' });
     expect(updateReportStatus.status).toBe(200);
@@ -2340,6 +2446,13 @@ describe('NextDream API', () => {
       .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
     expect(adminAudit.status).toBe(200);
     expect(adminAudit.body.length).toBeGreaterThan(0);
+
+    const adminAuditPage = await request(app.getHttpServer())
+      .get('/admin/audit/page?page=1&pageSize=5&query=admin&type=admin&outcome=ok')
+      .set('Authorization', `Bearer ${getAccessTokenFromSetCookie(adminLogin.headers["set-cookie"])}`);
+    expect(adminAuditPage.status).toBe(200);
+    expect(adminAuditPage.body.total).toBeGreaterThan(0);
+    expect(adminAuditPage.body.items.every((item: { type: string; outcome: string }) => item.type === 'admin' && item.outcome === 'ok')).toBe(true);
 
     const adminEmailTemplates = await request(app.getHttpServer())
       .get('/admin/email-templates')

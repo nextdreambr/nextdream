@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { ArrowRight } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { cn } from '../ui/utils';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type PublicHeroAction = {
   label: string;
@@ -35,10 +36,11 @@ const sectionTones = {
 function PublicHeroLink({ action }: { action: PublicHeroAction }) {
   const Icon = action.icon ?? ArrowRight;
   const isSecondary = action.variant === 'secondary';
+  const { localizedPath } = useI18n();
 
   return (
     <Link
-      to={action.to}
+      to={localizedPath(action.to)}
       className={cn(
         'inline-flex min-h-12 items-center justify-center gap-2 rounded-[1.35rem] px-5 py-3 text-sm font-extrabold transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-4',
         isSecondary

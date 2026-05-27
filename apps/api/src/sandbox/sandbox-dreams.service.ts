@@ -27,7 +27,15 @@ import {
 } from './sandbox-types';
 import { CreateDreamDto } from '../modules/dreams/dto/create-dream.dto';
 import { CreateProposalDto } from '../modules/dreams/dto/create-proposal.dto';
+import { TranslateDreamDto } from '../modules/dreams/dto/translate-dream.dto';
 import { UpdateDreamDto } from '../modules/dreams/dto/update-dream.dto';
+import {
+  DreamTranslation,
+  isDreamLanguage,
+  normalizeDreamLanguage,
+  normalizeDreamTranslations,
+} from '../modules/dreams/dream-language';
+import { DreamTranslationService } from '../modules/dreams/dream-translation.service';
 
 function buildOperatorRoute(role: SandboxUser['role'], section: 'propostas' | 'chat') {
   if (role === 'instituicao') {
@@ -44,13 +52,16 @@ function buildOperatorRoute(role: SandboxUser['role'], section: 'propostas' | 'c
 export class SandboxDreamsService {
   private readonly sandboxState: SandboxStateService;
   private readonly notificationsService: SandboxNotificationsService;
+  private readonly translationService: DreamTranslationService;
 
   constructor(
     @Inject(SandboxStateService) sandboxState: SandboxStateService,
     @Inject(SandboxNotificationsService) notificationsService: SandboxNotificationsService,
+    @Inject(DreamTranslationService) translationService: DreamTranslationService,
   ) {
     this.sandboxState = sandboxState;
     this.notificationsService = notificationsService;
+    this.translationService = translationService;
   }
 
   async createDream(currentUser: JwtPayload, dto: CreateDreamDto) {
@@ -75,6 +86,8 @@ export class SandboxDreamsService {
       id: randomUUID(),
       title: this.requireNonEmptyText(dto.title, 'Dream title'),
       description: this.requireNonEmptyText(dto.description, 'Dream description'),
+      originalLanguage: normalizeDreamLanguage(dto.originalLanguage),
+      translations: {},
       category: this.requireNonEmptyText(dto.category, 'Dream category'),
       format: dto.format,
       urgency: dto.urgency,
@@ -233,11 +246,19 @@ export class SandboxDreamsService {
       throw new BadRequestException('Only institutions can assign managed patients');
     }
 
+    let shouldClearTranslations = false;
+
     if (dto.title !== undefined) {
       dream.title = this.requireNonEmptyText(dto.title, 'Dream title');
+      shouldClearTranslations = true;
     }
     if (dto.description !== undefined) {
       dream.description = this.requireNonEmptyText(dto.description, 'Dream description');
+      shouldClearTranslations = true;
+    }
+    if (dto.originalLanguage !== undefined) {
+      dream.originalLanguage = normalizeDreamLanguage(dto.originalLanguage);
+      shouldClearTranslations = true;
     }
     if (dto.category !== undefined) {
       dream.category = this.requireNonEmptyText(dto.category, 'Dream category');
@@ -251,9 +272,67 @@ export class SandboxDreamsService {
     if (dto.privacy !== undefined) {
       dream.privacy = dto.privacy;
     }
+    if (shouldClearTranslations) {
+      dream.translations = {};
+    }
     dream.updatedAt = new Date();
 
     return this.serializeDream(session, dream, currentUser);
+  }
+
+  async translateDream(
+    currentUser: JwtPayload | undefined,
+    dreamId: string,
+    targetLanguageInput: TranslateDreamDto['targetLanguage'] | string,
+  ) {
+    if (!isDreamLanguage(targetLanguageInput)) {
+      throw new BadRequestException('Unsupported dream translation language');
+    }
+
+    const session = currentUser?.sandboxSessionId
+      ? this.getSession(currentUser)
+      : this.sandboxState.getPublicCatalog();
+    const dream = this.getDreamOrThrow(session, dreamId);
+    if (dream.status !== 'publicado') {
+      throw new ForbiddenException('You are not allowed to view this dream');
+    }
+
+    const originalLanguage = normalizeDreamLanguage(dream.originalLanguage);
+    if (targetLanguageInput === originalLanguage) {
+      throw new BadRequestException('Dream is already written in the target language');
+    }
+
+    const translations = normalizeDreamTranslations(dream.translations);
+    const cachedTranslation = translations[targetLanguageInput];
+    if (cachedTranslation) {
+      return cachedTranslation;
+    }
+
+    const generated = await this.translationService.translateDream({
+      title: dream.title,
+      description: dream.description,
+      sourceLanguage: originalLanguage,
+      targetLanguage: targetLanguageInput,
+    });
+    const now = new Date().toISOString();
+    const translation: DreamTranslation = {
+      title: generated.title,
+      description: generated.description,
+      source: 'machine',
+      createdAt: now,
+      updatedAt: now,
+      reviewedAt: null,
+      model: generated.model,
+    };
+
+    dream.originalLanguage = originalLanguage;
+    dream.translations = {
+      ...translations,
+      [targetLanguageInput]: translation,
+    };
+    dream.updatedAt = new Date();
+
+    return translation;
   }
 
   async listDreamProposals(currentUser: JwtPayload, dreamId: string) {
@@ -580,6 +659,8 @@ export class SandboxDreamsService {
       id: dream.id,
       title: dream.title,
       description: dream.description,
+      originalLanguage: normalizeDreamLanguage(dream.originalLanguage),
+      translations: normalizeDreamTranslations(dream.translations),
       category: dream.category,
       format: dream.format,
       urgency: dream.urgency,

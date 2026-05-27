@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Calendar, Clock, HeartHandshake, MapPin, Share2,
 import { motion } from 'motion/react';
 import { dreamsApi, PublicDream } from '../lib/api';
 import { getSafeDreamVisual, SafeDreamArtwork } from '../components/shared/SafeDreamVisual';
+import { DreamLanguageAssist } from '../components/shared/DreamLanguageAssist';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -86,6 +87,8 @@ export default function PublicDreamDetail() {
   const dreamVisual = getSafeDreamVisual(dream.category);
 
   return (
+    <DreamLanguageAssist dream={dream} variant="detail">
+      {({ title, description, controls }) => (
     <div className="min-h-screen bg-[#fff8ef] text-[#241b24]">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} className="relative h-72 overflow-hidden bg-[#245b53] sm:h-[400px]">
         <SafeDreamArtwork scene={dreamVisual.scene} alt={dreamVisual.alt} className="h-full opacity-95" />
@@ -124,7 +127,7 @@ export default function PublicDreamDetail() {
                 {dream.status}
               </span>
               <h1 className="text-[#241b24] leading-tight mb-4" style={{ fontWeight: 800, fontSize: '1.75rem' }}>
-                {dream.title}
+                {title}
               </h1>
               <div className="flex flex-wrap gap-4 text-sm text-[#5c4b52] font-medium">
                 <span className="inline-flex items-center gap-2 bg-[#fff8ef] px-3 py-1.5 rounded-lg">
@@ -142,7 +145,8 @@ export default function PublicDreamDetail() {
               <h2 className="text-[#241b24] mb-4" style={{ fontWeight: 800, fontSize: '1.25rem' }}>
                 Sobre este sonho
               </h2>
-              <p className="text-[#5c4b52] leading-relaxed text-base">{dream.description}</p>
+              <p className="text-[#5c4b52] leading-relaxed text-base">{description}</p>
+              {controls}
               <div className="mt-6 rounded-2xl border border-[#c9e5dc] bg-[#e5f4ee] p-4">
                 <p className="flex items-center gap-2 text-sm font-extrabold text-[#245b53]">
                   <ShieldCheck className="h-4 w-4" />
@@ -234,5 +238,7 @@ export default function PublicDreamDetail() {
         </div>
       </div>
     </div>
+      )}
+    </DreamLanguageAssist>
   );
 }

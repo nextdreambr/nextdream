@@ -7,7 +7,7 @@ import {
 import { BRAZIL_STATES } from '../../data/brazilCities';
 import { getCitiesForState } from '../../lib/location';
 
-const steps = ['Como quer ajudar', 'Disponibilidade', 'Confirmar cadastro'];
+const steps = ['Como quer apoiar', 'Disponibilidade', 'Confirmar cadastro'];
 
 const helpTypes = [
   { id: 'companhia', emoji: '🤝', label: 'Companhia', desc: 'Estar presente, conversar' },
@@ -105,11 +105,11 @@ export default function SupporterOnboarding() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-teal-100 p-6 sm:p-8">
 
-          {/* ── Step 0: Como quer ajudar ── */}
+          {/* ── Step 0: Como quer apoiar ── */}
           {step === 0 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-gray-800 mb-1">Como você quer ajudar?</h2>
+                <h2 className="text-gray-800 mb-1">Como você quer apoiar?</h2>
                 <p className="text-gray-500 text-sm">Selecione o que você pode oferecer. Pode escolher vários.</p>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -309,7 +309,7 @@ export default function SupporterOnboarding() {
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Formas de ajudar</p>
+                    <p className="text-xs text-gray-400 mb-1">Formas de apoiar</p>
                     <div className="flex flex-wrap gap-1">
                       {selected.map(id => {
                         const h = helpTypes.find(ht => ht.id === id);

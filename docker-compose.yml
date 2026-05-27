@@ -1,4 +1,69 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: nextdream-api
+    environment:
+      NODE_ENV: development
+      APP_ENV: production
+      API_PORT: 4000
+      DATABASE_URL: postgresql://nextdream:nextdream@postgres:5432/nextdream
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: nextdream
+      MINIO_SECRET_KEY: nextdream123
+      MINIO_BUCKET: nextdream-local
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: no-reply@nextdream.local
+      JWT_ACCESS_SECRET: local-docker-access-secret-change-me
+      JWT_REFRESH_SECRET: local-docker-refresh-secret-change-me
+      JWT_ACCESS_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 7d
+      APP_URL: http://localhost:5173
+      CORS_ORIGIN: http://localhost:5173
+      AUTH_COOKIE_SECURE: "false"
+      AUTH_COOKIE_DOMAIN:
+      THROTTLE_TTL_MS: 60000
+      THROTTLE_LIMIT: 120
+      TRUST_PROXY: "false"
+      CHAT_MODERATION_ENABLED: "true"
+      CHAT_MODERATION_PROVIDER: local
+      OPENAI_API_KEY:
+      RESEND_API_KEY:
+      RESEND_FROM_EMAIL:
+      SENTRY_DSN:
+      SENTRY_ENVIRONMENT: local
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: /api
+        VITE_SANDBOX_HOSTNAME: sandbox.nextdream.ong.br
+    container_name: nextdream-web
+    ports:
+      - "5173:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     container_name: nextdream-postgres
@@ -19,8 +84,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: nextdream-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:

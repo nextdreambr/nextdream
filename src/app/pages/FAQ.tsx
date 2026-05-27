@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router';
 import { PublicEditorialVisual } from '../components/public/PublicEditorialVisual';
 import { CareCallout, PublicPageHero, WarmSection } from '../components/public/PublicPagePrimitives';
+import { useI18n } from '../i18n/I18nProvider';
 
 type Answer = {
   q: string;
@@ -155,6 +156,8 @@ function AnswerGroupCard({ group }: { group: AnswerGroup }) {
 }
 
 export default function FAQ() {
+  const { localizedPath } = useI18n();
+
   return (
     <div className="overflow-x-hidden bg-[#ffffff] text-[#172033]">
       <PublicPageHero
@@ -206,7 +209,7 @@ export default function FAQ() {
             {quickPaths.map((path) => (
               <Link
                 key={path.label}
-                to={path.to}
+                to={localizedPath(path.to)}
                 className="rounded-[1.25rem] border border-white/80 bg-white/78 p-5 text-[#245b53] shadow-sm transition-transform hover:-translate-y-0.5"
               >
                 <path.icon className="h-5 w-5" />

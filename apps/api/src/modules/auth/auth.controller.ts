@@ -8,10 +8,12 @@ import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
 import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { DemoLoginDto } from './dto/demo-login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
 
@@ -81,6 +83,18 @@ export class AuthController {
     const auth = await this.authService.acceptPatientInvite(dto);
     setAuthCookies(response, auth);
     return auth;
+  }
+
+  @Post('password/forgot')
+  @HttpCode(200)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('password/reset')
+  @HttpCode(200)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Post('logout')

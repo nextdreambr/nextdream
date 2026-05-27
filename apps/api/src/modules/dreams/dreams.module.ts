@@ -10,6 +10,7 @@ import { InstitutionModule } from '../institution/institution.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { DreamsController } from './dreams.controller';
 import { DreamsService } from './dreams.service';
+import { DreamTranslationService } from './dream-translation.service';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { DreamsService } from './dreams.service';
     NotificationsModule,
   ],
   controllers: [DreamsController],
-  providers: [DreamsService],
+  providers: [DreamsService, DreamTranslationService],
   exports: [DreamsService],
 })
 export class DreamsModule {}

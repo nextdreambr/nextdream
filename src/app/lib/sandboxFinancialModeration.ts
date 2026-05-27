@@ -1,3 +1,6 @@
+import { type SupportedLocale } from '../i18n/locale';
+import { translate } from '../i18n/messages';
+
 const BLOCKED_FINANCIAL_PATTERNS = [
   /\bpix\b/u,
   /\bdinheiro\b/u,
@@ -21,6 +24,6 @@ export function containsFinancialLanguage(value: string) {
   return BLOCKED_FINANCIAL_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-export function getSandboxFinancialModerationMessage() {
-  return 'Mensagens com PIX, dinheiro ou doações são bloqueadas no sandbox. Reformule oferecendo tempo, presença ou companhia.';
+export function getSandboxFinancialModerationMessage(locale: SupportedLocale = 'pt-BR') {
+  return translate(locale, 'sandbox.financialModeration');
 }

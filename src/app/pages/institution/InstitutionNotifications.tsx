@@ -3,6 +3,7 @@ import { Bell, Building2, CheckCheck, ChevronRight, Inbox, MessageCircle, PartyP
 import { useNavigate } from 'react-router';
 import { useApp } from '../../context/AppContext';
 import { formatRelativeDate } from '../../lib/relativeTime';
+import { useI18n } from '../../i18n/I18nProvider';
 
 const typeIcon: Record<string, React.ReactNode> = {
   proposta: <Inbox className="w-4 h-4 text-indigo-500" />,
@@ -23,12 +24,13 @@ const typeBg: Record<string, string> = {
 export default function InstitutionNotifications() {
   const navigate = useNavigate();
   const { notifications, markNotificationRead, markAllNotificationsRead } = useApp();
+  const { locale, localizedPath } = useI18n();
   const unread = notifications.filter((notification) => !notification.read).length;
 
   const handleClick = (notification: { id: string; actionPath?: string }) => {
     markNotificationRead(notification.id);
     if (notification.actionPath) {
-      navigate(notification.actionPath);
+      navigate(localizedPath(notification.actionPath));
     }
   };
 
@@ -85,7 +87,7 @@ export default function InstitutionNotifications() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notification.message}</p>
                 <div className="flex items-center justify-between mt-1.5">
-                  <span className="text-xs text-gray-400">{formatRelativeDate(notification.createdAt)}</span>
+                  <span className="text-xs text-gray-400">{formatRelativeDate(notification.createdAt, new Date(), locale)}</span>
                   {notification.actionPath && (
                     <span className="flex items-center gap-1 text-xs text-indigo-600 font-medium">
                       Ver <ChevronRight className="w-3 h-3" />

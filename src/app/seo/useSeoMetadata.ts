@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { getBaseJsonLd, getSeoConstants, getSeoData } from './metadata';
+import { getBaseJsonLd, getSeoAlternates, getSeoConstants, getSeoData } from './metadata';
+import type { SupportedLocale } from '../i18n/locale';
 
 const BASE_JSON_LD_ID = 'nextdream-jsonld-base';
 const PAGE_JSON_LD_ID = 'nextdream-jsonld-page';
@@ -27,6 +28,21 @@ function setCanonical(url: string): void {
     document.head.appendChild(canonical);
   }
   canonical.setAttribute('href', url);
+}
+
+function setAlternateLinks(alternates: Record<SupportedLocale | 'x-default', string>): void {
+  document.head.querySelectorAll('link[data-nextdream-hreflang="true"]').forEach((element) => {
+    element.remove();
+  });
+
+  for (const [locale, href] of Object.entries(alternates)) {
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'alternate');
+    link.setAttribute('hreflang', locale);
+    link.setAttribute('href', href);
+    link.setAttribute('data-nextdream-hreflang', 'true');
+    document.head.appendChild(link);
+  }
 }
 
 function setJsonLd(id: string, payload: Record<string, unknown> | null): void {
@@ -57,6 +73,7 @@ export function useSeoMetadata(pathname: string): void {
     const { siteName, siteUrl, defaultImage } = getSeoConstants();
     const normalizedPath = normalizePath(pathname);
     const seo = getSeoData(normalizedPath);
+    const locale = seo.locale ?? 'pt-BR';
 
     const canonicalPath = seo.canonicalPath && seo.canonicalPath !== '/' ? normalizePath(seo.canonicalPath) : '';
     const canonicalUrl = `${siteUrl}${canonicalPath}`;
@@ -68,22 +85,23 @@ export function useSeoMetadata(pathname: string): void {
     setMeta('name', 'robots', robots);
 
     setCanonical(canonicalUrl);
+    setAlternateLinks(getSeoAlternates(normalizedPath));
 
     setMeta('property', 'og:type', seo.ogType ?? 'website');
-    setMeta('property', 'og:locale', 'pt_BR');
+    setMeta('property', 'og:locale', locale.replace('-', '_'));
     setMeta('property', 'og:site_name', siteName);
     setMeta('property', 'og:url', canonicalUrl);
     setMeta('property', 'og:title', seo.title);
     setMeta('property', 'og:description', seo.description);
     setMeta('property', 'og:image', defaultImage);
-    setMeta('property', 'og:image:alt', 'NextDream - conexoes humanas que realizam sonhos');
+    setMeta('property', 'og:image:alt', 'NextDream - human connections that fulfill dreams');
 
     setMeta('name', 'twitter:card', 'summary_large_image');
     setMeta('name', 'twitter:title', seo.title);
     setMeta('name', 'twitter:description', seo.description);
     setMeta('name', 'twitter:image', defaultImage);
 
-    setJsonLd(BASE_JSON_LD_ID, getBaseJsonLd());
+    setJsonLd(BASE_JSON_LD_ID, getBaseJsonLd(locale));
     setJsonLd(PAGE_JSON_LD_ID, seo.jsonLd ?? null);
   }, [pathname]);
 }

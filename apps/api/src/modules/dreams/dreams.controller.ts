@@ -4,6 +4,7 @@ import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { DreamsService } from './dreams.service';
 import { CreateDreamDto } from './dto/create-dream.dto';
 import { CreateProposalDto } from './dto/create-proposal.dto';
+import { TranslateDreamDto } from './dto/translate-dream.dto';
 import { UpdateDreamDto } from './dto/update-dream.dto';
 
 @Controller('dreams')
@@ -54,6 +55,14 @@ export class DreamsController {
     @Body() dto: UpdateDreamDto,
   ) {
     return this.dreamsService.updateDream(currentUser, dreamId, dto);
+  }
+
+  @Post(':dreamId/translations')
+  translateDream(
+    @Param('dreamId') dreamId: string,
+    @Body() dto: TranslateDreamDto,
+  ) {
+    return this.dreamsService.translateDream(undefined, dreamId, dto.targetLanguage);
   }
 
   @UseGuards(JwtAuthGuard)

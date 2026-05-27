@@ -142,13 +142,13 @@ describe('ExploreDreams', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
     fireEvent.click(screen.getByRole('button', { name: 'Arte e Música' }));
     fireEvent.click(screen.getByRole('button', { name: 'Culinária' }));
-    fireEvent.click(screen.getByRole('button', { name: '🔴 Alta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mais próxima' }));
 
     expect(screen.getByText('Sessão de violão no parque')).toBeInTheDocument();
     expect(screen.getByText('Cozinhar receita de família')).toBeInTheDocument();
     expect(screen.queryByText('Montar meu primeiro computador')).not.toBeInTheDocument();
     expect(screen.queryByText('Visita calma ao museu')).not.toBeInTheDocument();
-    expect(screen.getByText('2 sonhos aguardando um apoiador como você')).toBeInTheDocument();
+    expect(screen.getByText('2 histórias abertas para presença, tempo, companhia ou habilidade.')).toBeInTheDocument();
   });
 
   it('keeps format filter as single selection', async () => {
@@ -157,8 +157,8 @@ describe('ExploreDreams', () => {
     expect(await screen.findByText('Montar meu primeiro computador')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
-    fireEvent.click(screen.getByRole('button', { name: '💻 Online' }));
-    fireEvent.click(screen.getByRole('button', { name: '📍 Presencial' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Online' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Presencial' }));
 
     expect(screen.getByText('Sessão de violão no parque')).toBeInTheDocument();
     expect(screen.getByText('Visita calma ao museu')).toBeInTheDocument();
@@ -172,13 +172,13 @@ describe('ExploreDreams', () => {
     expect(await screen.findByText('Montar meu primeiro computador')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
-    fireEvent.click(screen.getByRole('button', { name: '🤝 Ambos' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ambos' }));
 
     expect(screen.getByText('Sessão de violão no parque')).toBeInTheDocument();
     expect(screen.getByText('Cozinhar receita de família')).toBeInTheDocument();
     expect(screen.getByText('Montar meu primeiro computador')).toBeInTheDocument();
     expect(screen.getByText('Visita calma ao museu')).toBeInTheDocument();
-    expect(screen.getByText('6 sonhos aguardando um apoiador como você')).toBeInTheDocument();
+    expect(screen.getByText('6 histórias abertas para presença, tempo, companhia ou habilidade.')).toBeInTheDocument();
   });
 
   it('paginates the filtered supporter catalog on the client', async () => {

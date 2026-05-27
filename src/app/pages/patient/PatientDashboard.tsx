@@ -41,16 +41,16 @@ export default function PatientDashboard() {
       {/* Welcome */}
       <div
         data-sandbox-tour-id="patient-dashboard-hero"
-        className="bg-gradient-to-r from-pink-600 to-rose-500 rounded-2xl p-6 text-white"
+        className="bg-[#a8544a] rounded-2xl p-6 text-white shadow-[0_20px_60px_rgba(168,84,74,0.18)]"
       >
-        <p className="text-pink-100 text-sm mb-1">Olá, {currentUser?.name?.split(' ')[0]} 💖</p>
+        <p className="text-[#f7d9c6] text-sm mb-1">Olá, {currentUser?.name?.split(' ')[0]}</p>
         <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Seu espaço de sonhos</h1>
-        <p className="text-pink-100 text-sm leading-relaxed mb-4">
-          Compartilhe o que você deseja e conecte-se com pessoas que têm tempo, presença e carinho para oferecer.
+        <p className="text-[#f7d9c6] text-sm leading-relaxed mb-4">
+          Compartilhe uma cena possível, acompanhe propostas e mantenha privacidade e consentimento em cada passo.
         </p>
         <Link
           to="/paciente/sonhos/criar"
-          className="inline-flex items-center gap-2 bg-white text-pink-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-pink-50 transition-colors"
+          className="inline-flex items-center gap-2 bg-white text-[#8b3d44] px-5 py-2.5 rounded-full text-sm font-extrabold hover:bg-[#fff4d8] transition-colors"
         >
           <Plus className="w-4 h-4" />
           Compartilhar um sonho
@@ -111,8 +111,8 @@ export default function PatientDashboard() {
               <Star className="w-6 h-6 text-pink-500" />
             </div>
             <p className="text-gray-800 text-sm mb-1">Você ainda não publicou um sonho</p>
-            <p className="text-gray-500 text-xs mb-4">Compartilhe um desejo e encontre alguém especial para realizá-lo.</p>
-            <Link to="/paciente/sonhos/criar" className="inline-flex items-center gap-2 bg-pink-600 text-white px-4 py-2 rounded-xl text-sm">
+            <p className="text-gray-500 text-xs mb-4">Compartilhe uma possibilidade com cuidado, no seu ritmo.</p>
+            <Link to="/paciente/sonhos/criar" className="inline-flex items-center gap-2 bg-[#a8544a] text-white px-4 py-2 rounded-full text-sm font-bold">
               <Plus className="w-4 h-4" /> Criar meu primeiro sonho
             </Link>
           </div>
@@ -147,7 +147,7 @@ export default function PatientDashboard() {
             </div>
             <div className="flex-1">
               <p className="text-amber-800 font-medium text-sm">Você tem {newProposals} nova{newProposals > 1 ? 's' : ''} proposta{newProposals > 1 ? 's' : ''}!</p>
-              <p className="text-amber-600 text-xs mt-0.5 mb-3">Apoiadores querem ajudar a realizar seus sonhos.</p>
+              <p className="text-amber-700 text-xs mt-0.5 mb-3">Leia com calma antes de aceitar qualquer proposta.</p>
               <Link to="/paciente/propostas" className="inline-flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-medium hover:bg-amber-700 transition-colors">
                 Ver propostas <ChevronRight className="w-3.5 h-3.5" />
               </Link>
@@ -163,8 +163,8 @@ export default function PatientDashboard() {
             {[
               { done: true, icon: CheckCircle, label: 'Conta criada', sub: 'Você está na plataforma ✓' },
             { done: visibleDreams.length > 0, icon: Star, label: 'Publicar um sonho', sub: visibleDreams.length > 0 ? `${visibleDreams.length} sonho${visibleDreams.length > 1 ? 's' : ''} publicado${visibleDreams.length > 1 ? 's' : ''}` : 'Conte o que você deseja', link: '/paciente/sonhos/criar' },
-            { done: newProposals > 0, icon: Users, label: 'Receber uma proposta', sub: newProposals > 0 ? 'Apoiadores encontraram você!' : 'Aguardando propostas...' },
-            { done: false, icon: MessageCircle, label: 'Aceitar e conversar', sub: 'Chat seguro se abrirá' },
+            { done: newProposals > 0, icon: Users, label: 'Receber uma proposta', sub: newProposals > 0 ? 'Há propostas para avaliar' : 'Aguardando propostas' },
+            { done: false, icon: MessageCircle, label: 'Aceitar e conversar', sub: 'O chat seguro abre após o aceite' },
           ].map((item, i) => (
             <div key={i} className={`flex items-center gap-3 ${item.done ? '' : 'opacity-50'}`}>
               <div className={`w-7 h-7 rounded-full flex items-center justify-center ${item.done ? 'bg-green-100' : 'bg-gray-100'}`}>

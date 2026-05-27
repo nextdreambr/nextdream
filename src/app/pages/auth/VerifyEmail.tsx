@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { ArrowLeft, CheckCircle, Heart, MailCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MailCheck } from 'lucide-react';
 import { ApiError, ApiUserRole, authApi } from '../../lib/api';
+import { AuthCareFrame } from '../../components/auth/AuthCareFrame';
 
 type PublicRole = Exclude<ApiUserRole, 'admin'>;
 type VerificationStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -67,30 +68,37 @@ export default function VerifyEmail() {
     : 'Seu e-mail foi confirmado. Sua conta já pode ser usada no próximo login.';
 
   return (
-    <div className="min-h-screen bg-pink-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Heart className="w-6 h-6 text-white fill-white" />
-          </div>
-          <h1 className="text-gray-800" style={{ fontWeight: 700, fontSize: '1.5rem' }}>
-            {status === 'success' ? 'Conta ativada' : 'Verifique seu e-mail'}
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {status === 'success'
-              ? 'A confirmação foi concluída com sucesso.'
-              : 'Ative sua conta pelo link enviado para seu e-mail.'}
-          </p>
-        </div>
+    <AuthCareFrame
+      title={status === 'success' ? 'Conta ativada com segurança.' : 'Confirme seu e-mail antes de entrar.'}
+      description={status === 'success'
+        ? 'A confirmação foi concluída. Agora o próximo passo acontece dentro da sua área.'
+        : 'A ativação por e-mail protege o acesso antes de qualquer conversa ou história sensível.'}
+      icon={MailCheck}
+      footer={(
+        <Link to={loginHref} className="inline-flex items-center justify-center gap-2 text-sm font-extrabold text-[#a8544a] hover:text-[#8b3d44]">
+          <ArrowLeft className="w-4 h-4" /> Voltar para o login
+        </Link>
+      )}
+    >
+      <div className="mb-7">
+        <MailCheck className="mb-4 h-9 w-9 text-[#a8544a]" />
+        <h2 className="text-2xl font-extrabold leading-tight text-[#241b24]">
+          {status === 'success' ? 'Conta ativada' : 'Verifique seu e-mail'}
+        </h2>
+        <p className="mt-2 text-sm font-semibold leading-relaxed text-[#5c4b52]">
+          {status === 'success'
+            ? 'A confirmação foi concluída com sucesso.'
+            : 'Ative sua conta pelo link enviado para seu e-mail.'}
+        </p>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-8">
           {status === 'loading' && (
             <div className="text-center py-4">
-              <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="w-6 h-6 border-2 border-pink-200 border-t-pink-600 rounded-full animate-spin" />
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#fff4d8]">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#f4cbbd] border-t-[#a8544a]" />
               </div>
-              <h3 className="text-gray-800 mb-2">Ativando sua conta...</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-2 text-xl font-extrabold text-[#241b24]">Ativando sua conta...</h3>
+              <p className="text-sm font-semibold text-[#5c4b52]">
                 Estamos confirmando seu e-mail para liberar o acesso ao NextDream.
               </p>
             </div>
@@ -98,33 +106,33 @@ export default function VerifyEmail() {
 
           {status === 'idle' && (
             <div className="text-center py-2 space-y-4">
-              <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center mx-auto">
-                <MailCheck className="w-6 h-6 text-pink-600" />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#fff4d8]">
+                <MailCheck className="h-6 w-6 text-[#a8544a]" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-gray-800">Confirme seu e-mail para ativar a conta</h3>
-                <p className="text-gray-500 text-sm">
+                <h3 className="font-extrabold text-[#241b24]">Confirme seu e-mail para ativar a conta</h3>
+                <p className="text-sm font-semibold text-[#5c4b52]">
                   {email
                     ? `Enviamos um link de ativação para ${email}.`
                     : 'Abra o e-mail enviado no cadastro e clique no link de ativação.'}
                 </p>
-                <p className="text-gray-500 text-sm">{idleDescription}</p>
+                <p className="text-sm font-semibold text-[#5c4b52]">{idleDescription}</p>
               </div>
             </div>
           )}
 
           {status === 'success' && (
             <div className="text-center py-2 space-y-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-6 h-6 text-green-600" />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#e5f4ee]">
+                <CheckCircle className="h-6 w-6 text-[#245b53]" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-gray-800">Seu e-mail foi confirmado</h3>
-                <p className="text-gray-500 text-sm">{successDescription}</p>
+                <h3 className="font-extrabold text-[#241b24]">Seu e-mail foi confirmado</h3>
+                <p className="text-sm font-semibold text-[#5c4b52]">{successDescription}</p>
               </div>
               <Link
                 to={loginHref}
-                className="inline-flex items-center justify-center rounded-xl bg-pink-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-pink-700"
+                className="inline-flex items-center justify-center rounded-full bg-[#a8544a] px-5 py-3 text-sm font-extrabold text-white transition-colors hover:bg-[#8b3d44]"
               >
                 Ir para o login
               </Link>
@@ -136,20 +144,12 @@ export default function VerifyEmail() {
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error || 'Não foi possível confirmar seu e-mail com este link.'}
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm font-semibold text-[#5c4b52]">
                 Se o link estiver expirado ou já tiver sido usado, abra o último e-mail enviado no cadastro e tente
                 novamente.
               </p>
             </div>
           )}
-        </div>
-
-        <div className="text-center mt-6">
-          <Link to={loginHref} className="flex items-center justify-center gap-2 text-pink-600 hover:text-pink-700 text-sm">
-            <ArrowLeft className="w-4 h-4" /> Voltar para o login
-          </Link>
-        </div>
-      </div>
-    </div>
+    </AuthCareFrame>
   );
 }

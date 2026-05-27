@@ -115,7 +115,7 @@ describe('Sandbox API', () => {
       .send({ refreshToken });
 
     expect(refresh.status).toBe(401);
-    expect(refresh.body.message).toMatch(/invalid refresh token/i);
+    expect(refresh.body.message).toBe('Token de atualização inválido');
   });
 
   it('normalizes the refresh sandbox session id and keeps missing sessions opaque', async () => {
@@ -165,7 +165,7 @@ describe('Sandbox API', () => {
       .send({ refreshToken: missingSessionRefreshToken });
 
     expect(missingSessionRefresh.status).toBe(401);
-    expect(missingSessionRefresh.body.message).toBe('Invalid refresh token');
+    expect(missingSessionRefresh.body.message).toBe('Token de atualização inválido');
 
     const invalidTypeRefreshToken = await jwtService.signAsync(
       {
@@ -184,7 +184,7 @@ describe('Sandbox API', () => {
       .send({ refreshToken: invalidTypeRefreshToken });
 
     expect(invalidTypeRefresh.status).toBe(401);
-    expect(invalidTypeRefresh.body.message).toBe('Invalid refresh token');
+    expect(invalidTypeRefresh.body.message).toBe('Token de atualização inválido');
   });
 
   it('rejects public registration in sandbox mode and requires demo access', async () => {
@@ -219,6 +219,8 @@ describe('Sandbox API', () => {
 
     expect(createDream.status).toBe(201);
     expect(createDream.body.title).toBe('Passear em um jardim botanico');
+    expect(createDream.body.originalLanguage).toBe('pt-BR');
+    expect(createDream.body.translations).toEqual({});
 
     const updateDream = await request(app.getHttpServer())
       .patch(`/dreams/${createDream.body.id}`)
@@ -260,6 +262,26 @@ describe('Sandbox API', () => {
         (conversation: { id: string }) => conversation.id === acceptedProposal.body.conversationId,
       ),
     ).toBe(true);
+  });
+
+  it('serializes sandbox dream language metadata and returns a controlled translation error without OpenAI', async () => {
+    const supporterSession = await demoLogin('apoiador');
+    const supporterAuthHeader = { Authorization: `Bearer ${supporterSession.accessToken}` };
+
+    const publicDreams = await request(app.getHttpServer()).get('/dreams/public');
+    expect(publicDreams.status).toBe(200);
+    expect(publicDreams.body[0]).toMatchObject({
+      originalLanguage: 'pt-BR',
+      translations: {},
+    });
+
+    const translate = await request(app.getHttpServer())
+      .post('/dreams/dream-patient-public/translations')
+      .set(supporterAuthHeader)
+      .send({ targetLanguage: 'en-US' });
+
+    expect(translate.status).toBe(503);
+    expect(translate.body.message).toMatch(/tradu|translation|indispon/i);
   });
 
   it('rejects whitespace-only sandbox payloads and keeps proposal acceptance idempotent', async () => {

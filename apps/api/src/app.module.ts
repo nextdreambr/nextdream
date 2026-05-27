@@ -1,17 +1,19 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { resolve } from 'node:path';
 import { AdminContactMessage } from './entities/admin-contact-message.entity';
 import { AdminInvite } from './entities/admin-invite.entity';
 import { AdminReport } from './entities/admin-report.entity';
+import { AdminSettings } from './entities/admin-settings.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Message } from './entities/message.entity';
 import { Notification } from './entities/notification.entity';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { PasswordResetRequest } from './entities/password-reset-request.entity';
 import { PatientInvite } from './entities/patient-invite.entity';
 import { ValidationPipe } from '@nestjs/common';
 import { User } from './entities/user.entity';
@@ -34,6 +36,8 @@ import { InstitutionModule } from './modules/institution/institution.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SentryTunnelModule } from './observability/sentry-tunnel.module';
 import { SandboxModule } from './sandbox/sandbox.module';
+import { LocaleMiddleware } from './i18n/locale.middleware';
+import { LocalizedExceptionFilter } from './i18n/localized-exception.filter';
 
 const databaseModule = TypeOrmModule.forRootAsync({
   useFactory: () => {
@@ -52,7 +56,9 @@ const databaseModule = TypeOrmModule.forRootAsync({
         AdminInvite,
         PatientInvite,
         AdminReport,
+        AdminSettings,
         AuditLog,
+        PasswordResetRequest,
       ],
       synchronize: process.env.NODE_ENV !== 'production',
     };
@@ -112,6 +118,10 @@ const runtimeImports = isSandboxEnvironment()
   ],
   providers: [
     {
+      provide: APP_FILTER,
+      useClass: LocalizedExceptionFilter,
+    },
+    {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
@@ -124,4 +134,8 @@ const runtimeImports = isSandboxEnvironment()
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(LocaleMiddleware).forRoutes('*');
+  }
+}

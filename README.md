@@ -73,6 +73,26 @@ Acesse:
 
 Para desenvolvimento local, mantenha `SMTP_HOST=localhost` e `SMTP_PORT=1025` apontando para o Mailpit. Em produção, configure `RESEND_API_KEY` e `RESEND_FROM_EMAIL`.
 
+### Subir tudo com Docker Compose
+
+Para testar a aplicação containerizada localmente:
+
+```bash
+docker compose up --build
+```
+
+Acesse:
+
+- Web: `http://localhost:5173`
+- API (health): `http://localhost:4000/health`
+- Mailpit: `http://localhost:8025`
+
+Para parar:
+
+```bash
+docker compose down
+```
+
 ### Seed local (dados de demonstração)
 
 ```bash

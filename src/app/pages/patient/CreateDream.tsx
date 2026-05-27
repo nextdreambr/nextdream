@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ArrowLeft, ArrowRight, CheckCircle, AlertTriangle,
-  Lock, Star, Globe, Shield, Image as ImageIcon, X, Pencil, MapPin, ChevronDown,
+  Lock, Star, Globe, Shield, Image as ImageIcon, X, Pencil, MapPin, ChevronDown, HeartHandshake,
 } from 'lucide-react';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ImagePickerModal, type StockImage } from '../../components/shared/ImagePickerModal';
@@ -10,10 +10,23 @@ import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { BRAZIL_STATES } from '../../data/brazilCities';
 import { ApiError, dreamsApi } from '../../lib/api';
 import { getCitiesForState } from '../../lib/location';
+import {
+  FieldHelp,
+  FormSection,
+  GentleProgress,
+  ProductHero,
+  ProductPageShell,
+  SensitiveNotice,
+} from '../../components/shared/VisualSystem';
 
 const steps = ['Conte seu sonho', 'Preferências', 'Privacidade', 'Revisar e publicar'];
 
 const BLOCKED_WORDS = ['pix', 'doação', 'doacao', 'transferência', 'transferencia', 'pagamento', 'dinheiro', 'reais', 'r$', 'vaquinha'];
+const CARE_WINDOW_LABELS: Record<'baixa' | 'media' | 'alta', string> = {
+  baixa: 'Flexível',
+  media: 'Moderada',
+  alta: 'Mais próxima',
+};
 
 function checkForMoney(text: string): boolean {
   return BLOCKED_WORDS.some(w => text.toLowerCase().includes(w));
@@ -45,7 +58,7 @@ export default function CreateDream() {
   const navigate = useNavigate();
 
   const handleDescChange = (val: string) => {
-    setWarning(checkForMoney(val) ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem. 🚫' : '');
+    setWarning(checkForMoney(val) ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem antes de continuar.' : '');
     setForm(f => ({ ...f, description: val }));
   };
 
@@ -88,49 +101,37 @@ export default function CreateDream() {
   const cities = getCitiesForState(form.state);
 
   return (
-    <div data-sandbox-tour-id="patient-create-dream-form" className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <button type="button" onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm mb-4">
-          <ArrowLeft className="w-4 h-4" /> Voltar
-        </button>
-        <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Compartilhar um sonho</h1>
-        <p className="text-gray-500 text-sm mt-1">4 passos simples para encontrar seu apoiador</p>
-      </div>
+    <ProductPageShell data-sandbox-tour-id="patient-create-dream-form" tone="care" width="content">
+      <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-bold text-[#6b5d63] hover:text-[#8b3d44]">
+        <ArrowLeft className="w-4 h-4" /> Voltar
+      </button>
 
-      {/* Progress */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          {steps.map((s, i) => (
-            <div key={i} className="flex items-center flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0
-                ${i < step ? 'bg-pink-600 text-white' : i === step ? 'bg-pink-600 text-white ring-4 ring-pink-100' : 'bg-gray-200 text-gray-500'}`}
-                style={{ fontWeight: 600 }}>
-                {i < step ? '✓' : i + 1}
-              </div>
-              {i < steps.length - 1 && (
-                <div className={`h-1 flex-1 mx-2 rounded-full ${i < step ? 'bg-pink-600' : 'bg-gray-200'}`} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-xs">
-          {steps.map((s, i) => (
-            <span key={i} className={i === step ? 'text-pink-600' : 'text-gray-400'}
-              style={{ fontWeight: i === step ? 500 : 400 }}>{s}</span>
-          ))}
-        </div>
-      </div>
+      <ProductHero
+        tone="care"
+        icon={HeartHandshake}
+        eyebrow="Carta guiada"
+        title="Compartilhe um sonho com cuidado."
+        description="Conte apenas o que for confortável agora. Antes de publicar, você revisa privacidade, limites e como sua história será vista."
+        aside={(
+          <SensitiveNotice tone="care" title="Você controla a história">
+            Nenhuma informação de contato, endereço completo ou dado médico precisa aparecer. O encontro só avança com aceite e consentimento.
+          </SensitiveNotice>
+        )}
+      />
 
-      <div className="bg-white rounded-2xl border border-pink-100 p-6 sm:p-8">
+      <GentleProgress steps={steps} current={step} tone="care" />
+
+      <div className="rounded-2xl border border-[#ecd8c8] bg-white p-6 shadow-[0_24px_70px_rgba(92,62,51,0.08)] sm:p-8">
 
         {/* ── Step 0: Conte seu sonho ── */}
         {step === 0 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-gray-800 mb-1">Conte seu sonho</h2>
-              <p className="text-gray-500 text-sm">Seja simples e sincero. Apoiadores vão ler e se identificar.</p>
-            </div>
+          <FormSection
+            title="Comece pela cena possível"
+            description="Escreva como uma carta curta. O importante é deixar claro que tipo de presença, companhia ou habilidade poderia ajudar."
+          >
+            <SensitiveNotice tone="care" title="Antes de escrever">
+              Evite dados médicos detalhados, endereço completo e qualquer pedido financeiro. Você poderá ajustar a exposição antes da publicação.
+            </SensitiveNotice>
 
             {/* Cover image */}
             <div>
@@ -147,7 +148,7 @@ export default function CreateDream() {
                       <Pencil className="w-3.5 h-3.5" /> Trocar
                     </button>
                     <button type="button" onClick={() => setForm(f => ({ ...f, coverImage: null }))}
-                      className="flex items-center gap-1.5 bg-red-500/90 hover:bg-red-500 text-white text-xs px-3 py-2 rounded-xl transition-colors"
+                      className="flex items-center gap-1.5 bg-[#8b3d44]/95 hover:bg-[#8b3d44] text-white text-xs px-3 py-2 rounded-xl transition-colors"
                       style={{ fontWeight: 600 }}>
                       <X className="w-3.5 h-3.5" /> Remover
                     </button>
@@ -158,13 +159,13 @@ export default function CreateDream() {
                 </div>
               ) : (
                 <button type="button" onClick={() => setShowImagePicker(true)}
-                  className="w-full h-32 border-2 border-dashed border-pink-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-pink-400 hover:bg-pink-50/50 transition-all group">
-                  <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center group-hover:bg-pink-200 transition-colors">
-                    <ImageIcon className="w-5 h-5 text-pink-500" />
+                  className="w-full h-32 border-2 border-dashed border-[#ead8c4] rounded-xl flex flex-col items-center justify-center gap-2 hover:border-[#a8544a] hover:bg-[#fff4d8]/60 transition-all group">
+                  <div className="w-10 h-10 bg-[#fff4d8] rounded-xl flex items-center justify-center group-hover:bg-[#f7d9c6] transition-colors">
+                    <ImageIcon className="w-5 h-5 text-[#a8544a]" />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-pink-600" style={{ fontWeight: 600 }}>Escolher do banco de imagens</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Fotos gratuitas do Unsplash por categoria</p>
+                  <p className="text-sm text-[#8b3d44]" style={{ fontWeight: 600 }}>Escolher do banco de imagens</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Escolha uma imagem leve, sem exposição de vulnerabilidade.</p>
                   </div>
                 </button>
               )}
@@ -173,38 +174,39 @@ export default function CreateDream() {
             {/* Title */}
             <div>
               <label className="text-sm text-gray-700 block mb-1.5" style={{ fontWeight: 500 }}>
-                Título do sonho <span className="text-red-500">*</span>
+                Título do sonho <span className="text-[#a8544a]">*</span>
               </label>
               <input
                 type="text"
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="Ex: Ver o nascer do sol na praia uma última vez"
+                placeholder="Ex.: Uma tarde ouvindo música com minha família"
                 maxLength={80}
-                className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+                className="w-full px-4 py-3 bg-[#fffaf4] border border-[#ead8c4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd] focus:border-[#a8544a]"
               />
-              <p className="text-xs text-gray-400 mt-1">{form.title.length}/80 caracteres</p>
+              <FieldHelp>{form.title.length}/80 caracteres. Use um título simples e respeitoso.</FieldHelp>
             </div>
 
             {/* Description */}
             <div>
               <label className="text-sm text-gray-700 block mb-1.5" style={{ fontWeight: 500 }}>
-                Descreva seu sonho <span className="text-red-500">*</span>
+                Descreva seu sonho <span className="text-[#a8544a]">*</span>
               </label>
               <textarea
                 value={form.description}
                 onChange={e => handleDescChange(e.target.value)}
-                placeholder="Conte com suas palavras o que você deseja, por que é especial e o que um apoiador poderia fazer por você..."
+                placeholder="Conte com calma o momento desejado, quem precisa estar junto e quais limites devem ser respeitados."
                 rows={4}
-                className={`w-full px-4 py-3 bg-pink-50 border rounded-xl text-sm focus:outline-none focus:ring-2 resize-none
-                  ${warning ? 'border-red-300 focus:ring-red-300' : 'border-pink-100 focus:ring-pink-300'}`}
+                className={`w-full px-4 py-3 bg-[#fffaf4] border rounded-xl text-sm focus:outline-none focus:ring-2 resize-none
+                  ${warning ? 'border-[#a8544a] focus:ring-[#f4cbbd]' : 'border-[#ead8c4] focus:ring-[#f4cbbd]'}`}
               />
               {warning && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 mt-2">
-                  <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-red-700">{warning}</p>
+                <div className="flex items-start gap-2 bg-[#fff4d8] border border-[#ead8c4] rounded-xl p-3 mt-2">
+                  <AlertTriangle className="w-4 h-4 text-[#a8544a] mt-0.5 shrink-0" />
+                  <p className="text-xs text-[#8b3d44]">{warning}</p>
                 </div>
               )}
+              <FieldHelp>Essa descrição aparece para apoiadores conforme a privacidade escolhida na próxima etapa.</FieldHelp>
             </div>
 
             {/* Category */}
@@ -215,7 +217,7 @@ export default function CreateDream() {
                   <button type="button" key={cat}
                     onClick={() => setForm(f => ({ ...f, category: cat }))}
                     className={`px-3 py-1.5 rounded-xl text-xs border transition-all
-                      ${form.category === cat ? 'bg-pink-600 text-white border-pink-600' : 'border-pink-200 text-pink-700 hover:bg-pink-50'}`}>
+                      ${form.category === cat ? 'bg-[#a8544a] text-white border-[#a8544a]' : 'border-[#ead8c4] text-[#8b3d44] hover:bg-[#fff4d8]'}`}>
                     {cat}
                   </button>
                 ))}
@@ -227,15 +229,15 @@ export default function CreateDream() {
               <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>O que você precisa? <span className="text-gray-400 text-xs">(pode marcar vários)</span></label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { id: 'companhia',  label: '🤝 Companhia' },
-                  { id: 'experiencia', label: '✨ Experiência' },
-                  { id: 'aprendizado', label: '📚 Aprendizado' },
-                  { id: 'conversa',   label: '💬 Conversa' },
-                  { id: 'presenca',   label: '🏠 Presença' },
+                  { id: 'companhia',  label: 'Companhia' },
+                  { id: 'experiencia', label: 'Experiência' },
+                  { id: 'aprendizado', label: 'Aprendizado' },
+                  { id: 'conversa',   label: 'Conversa' },
+                  { id: 'presenca',   label: 'Presença' },
                 ].map(t => (
                   <button type="button" key={t.id} onClick={() => toggleType(t.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs border transition-all
-                      ${form.type.includes(t.id) ? 'bg-pink-600 text-white border-pink-600' : 'border-pink-200 text-pink-700 hover:bg-pink-50'}`}>
+                      ${form.type.includes(t.id) ? 'bg-[#a8544a] text-white border-[#a8544a]' : 'border-[#ead8c4] text-[#8b3d44] hover:bg-[#fff4d8]'}`}>
                     {t.label}
                   </button>
                 ))}
@@ -244,47 +246,47 @@ export default function CreateDream() {
 
             {/* Urgency */}
             <div>
-              <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Urgência</label>
+              <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Janela de cuidado</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'baixa', label: '🟢 Baixa',  ring: 'ring-green-300',  active: 'bg-green-50 border-green-400 text-green-700'  },
-                  { val: 'media', label: '🟡 Média',  ring: 'ring-amber-300',  active: 'bg-amber-50 border-amber-400 text-amber-700'  },
-                  { val: 'alta',  label: '🔴 Alta',   ring: 'ring-red-300',    active: 'bg-red-50 border-red-400 text-red-700'        },
+                  { val: 'baixa', label: 'Flexível',  ring: 'ring-[#c9e5dc]',  active: 'bg-[#e5f4ee] border-[#245b53] text-[#245b53]'  },
+                  { val: 'media', label: 'Moderada',  ring: 'ring-[#f7d9c6]',  active: 'bg-[#fff4d8] border-[#a8544a] text-[#8b3d44]'  },
+                  { val: 'alta',  label: 'Mais próxima',   ring: 'ring-[#d8cdeb]',    active: 'bg-[#f6f0ff] border-[#584478] text-[#584478]'        },
                 ].map(u => (
                   <button type="button" key={u.val} onClick={() => setForm(f => ({ ...f, urgency: u.val }))}
                     className={`py-2.5 rounded-xl text-xs border-2 transition-all
-                      ${form.urgency === u.val ? `${u.active} ring-2 ring-offset-1 ${u.ring}` : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                      ${form.urgency === u.val ? `${u.active} ring-2 ring-offset-1 ${u.ring}` : 'border-[#ead8c4] text-[#6b5d63] hover:border-[#f4cbbd]'}`}
                     style={{ fontWeight: form.urgency === u.val ? 600 : 400 }}>
                     {u.label}
                   </button>
                 ))}
               </div>
+              <FieldHelp>Use apenas para orientar disponibilidade e cuidado. Evite criar sensação de pressão ou urgência pública.</FieldHelp>
             </div>
-          </div>
+          </FormSection>
         )}
 
         {/* ── Step 1: Preferências ── */}
         {step === 1 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-gray-800 mb-1">Preferências de apoio</h2>
-              <p className="text-gray-500 text-sm">Como, quando e onde você prefere receber apoio?</p>
-            </div>
+          <FormSection
+            title="Preferências de apoio"
+            description="Ajude a pessoa apoiadora a entender o que é possível sem revelar mais do que você deseja."
+          >
 
             {/* Format */}
             <div>
               <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
-                Formato <span className="text-red-500">*</span>
+                Formato <span className="text-[#a8544a]">*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: 'remoto',     label: '💻 Online',     sub: 'Video, chat, áudio' },
-                  { val: 'presencial', label: '📍 Presencial', sub: 'Encontro físico' },
-                  { val: 'ambos',      label: '🤝 Ambos',      sub: 'Sem restrição' },
+                  { val: 'remoto',     label: 'Online',     sub: 'Vídeo, chat ou áudio' },
+                  { val: 'presencial', label: 'Presencial', sub: 'Encontro físico com cuidado' },
+                  { val: 'ambos',      label: 'Ambos', sub: 'A combinar com cuidado' },
                 ].map(f => (
                   <button type="button" key={f.val} onClick={() => setForm(fm => ({ ...fm, format: f.val }))}
                     className={`p-3 rounded-xl border-2 text-center transition-all
-                      ${form.format === f.val ? 'border-pink-600 bg-pink-50' : 'border-gray-200 hover:border-pink-200'}`}>
+                      ${form.format === f.val ? 'border-[#a8544a] bg-[#fff4d8]' : 'border-[#ead8c4] hover:border-[#f4cbbd]'}`}>
                     <p className="text-sm">{f.label}</p>
                     <p className="text-xs text-gray-500">{f.sub}</p>
                   </button>
@@ -313,8 +315,8 @@ export default function CreateDream() {
                       onClick={() => toggleDay(d.key)}
                       className={`w-11 h-11 rounded-xl text-xs border-2 transition-all
                         ${selected
-                          ? 'bg-pink-600 text-white border-pink-600 shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-pink-300 hover:text-pink-600'
+                          ? 'bg-[#a8544a] text-white border-[#a8544a] shadow-sm'
+                          : 'bg-white border-[#ead8c4] text-[#6b5d63] hover:border-[#f4cbbd] hover:text-[#8b3d44]'
                         }`}
                       style={{ fontWeight: selected ? 700 : 400 }}
                     >
@@ -324,17 +326,18 @@ export default function CreateDream() {
                 })}
               </div>
               {form.days.length > 0 && (
-                <p className="text-xs text-pink-600 mt-1.5">
+                <p className="text-xs text-[#8b3d44] mt-1.5">
                   Selecionado: {form.days.join(', ')}
                 </p>
               )}
+              <FieldHelp>Essas preferências são orientação inicial. Nada precisa ser combinado sem uma conversa segura.</FieldHelp>
             </div>
 
             {/* Location — State + City */}
             <div>
               <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
                 <span className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-pink-500" />
+                  <MapPin className="w-3.5 h-3.5 text-[#a8544a]" />
                   Cidade / Região <span className="text-gray-400 text-xs">(opcional)</span>
                 </span>
               </label>
@@ -347,13 +350,13 @@ export default function CreateDream() {
                       const val = e.target.value;
                       setForm(f => ({ ...f, state: val, city: '' }));
                     }}
-                    className="w-full pl-4 pr-9 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+                    className="w-full pl-4 pr-9 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
                     style={{
                       WebkitAppearance: 'none',
                       MozAppearance: 'none',
                       appearance: 'none',
-                      backgroundColor: '#fdf2f8',
-                      border: '1px solid #fce7f3',
+                      backgroundColor: '#fffaf4',
+                      border: '1px solid #ead8c4',
                       color: form.state ? '#374151' : '#9ca3af',
                     }}
                   >
@@ -371,13 +374,13 @@ export default function CreateDream() {
                     value={form.city}
                     onChange={(e) => setForm(f => ({ ...f, city: e.target.value }))}
                     disabled={!form.state}
-                    className="w-full pl-4 pr-9 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+                    className="w-full pl-4 pr-9 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
                     style={{
                       WebkitAppearance: 'none',
                       MozAppearance: 'none',
                       appearance: 'none',
-                      backgroundColor: form.state ? '#fdf2f8' : '#f9fafb',
-                      border: `1px solid ${form.state ? '#fce7f3' : '#e5e7eb'}`,
+                      backgroundColor: form.state ? '#fffaf4' : '#f9fafb',
+                      border: `1px solid ${form.state ? '#ead8c4' : '#e5e7eb'}`,
                       color: form.city ? '#374151' : '#9ca3af',
                       cursor: form.state ? 'pointer' : 'not-allowed',
                       opacity: form.state ? 1 : 0.7,
@@ -395,7 +398,7 @@ export default function CreateDream() {
               {/* Selected location pill */}
               {form.state && form.city && (
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="flex items-center gap-1.5 bg-pink-100 text-pink-700 text-xs px-3 py-1 rounded-full" style={{ fontWeight: 500 }}>
+                  <span className="flex items-center gap-1.5 bg-[#fff4d8] text-[#8b3d44] text-xs px-3 py-1 rounded-full" style={{ fontWeight: 500 }}>
                     <MapPin className="w-3 h-3" />
                     {form.city}, {form.state}
                   </span>
@@ -405,6 +408,7 @@ export default function CreateDream() {
                   </button>
                 </div>
               )}
+              <FieldHelp>Informe apenas cidade ou região. Não informe endereço completo nesta etapa.</FieldHelp>
             </div>
 
             {/* Restrictions */}
@@ -417,8 +421,9 @@ export default function CreateDream() {
                 onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))}
                 placeholder="Ex: Uso cadeira de rodas, prefiro tarde, tenho acompanhante..."
                 rows={2}
-                className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"
+                className="w-full px-4 py-3 bg-[#fffaf4] border border-[#ead8c4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd] resize-none"
               />
+              <FieldHelp>Compartilhe apenas limites práticos necessários para um encontro respeitoso.</FieldHelp>
             </div>
 
             {/* Language */}
@@ -427,7 +432,7 @@ export default function CreateDream() {
               <select
                 value={form.language}
                 onChange={e => setForm(f => ({ ...f, language: e.target.value }))}
-                className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none"
+                className="w-full px-4 py-3 bg-[#fffaf4] border border-[#ead8c4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
               >
                 <option>Português</option>
                 <option>Inglês</option>
@@ -435,26 +440,25 @@ export default function CreateDream() {
                 <option>Outro</option>
               </select>
             </div>
-          </div>
+          </FormSection>
         )}
 
         {/* ── Step 2: Privacidade ── */}
         {step === 2 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-gray-800 mb-1">Configurações de privacidade</h2>
-              <p className="text-gray-500 text-sm">Controle quem pode ver e como seu sonho aparece.</p>
-            </div>
+          <FormSection
+            title="Privacidade antes de publicar"
+            description="Escolha como a história aparece. Você continua no controle dos próximos passos."
+          >
 
             <div className="space-y-3">
               {[
-                { val: 'publico',     icon: Globe,  label: 'Público',             desc: 'Qualquer pessoa na plataforma pode ver seu sonho',           color: 'text-blue-600 bg-blue-100' },
-                { val: 'verificados', icon: Shield, label: 'Somente verificados', desc: 'Apenas apoiadores com conta verificada podem ver',            color: 'text-teal-600 bg-teal-100' },
-                { val: 'anonimo',     icon: Lock,   label: 'Anônimo',             desc: 'Seu nome completo não aparece (somente primeiro nome)',       color: 'text-pink-600 bg-pink-100' },
+                { val: 'publico',     icon: Globe,  label: 'Público',             desc: 'Apoiadores podem encontrar este sonho na plataforma.',           color: 'text-[#245b53] bg-[#e5f4ee]' },
+                { val: 'verificados', icon: Shield, label: 'Somente verificados', desc: 'Apenas apoiadores com conta verificada podem ver.',            color: 'text-[#245b53] bg-[#e5f4ee]' },
+                { val: 'anonimo',     icon: Lock,   label: 'Nome protegido',       desc: 'Seu nome completo não aparece na publicação.',       color: 'text-[#8b3d44] bg-[#f7d9c6]' },
               ].map(p => (
                 <button type="button" key={p.val} onClick={() => setForm(f => ({ ...f, privacy: p.val }))}
                   className={`w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all
-                    ${form.privacy === p.val ? 'border-pink-500 bg-pink-50' : 'border-gray-200 hover:border-pink-200'}`}>
+                    ${form.privacy === p.val ? 'border-[#a8544a] bg-[#fff8ef]' : 'border-[#eadfd2] hover:border-[#ecd8c8]'}`}>
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${p.color}`}>
                     <p.icon className="w-4 h-4" />
                   </div>
@@ -462,26 +466,23 @@ export default function CreateDream() {
                     <p className="text-sm text-gray-800" style={{ fontWeight: 500 }}>{p.label}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{p.desc}</p>
                   </div>
-                  {form.privacy === p.val && <CheckCircle className="w-5 h-5 text-pink-600 shrink-0 mt-0.5" />}
+                  {form.privacy === p.val && <CheckCircle className="w-5 h-5 text-[#a8544a] shrink-0 mt-0.5" />}
                 </button>
               ))}
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs text-gray-500 leading-relaxed">
-                📌 <strong>Nunca exibimos</strong> informações médicas, endereço completo ou dados de contato antes da aceitação de uma proposta. O chat só se abre após você aceitar.
-              </p>
-            </div>
-          </div>
+            <SensitiveNotice tone="care" title="Antes de qualquer contato">
+              Nunca exibimos informações médicas, endereço completo ou dados de contato antes da aceitação de uma proposta. O chat só se abre após você aceitar.
+            </SensitiveNotice>
+          </FormSection>
         )}
 
         {/* ── Step 3: Revisar e publicar ── */}
         {step === 3 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-gray-800 mb-1">Revisar e publicar</h2>
-              <p className="text-gray-500 text-sm">Confira antes de publicar. Você pode editar depois.</p>
-            </div>
+          <FormSection
+            title="Revisar antes de publicar"
+            description="Leia como uma pessoa apoiadora verá sua história e ajuste o que não estiver confortável."
+          >
 
             {/* Cover preview */}
             {form.coverImage && (
@@ -495,7 +496,7 @@ export default function CreateDream() {
               </div>
             )}
 
-            <div className="bg-pink-50 rounded-xl p-5 space-y-3">
+            <div className="bg-[#fff8ef] rounded-xl p-5 space-y-3">
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">Título</p>
                 <p className="text-sm text-gray-800" style={{ fontWeight: 500 }}>{form.title || '—'}</p>
@@ -518,8 +519,8 @@ export default function CreateDream() {
                   <p className="text-xs text-gray-700 capitalize">{form.privacy}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 mb-0.5">Urgência</p>
-                  <p className="text-xs text-gray-700 capitalize">{form.urgency}</p>
+                  <p className="text-xs text-gray-400 mb-0.5">Janela de cuidado</p>
+                  <p className="text-xs text-gray-700">{CARE_WINDOW_LABELS[form.urgency as 'baixa' | 'media' | 'alta']}</p>
                 </div>
                 {form.days.length > 0 && (
                   <div>
@@ -536,25 +537,25 @@ export default function CreateDream() {
               </div>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+            <div className="bg-[#e5f4ee] border border-[#c9e5dc] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <p className="text-sm text-green-700" style={{ fontWeight: 500 }}>Verificação de conteúdo</p>
+                <CheckCircle className="w-4 h-4 text-[#245b53]" />
+                <p className="text-sm text-[#245b53]" style={{ fontWeight: 500 }}>Verificação de conteúdo</p>
               </div>
-              <p className="text-xs text-green-600">Nenhum conteúdo financeiro (PIX, dinheiro, doação) foi detectado. ✓</p>
+              <p className="text-xs text-[#245b53]">Nenhum conteúdo financeiro foi detectado.</p>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-xs text-amber-700 leading-relaxed">
+            <div className="bg-[#fff4d8] border border-[#ead8c4] rounded-xl p-4">
+              <p className="text-xs text-[#6b5d63] leading-relaxed">
                 Ao publicar, você confirma que seu sonho <strong>não envolve</strong> pedidos de dinheiro, PIX, transferências ou doações financeiras.
               </p>
             </div>
-          </div>
+          </FormSection>
         )}
       </div>
 
       {publishError && (
-        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+        <div className="mt-4 bg-[#fff4d8] border border-[#ead8c4] text-[#8b3d44] text-sm rounded-xl px-4 py-3">
           {publishError}
         </div>
       )}
@@ -563,20 +564,20 @@ export default function CreateDream() {
       <div className="flex gap-3 mt-6">
         {step > 0 && (
           <button type="button" onClick={() => setStep(s => s - 1)}
-            className="flex items-center gap-2 px-6 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors">
+            className="flex items-center gap-2 px-6 py-3 border border-[#ead8c4] rounded-xl text-[#6b5d63] hover:bg-[#fff4d8] transition-colors">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
         )}
         {step < 3 ? (
           <button type="button" onClick={() => setStep(s => s + 1)} disabled={!canNext()}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-colors
-              ${canNext() ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full transition-colors
+              ${canNext() ? 'bg-[#a8544a] hover:bg-[#8b3d44] text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
             style={{ fontWeight: 600 }}>
             Continuar <ArrowRight className="w-4 h-4" />
           </button>
         ) : (
           <button type="button" onClick={handlePublish} disabled={publishing}
-            className="flex-1 flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-xl transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-[#a8544a] hover:bg-[#8b3d44] text-white py-3 rounded-full transition-colors"
             style={{ fontWeight: 600 }}>
             {publishing
               ? <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -594,6 +595,6 @@ export default function CreateDream() {
           onClose={() => setShowImagePicker(false)}
         />
       )}
-    </div>
+    </ProductPageShell>
   );
 }

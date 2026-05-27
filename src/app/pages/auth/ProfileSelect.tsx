@@ -31,13 +31,13 @@ export default function ProfileSelect() {
   };
 
   return (
-    <div className="min-h-screen bg-pink-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fff8f6_0%,#eef7f4_100%)] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-4xl">
         <div className="text-center mb-10">
           <h1 className="text-gray-800 mb-3" style={{ fontWeight: 700, fontSize: '1.75rem' }}>Como você quer usar o NextDream?</h1>
-          <p className="text-gray-500">Escolha seu perfil para começar. Você pode mudar depois.</p>
+          <p className="text-gray-500">Escolha o perfil que representa sua participação hoje.</p>
           <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-2 rounded-xl mt-3">
-            🚫 Sem dinheiro, PIX ou doações. Só conexões humanas.
+            Sem dinheiro, PIX ou doações financeiras. Só conexões humanas.
           </div>
         </div>
 
@@ -60,10 +60,10 @@ export default function ProfileSelect() {
             </div>
             <h3 className="text-gray-800 mb-2">Sou Paciente ou Familiar</h3>
             <p className="text-gray-500 text-sm leading-relaxed mb-4">
-              Quero compartilhar um sonho ou desejo de alguém especial e encontrar pessoas dispostas a ajudar com presença e carinho.
+              Quero compartilhar um sonho ou desejo e encontrar pessoas dispostas a oferecer presença e carinho.
             </p>
             <div className="space-y-1.5">
-              {['Publicar sonhos e desejos', 'Receber propostas de apoiadores', 'Conversar e combinar detalhes'].map(item => (
+              {['Compartilhar sonhos com contexto', 'Receber propostas de apoiadores', 'Conversar e combinar detalhes'].map(item => (
                 <div key={item} className="flex items-center gap-2 text-xs text-gray-500">
                   <CheckCircle className="w-3.5 h-3.5 text-pink-500 shrink-0" />
                   {item}
@@ -90,10 +90,10 @@ export default function ProfileSelect() {
             </div>
             <h3 className="text-gray-800 mb-2">Sou Apoiador</h3>
             <p className="text-gray-500 text-sm leading-relaxed mb-4">
-              Quero oferecer meu tempo, habilidades e presença para ajudar alguém a realizar um sonho. Sem exigência financeira.
+              Quero oferecer tempo, habilidades e presença para apoiar um sonho. Sem exigência financeira.
             </p>
             <div className="space-y-1.5">
-              {['Explorar sonhos publicados', 'Enviar propostas de ajuda', 'Conectar e realizar juntos'].map(item => (
+              {['Explorar sonhos publicados', 'Enviar propostas de apoio', 'Conectar e combinar com segurança'].map(item => (
                 <div key={item} className="flex items-center gap-2 text-xs text-gray-500">
                   <CheckCircle className="w-3.5 h-3.5 text-teal-500 shrink-0" />
                   {item}

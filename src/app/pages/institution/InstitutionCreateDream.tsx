@@ -9,14 +9,27 @@ import {
   Globe,
   Lock,
   Shield,
+  HeartHandshake,
 } from 'lucide-react';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ApiError, dreamsApi, institutionApi, type ManagedPatient } from '../../lib/api';
 import { formatLocationLabel } from '../../lib/location';
+import {
+  FormSection,
+  GentleProgress,
+  ProductHero,
+  ProductPageShell,
+  SensitiveNotice,
+} from '../../components/shared/VisualSystem';
 
 const steps = ['Conte seu sonho', 'Preferências', 'Privacidade', 'Revisar e publicar'];
 
 const BLOCKED_WORDS = ['pix', 'doação', 'doacao', 'transferência', 'transferencia', 'pagamento', 'dinheiro', 'reais', 'r$', 'vaquinha'];
+const CARE_WINDOW_LABELS: Record<'baixa' | 'media' | 'alta', string> = {
+  baixa: 'Flexível',
+  media: 'Moderada',
+  alta: 'Mais próxima',
+};
 
 function checkForMoney(text: string): boolean {
   return BLOCKED_WORDS.some((word) => text.toLowerCase().includes(word));
@@ -24,7 +37,7 @@ function checkForMoney(text: string): boolean {
 
 function getDescriptionWarning(text: string): string {
   return checkForMoney(text)
-    ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem. 🚫'
+    ? 'O NextDream não permite pedidos de dinheiro, PIX ou doações. Ajuste sua mensagem antes de continuar.'
     : '';
 }
 
@@ -161,77 +174,59 @@ export default function InstitutionCreateDream() {
   }
 
   return (
-    <div data-sandbox-tour-id="institution-create-dream-form" className="max-w-2xl mx-auto">
-      <div className="mb-6">
-        <button type="button" onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm mb-4">
-          <ArrowLeft className="w-4 h-4" /> Voltar
-        </button>
-        <h1 className="text-gray-800" style={{ fontWeight: 700 }}>
-          {isEditing ? 'Editar sonho institucional' : 'Publicar sonho institucional'}
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Mesmo fluxo do paciente, com a instituição operando o caso em nome do beneficiário.
-        </p>
-      </div>
+    <ProductPageShell data-sandbox-tour-id="institution-create-dream-form" tone="institution" width="content">
+      <button type="button" onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm font-bold text-[#5f5268] hover:text-[#584478]">
+        <ArrowLeft className="w-4 h-4" /> Voltar
+      </button>
+
+      <ProductHero
+        tone="institution"
+        icon={HeartHandshake}
+        eyebrow="História mediada"
+        title={isEditing ? 'Editar sonho institucional' : 'Publicar sonho institucional'}
+        description="A instituição ajuda a organizar a história, mas privacidade, consentimento e limites do beneficiário continuam no centro."
+        aside={(
+          <SensitiveNotice tone="institution" title="Responsabilidade institucional">
+            Publique apenas com autorização adequada. Evite detalhes médicos, endereço completo e qualquer pedido financeiro.
+          </SensitiveNotice>
+        )}
+      />
 
       {selectedPatient && (
-        <div className="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-          <p className="text-xs text-indigo-700 mb-1">Beneficiário do caso</p>
+        <div className="rounded-2xl border border-[#d8cdeb] bg-[#f6f0ff] p-4">
+          <p className="text-xs text-[#584478] mb-1 font-bold">Beneficiário do caso</p>
           <p className="text-sm text-gray-800" style={{ fontWeight: 600 }}>{selectedPatient.name}</p>
           <p className="text-xs text-gray-500 mt-1">
-            {formatLocationLabel(selectedPatient) || 'Localização não informada'} • A instituição continua operando propostas e conversas
+            Dado interno da instituição. {formatLocationLabel(selectedPatient) || 'Localização não informada'} • A instituição continua operando propostas e conversas
           </p>
         </div>
       )}
 
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          {steps.map((label, index) => (
-            <div key={label} className="flex items-center flex-1">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${
-                  index < step ? 'bg-pink-600 text-white' : index === step ? 'bg-pink-600 text-white ring-4 ring-pink-100' : 'bg-gray-200 text-gray-500'
-                }`}
-                style={{ fontWeight: 600 }}
-              >
-                {index < step ? '✓' : index + 1}
-              </div>
-              {index < steps.length - 1 && (
-                <div className={`h-1 flex-1 mx-2 rounded-full ${index < step ? 'bg-pink-600' : 'bg-gray-200'}`} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-xs">
-          {steps.map((label, index) => (
-            <span key={label} className={index === step ? 'text-pink-600' : 'text-gray-400'} style={{ fontWeight: index === step ? 500 : 400 }}>
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
+      <GentleProgress steps={steps} current={step} tone="institution" />
 
-      <div className="bg-white rounded-2xl border border-pink-100 p-6 sm:p-8">
+      <div className="bg-white rounded-2xl border border-[#d8cdeb] p-6 shadow-[0_24px_70px_rgba(88,68,120,0.08)] sm:p-8">
         {loading ? (
           <div className="py-6 text-sm text-gray-500">Carregando dados do sonho...</div>
         ) : (
           <>
             {step === 0 && (
-              <div className="space-y-5">
-                <div>
-                  <h2 className="text-gray-800 mb-1">Conte seu sonho</h2>
-                  <p className="text-gray-500 text-sm">Escolha o beneficiário certo e descreva o que a instituição quer tornar possível.</p>
-                </div>
+              <FormSection
+                title="Conte uma cena possível"
+                description="Escolha o beneficiário correto e descreva apenas o necessário para apoiadores entenderem presença, limites e formato."
+              >
+                <SensitiveNotice tone="institution" title="Antes de escrever">
+                  A história deve respeitar consentimento, privacidade e dignidade do beneficiário. Não inclua diagnóstico, endereço completo ou pedido financeiro.
+                </SensitiveNotice>
 
                 <div>
                   <label htmlFor="managed-patient-id" className="text-sm text-gray-700 block mb-1.5" style={{ fontWeight: 500 }}>
-                    Paciente acompanhado <span className="text-red-500">*</span>
+                    Paciente acompanhado <span className="text-[#584478]">*</span>
                   </label>
                   <select
                     id="managed-patient-id"
                     value={managedPatientId}
                     onChange={(event) => setManagedPatientId(event.target.value)}
-                    className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+                    className="w-full px-4 py-3 bg-[#fffdfd] border border-[#d8cdeb] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb] focus:border-[#584478]"
                   >
                     <option value="">Selecione o paciente</option>
                     {patients.map((patient) => (
@@ -244,38 +239,38 @@ export default function InstitutionCreateDream() {
 
                 <div>
                   <label htmlFor="institution-dream-title" className="text-sm text-gray-700 block mb-1.5" style={{ fontWeight: 500 }}>
-                    Título do sonho <span className="text-red-500">*</span>
+                    Título do sonho <span className="text-[#584478]">*</span>
                   </label>
                   <input
                     id="institution-dream-title"
                     type="text"
                     value={form.title}
                     onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Ex: Ver o nascer do sol na praia uma última vez"
+                    placeholder="Ex.: Uma tarde ouvindo música com a família"
                     maxLength={80}
-                    className="w-full px-4 py-3 bg-pink-50 border border-pink-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+                    className="w-full px-4 py-3 bg-[#fffdfd] border border-[#d8cdeb] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb] focus:border-[#584478]"
                   />
                   <p className="text-xs text-gray-400 mt-1">{form.title.length}/80 caracteres</p>
                 </div>
 
                 <div>
                   <label htmlFor="institution-dream-description" className="text-sm text-gray-700 block mb-1.5" style={{ fontWeight: 500 }}>
-                    Descreva seu sonho <span className="text-red-500">*</span>
+                    Descreva seu sonho <span className="text-[#584478]">*</span>
                   </label>
                   <textarea
                     id="institution-dream-description"
                     value={form.description}
                     onChange={(event) => handleDescChange(event.target.value)}
-                    placeholder="Conte com suas palavras o que o paciente deseja, por que isso é especial e como um apoiador pode ajudar..."
+                    placeholder="Conte com cuidado o momento desejado, quem precisa estar junto e quais limites devem ser respeitados."
                     rows={4}
-                    className={`w-full px-4 py-3 bg-pink-50 border rounded-xl text-sm focus:outline-none focus:ring-2 resize-none ${
-                      warning ? 'border-red-300 focus:ring-red-300' : 'border-pink-100 focus:ring-pink-300'
+                    className={`w-full px-4 py-3 bg-[#fffdfd] border rounded-xl text-sm focus:outline-none focus:ring-2 resize-none ${
+                      warning ? 'border-[#584478] focus:ring-[#d8cdeb]' : 'border-[#d8cdeb] focus:ring-[#d8cdeb]'
                     }`}
                   />
                   {warning && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 mt-2">
-                      <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                      <p className="text-xs text-red-700">{warning}</p>
+                    <div className="flex items-start gap-2 bg-[#f6f0ff] border border-[#d8cdeb] rounded-xl p-3 mt-2">
+                      <AlertTriangle className="w-4 h-4 text-[#584478] mt-0.5 shrink-0" />
+                      <p className="text-xs text-[#584478]">{warning}</p>
                     </div>
                   )}
                 </div>
@@ -289,7 +284,7 @@ export default function InstitutionCreateDream() {
                         key={category}
                         onClick={() => setForm((current) => ({ ...current, category }))}
                         className={`px-3 py-1.5 rounded-xl text-xs border transition-all ${
-                          form.category === category ? 'bg-pink-600 text-white border-pink-600' : 'border-pink-200 text-pink-700 hover:bg-pink-50'
+                          form.category === category ? 'bg-[#584478] text-white border-[#584478]' : 'border-[#d8cdeb] text-[#584478] hover:bg-[#f6f0ff]'
                         }`}
                       >
                         {category}
@@ -299,19 +294,19 @@ export default function InstitutionCreateDream() {
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Urgência</label>
+                  <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>Janela de cuidado</label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { val: 'baixa', label: '🟢 Baixa', ring: 'ring-green-300', active: 'bg-green-50 border-green-400 text-green-700' },
-                      { val: 'media', label: '🟡 Média', ring: 'ring-amber-300', active: 'bg-amber-50 border-amber-400 text-amber-700' },
-                      { val: 'alta', label: '🔴 Alta', ring: 'ring-red-300', active: 'bg-red-50 border-red-400 text-red-700' },
+                      { val: 'baixa', label: 'Flexível', ring: 'ring-[#c9e5dc]', active: 'bg-[#e5f4ee] border-[#245b53] text-[#245b53]' },
+                      { val: 'media', label: 'Moderada', ring: 'ring-[#f7d9c6]', active: 'bg-[#fff4d8] border-[#a8544a] text-[#8b3d44]' },
+                      { val: 'alta', label: 'Mais próxima', ring: 'ring-[#d8cdeb]', active: 'bg-[#f6f0ff] border-[#584478] text-[#584478]' },
                     ].map((urgency) => (
                       <button
                         type="button"
                         key={urgency.val}
                         onClick={() => setForm((current) => ({ ...current, urgency: urgency.val }))}
                         className={`py-2.5 rounded-xl text-xs border-2 transition-all ${
-                          form.urgency === urgency.val ? `${urgency.active} ring-2 ring-offset-1 ${urgency.ring}` : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                          form.urgency === urgency.val ? `${urgency.active} ring-2 ring-offset-1 ${urgency.ring}` : 'border-[#d8cdeb] text-[#5f5268] hover:border-[#bda9d8]'
                         }`}
                         style={{ fontWeight: form.urgency === urgency.val ? 600 : 400 }}
                       >
@@ -320,32 +315,31 @@ export default function InstitutionCreateDream() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </FormSection>
             )}
 
             {step === 1 && (
-              <div className="space-y-5">
-                <div>
-                  <h2 className="text-gray-800 mb-1">Preferências de apoio</h2>
-                  <p className="text-gray-500 text-sm">Como, quando e onde o apoio faz mais sentido para este paciente?</p>
-                </div>
+              <FormSection
+                title="Preferências de apoio"
+                description="Mostre como o apoio pode acontecer sem expor a pessoa acompanhada além do necessário."
+              >
 
                 <div>
                   <label className="text-sm text-gray-700 block mb-2" style={{ fontWeight: 500 }}>
-                    Formato <span className="text-red-500">*</span>
+                    Formato <span className="text-[#584478]">*</span>
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { val: 'remoto', label: '💻 Online', sub: 'Video, chat, áudio' },
-                      { val: 'presencial', label: '📍 Presencial', sub: 'Encontro físico' },
-                      { val: 'ambos', label: '🤝 Ambos', sub: 'Sem restrição' },
+                      { val: 'remoto', label: 'Online', sub: 'Vídeo, chat ou áudio' },
+                      { val: 'presencial', label: 'Presencial', sub: 'Encontro físico com cuidado' },
+                      { val: 'ambos', label: 'Ambos', sub: 'A combinar com cuidado' },
                     ].map((option) => (
                       <button
                         type="button"
                         key={option.val}
                         onClick={() => setForm((current) => ({ ...current, format: option.val }))}
                         className={`p-3 rounded-xl border-2 text-center transition-all ${
-                          form.format === option.val ? 'border-pink-600 bg-pink-50' : 'border-gray-200 hover:border-pink-200'
+                          form.format === option.val ? 'border-[#584478] bg-[#f6f0ff]' : 'border-[#d8cdeb] hover:border-[#bda9d8]'
                         }`}
                       >
                         <p className="text-sm">{option.label}</p>
@@ -354,28 +348,27 @@ export default function InstitutionCreateDream() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </FormSection>
             )}
 
             {step === 2 && (
-              <div className="space-y-5">
-                <div>
-                  <h2 className="text-gray-800 mb-1">Configurações de privacidade</h2>
-                  <p className="text-gray-500 text-sm">Controle quem pode ver e como este sonho aparece para apoiadores.</p>
-                </div>
+              <FormSection
+                title="Privacidade antes de publicar"
+                description="Controle quem pode ver e como este sonho aparece para apoiadores."
+              >
 
                 <div className="space-y-3">
                   {[
-                    { val: 'publico', icon: Globe, label: 'Público', desc: 'Qualquer pessoa na plataforma pode ver este sonho', color: 'text-blue-600 bg-blue-100' },
-                    { val: 'verificados', icon: Shield, label: 'Somente verificados', desc: 'Apenas apoiadores com conta verificada podem ver', color: 'text-teal-600 bg-teal-100' },
-                    { val: 'anonimo', icon: Lock, label: 'Anônimo', desc: 'O nome completo do paciente não aparece na publicação', color: 'text-pink-600 bg-pink-100' },
+                    { val: 'publico', icon: Globe, label: 'Público', desc: 'Apoiadores podem encontrar este sonho na plataforma', color: 'text-[#245b53] bg-[#e5f4ee]' },
+                    { val: 'verificados', icon: Shield, label: 'Somente verificados', desc: 'Apenas apoiadores com conta verificada podem ver', color: 'text-[#245b53] bg-[#e5f4ee]' },
+                    { val: 'anonimo', icon: Lock, label: 'Nome protegido', desc: 'O nome completo do paciente não aparece na publicação', color: 'text-[#584478] bg-[#f6f0ff]' },
                   ].map((privacy) => (
                     <button
                       type="button"
                       key={privacy.val}
                       onClick={() => setForm((current) => ({ ...current, privacy: privacy.val }))}
                       className={`w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                        form.privacy === privacy.val ? 'border-pink-500 bg-pink-50' : 'border-gray-200 hover:border-pink-200'
+                        form.privacy === privacy.val ? 'border-[#584478] bg-[#f8f5ff]' : 'border-[#eadfd2] hover:border-[#d8cdeb]'
                       }`}
                     >
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${privacy.color}`}>
@@ -385,17 +378,15 @@ export default function InstitutionCreateDream() {
                         <p className="text-sm text-gray-800" style={{ fontWeight: 500 }}>{privacy.label}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{privacy.desc}</p>
                       </div>
-                      {form.privacy === privacy.val && <CheckCircle className="w-5 h-5 text-pink-600 shrink-0 mt-0.5" />}
+                      {form.privacy === privacy.val && <CheckCircle className="w-5 h-5 text-[#584478] shrink-0 mt-0.5" />}
                     </button>
                   ))}
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    📌 <strong>Nunca exibimos</strong> informações médicas, endereço completo ou dados de contato antes da aceitação de uma proposta. O chat só se abre após a instituição aceitar.
-                  </p>
-                </div>
-              </div>
+                <SensitiveNotice tone="institution" title="Antes de qualquer contato">
+                  Nunca exibimos informações médicas, endereço completo ou dados de contato antes da aceitação de uma proposta. O chat só se abre após a instituição aceitar.
+                </SensitiveNotice>
+              </FormSection>
             )}
 
             {step === 3 && (
@@ -405,7 +396,7 @@ export default function InstitutionCreateDream() {
                   <p className="text-gray-500 text-sm">Confira tudo antes de publicar. A instituição pode editar depois.</p>
                 </div>
 
-                <div className="bg-pink-50 rounded-xl p-5 space-y-3">
+                <div className="bg-[#f8f5ff] rounded-xl p-5 space-y-3">
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">Beneficiário</p>
                     <p className="text-sm text-gray-800" style={{ fontWeight: 500 }}>{selectedPatient?.name || '—'}</p>
@@ -432,22 +423,22 @@ export default function InstitutionCreateDream() {
                       <p className="text-xs text-gray-700 capitalize">{form.privacy}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 mb-0.5">Urgência</p>
-                      <p className="text-xs text-gray-700 capitalize">{form.urgency}</p>
+                      <p className="text-xs text-gray-400 mb-0.5">Janela de cuidado</p>
+                      <p className="text-xs text-gray-700">{CARE_WINDOW_LABELS[form.urgency as 'baixa' | 'media' | 'alta']}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <div className="bg-[#e5f4ee] border border-[#c9e5dc] rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <p className="text-sm text-green-700" style={{ fontWeight: 500 }}>Verificação de conteúdo</p>
+                    <CheckCircle className="w-4 h-4 text-[#245b53]" />
+                    <p className="text-sm text-[#245b53]" style={{ fontWeight: 500 }}>Verificação de conteúdo</p>
                   </div>
-                  <p className="text-xs text-green-600">Nenhum conteúdo financeiro (PIX, dinheiro, doação) foi detectado. ✓</p>
+                  <p className="text-xs text-[#245b53]">Nenhum conteúdo financeiro foi detectado.</p>
                 </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-xs text-amber-700 leading-relaxed">
+                <div className="bg-[#fff4d8] border border-[#ead8c4] rounded-xl p-4">
+                  <p className="text-xs text-[#6b5d63] leading-relaxed">
                     Ao publicar, a instituição confirma que o sonho <strong>não envolve</strong> pedidos de dinheiro, PIX, transferências ou doações financeiras.
                   </p>
                 </div>
@@ -458,7 +449,7 @@ export default function InstitutionCreateDream() {
       </div>
 
       {publishError && (
-        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+        <div className="mt-4 bg-[#f6f0ff] border border-[#d8cdeb] text-[#584478] text-sm rounded-xl px-4 py-3">
           {publishError}
         </div>
       )}
@@ -468,7 +459,7 @@ export default function InstitutionCreateDream() {
           <button
             type="button"
             onClick={() => setStep((current) => current - 1)}
-            className="flex items-center gap-2 px-6 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-6 py-3 border border-[#d8cdeb] rounded-xl text-[#5f5268] hover:bg-[#f6f0ff] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
@@ -479,7 +470,7 @@ export default function InstitutionCreateDream() {
             onClick={() => setStep((current) => current + 1)}
             disabled={!canNext() || loading}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-colors ${
-              canNext() && !loading ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              canNext() && !loading ? 'bg-[#584478] hover:bg-[#44345f] text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
             style={{ fontWeight: 600 }}
           >
@@ -490,7 +481,7 @@ export default function InstitutionCreateDream() {
             type="button"
             onClick={handlePublish}
             disabled={publishing || loading}
-            className="flex-1 flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-700 text-white py-3 rounded-xl transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-[#584478] hover:bg-[#44345f] text-white py-3 rounded-full transition-colors"
             style={{ fontWeight: 600 }}
           >
             {publishing
@@ -500,6 +491,6 @@ export default function InstitutionCreateDream() {
           </button>
         )}
       </div>
-    </div>
+    </ProductPageShell>
   );
 }

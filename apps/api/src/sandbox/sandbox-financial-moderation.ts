@@ -1,5 +1,7 @@
 export { containsFinancialLanguage } from '../modules/conversations/chat-financial-moderation';
+import { type ApiLocale } from '../i18n/locale';
+import { tApi } from '../i18n/messages';
 
-export function getSandboxFinancialModerationMessage() {
-  return 'No sandbox, mensagens com PIX, dinheiro ou doações são bloqueadas. Reformule oferecendo tempo, presença ou companhia.';
+export function getSandboxFinancialModerationMessage(locale?: ApiLocale) {
+  return tApi('sandbox.financialModeration', locale);
 }
