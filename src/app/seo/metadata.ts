@@ -79,7 +79,7 @@ const LOCALIZED_SEO: Record<Exclude<PublicRouteKey, 'publicDream'>, Record<Suppo
     'pt-BR': {
       title: 'NextDream | Sonhos que encontram apoio humano de verdade',
       description:
-        'NextDream conecta pessoas em momentos delicados de saude, familiares e instituicoes a apoiadores para realizar sonhos com tempo, presenca e cuidado.',
+        'NextDream conecta pessoas em momentos delicados de saúde, familiares e instituições a apoiadores para realizar sonhos com tempo, presença e cuidado.',
       ogType: 'website',
     },
     'en-US': {
@@ -164,7 +164,7 @@ const LOCALIZED_SEO: Record<Exclude<PublicRouteKey, 'publicDream'>, Record<Suppo
     'pt-BR': {
       title: 'Parcerias | NextDream',
       description:
-        'Veja como instituicoes, comunidades e redes podem aproximar sonhos de caminhos seguros, com contexto, consentimento e cuidado.',
+        'Veja como instituições, comunidades e redes podem aproximar sonhos de caminhos seguros, com contexto, consentimento e cuidado.',
     },
     'en-US': {
       title: 'Partnerships | NextDream',
@@ -387,7 +387,7 @@ const STATIC_SEO: Record<string, SeoData> = {
   '/': {
     title: 'NextDream | Sonhos que encontram apoio humano de verdade',
     description:
-      'NextDream conecta pessoas em momentos delicados de saude, familiares e instituicoes a apoiadores para realizar sonhos com tempo, presenca e cuidado.',
+      'NextDream conecta pessoas em momentos delicados de saúde, familiares e instituições a apoiadores para realizar sonhos com tempo, presença e cuidado.',
     canonicalPath: '/',
     ogType: 'website',
   },
@@ -419,7 +419,7 @@ const STATIC_SEO: Record<string, SeoData> = {
   '/parcerias': {
     title: 'Parcerias | NextDream',
     description:
-      'Veja como instituicoes, comunidades e redes podem aproximar sonhos de caminhos seguros, com contexto, consentimento e cuidado.',
+      'Veja como instituições, comunidades e redes podem aproximar sonhos de caminhos seguros, com contexto, consentimento e cuidado.',
     canonicalPath: '/parcerias',
   },
   '/termos': {

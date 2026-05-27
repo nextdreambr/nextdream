@@ -7,7 +7,7 @@ import { getSeoAlternates, getSeoData } from './metadata';
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, '../../..');
 const publicHomeDescription =
-  'NextDream conecta pessoas em momentos delicados de saude, familiares e instituicoes a apoiadores para realizar sonhos com tempo, presenca e cuidado.';
+  'NextDream conecta pessoas em momentos delicados de saúde, familiares e instituições a apoiadores para realizar sonhos com tempo, presença e cuidado.';
 
 describe('SEO metadata', () => {
   it('uses the current public audience description on the home page', () => {
