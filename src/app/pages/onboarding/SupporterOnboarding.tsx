@@ -5,6 +5,7 @@ import {
   Shield, Loader2, User,
 } from 'lucide-react';
 import { BRAZIL_STATES } from '../../data/brazilCities';
+import { getCitiesForState } from '../../lib/location';
 
 const steps = ['Como quer apoiar', 'Disponibilidade', 'Confirmar cadastro'];
 
@@ -52,8 +53,7 @@ export default function SupporterOnboarding() {
     setCity('');
   };
 
-  const selectedState = BRAZIL_STATES.find(s => s.uf === state);
-  const cities = selectedState?.cities ?? [];
+  const cities = getCitiesForState(state);
 
   const canNext = () => {
     if (step === 0) return selected.length > 0;

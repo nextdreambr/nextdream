@@ -144,14 +144,15 @@ describe('InstitutionPatients', () => {
 
     fireEvent.change(stateSelect, { target: { value: 'PE' } });
     expect(citySelect.disabled).toBe(false);
-    fireEvent.change(citySelect, { target: { value: 'Recife' } });
+    expect(screen.getByRole('option', { name: 'Afogados da Ingazeira' })).toBeInTheDocument();
+    fireEvent.change(citySelect, { target: { value: 'Afogados da Ingazeira' } });
     fireEvent.click(screen.getByRole('button', { name: /adicionar paciente/i }));
 
     await waitFor(() => {
       expect(createPatientMock).toHaveBeenCalledWith({
         name: 'Maria das Dores',
         state: 'PE',
-        city: 'Recife',
+        city: 'Afogados da Ingazeira',
       });
     });
 
