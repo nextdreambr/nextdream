@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { useI18n } from '../../i18n/I18nProvider';
 import careCollageImage from '../../../assets/public/casa-de-cuidado-collage.webp';
 
 const fadeIn = {
@@ -10,6 +11,8 @@ const fadeIn = {
 };
 
 export function HomeHero() {
+  const { localizedPath } = useI18n();
+
   return (
     <section className="bg-[#fff8ef] px-4 pb-12 pt-14 text-[#241b24] sm:px-6 lg:pb-16 lg:pt-20">
       <motion.div
@@ -34,13 +37,13 @@ export function HomeHero() {
           <div className="mt-8 space-y-4">
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
               <Link
-                to="/cadastro?tipo=paciente"
+                to={localizedPath('/cadastro?tipo=paciente')}
                 className="inline-flex min-h-[2.75rem] items-center justify-center rounded-full bg-[#a8544a] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(168,84,74,0.16)] transition-all hover:-translate-y-0.5 hover:bg-[#8b3d44] focus:outline-none focus:ring-4 focus:ring-[#f3c8ba]"
               >
                 Compartilhar um sonho
               </Link>
               <Link
-                to="/apoiador/explorar"
+                to={localizedPath('/apoiador/explorar')}
                 className="group inline-flex min-h-[2.75rem] items-center gap-2 rounded-full px-1 py-2 text-sm font-extrabold text-[#245b53] transition-colors hover:text-[#8b3d44] focus:outline-none focus:ring-4 focus:ring-[#d5efe7]"
               >
                 Ver sonhos para apoiar

@@ -12,6 +12,7 @@ import {
   SandboxSessionState,
   SandboxUser,
 } from './sandbox-types';
+import { DEFAULT_DREAM_LANGUAGE } from '../modules/dreams/dream-language';
 
 const BASE_TIME = new Date('2026-04-21T12:00:00.000Z');
 
@@ -48,6 +49,8 @@ function createManagedPatient(
 
 function createDream(input: Partial<SandboxDream> & Pick<SandboxDream, 'id' | 'title' | 'description' | 'category' | 'patientId'>): SandboxDream {
   return {
+    originalLanguage: DEFAULT_DREAM_LANGUAGE,
+    translations: {},
     format: 'presencial',
     urgency: 'media',
     privacy: 'publico',

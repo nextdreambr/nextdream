@@ -1,12 +1,13 @@
 import { Link, useNavigate } from 'react-router';
-import { Plus, Star, Search, SlidersHorizontal, X, Edit, CheckCircle } from 'lucide-react';
+import { Plus, Star, Search, SlidersHorizontal, X, Edit, CheckCircle, HeartHandshake } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DreamStatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { EntityPagination } from '../../components/shared/EntityPagination';
-import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ApiError, PublicDream, dreamsApi } from '../../lib/api';
+import { ProductHero, ProductPageShell, SensitiveNotice } from '../../components/shared/VisualSystem';
+import { getSafeDreamVisual, SafeDreamArtwork } from '../../components/shared/SafeDreamVisual';
 
 type DreamStatus = PublicDream['status'];
 
@@ -20,22 +21,12 @@ const statusOptions: { value: DreamStatus; label: string }[] = [
 ];
 
 const formatOptions: Array<{ val: PublicDream['format']; label: string }> = [
-  { val: 'remoto', label: '💻 Online' },
-  { val: 'presencial', label: '📍 Presencial' },
-  { val: 'ambos', label: '🤝 Ambos' },
+  { val: 'remoto', label: 'Online' },
+  { val: 'presencial', label: 'Presencial' },
+  { val: 'ambos', label: 'Ambos' },
 ];
 
 const PAGE_SIZE = 6;
-
-const categoryTheme: Record<string, { img: string; accent: string; tagColor: string }> = {
-  'Experiência ao ar livre': { img: 'https://images.unsplash.com/photo-1480882194365-f8653456ca74?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuYXR1cmUlMjBsYW5kc2NhcGUlMjBob3BlfGVufDF8fHx8MTc3MjgyMTE2OHww&ixlib=rb-4.1.0&q=80&w=1080', accent: 'from-green-800/70', tagColor: 'bg-green-100 text-green-700' },
-  'Arte e Música': { img: 'https://images.unsplash.com/photo-1741463562795-8d32ad942d31?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnQlMjBhbmQlMjBwYWludGluZ3xlbnwxfHx8fDE3NzI4MjExNjh8MA&ixlib=rb-4.1.0&q=80&w=1080', accent: 'from-purple-700/70', tagColor: 'bg-purple-100 text-purple-700' },
-  'Conversa e Companhia': { img: 'https://images.unsplash.com/photo-1758525226705-3061215c7445?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZW9wbGUlMjB0YWxraW5nJTIwc2hhcmluZyUyMGNvZmZlZXxlbnwxfHx8fDE3NzI4MjExNjh8MA&ixlib=rb-4.1.0&q=80&w=1080', accent: 'from-blue-700/70', tagColor: 'bg-blue-100 text-blue-700' },
-  'Culinária': { img: 'https://images.unsplash.com/photo-1528712306091-ed0763094c98?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb29raW5nJTIwYXQlMjBob21lfGVufDF8fHx8MTc3MjgyMTE2OHww&ixlib=rb-4.1.0&q=80&w=1080', accent: 'from-orange-600/70', tagColor: 'bg-orange-100 text-orange-700' },
-  'Literatura e Cultura': { img: 'https://images.unsplash.com/photo-1744912739625-1c188aa85c7a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080', accent: 'from-indigo-700/70', tagColor: 'bg-indigo-100 text-indigo-700' },
-  'Esporte e Lazer': { img: 'https://images.unsplash.com/photo-1607756196359-bfe2f3a335b5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080', accent: 'from-teal-700/70', tagColor: 'bg-teal-100 text-teal-700' },
-  'Outro': { img: 'https://images.unsplash.com/photo-1646148327698-614edde70c94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080', accent: 'from-pink-700/70', tagColor: 'bg-pink-100 text-pink-700' },
-};
 
 export default function MyDreams() {
   const navigate = useNavigate();
@@ -87,17 +78,25 @@ export default function MyDreams() {
   const hasFilters = !!(filters.status || filters.category || filters.format);
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Meus Sonhos</h1>
-          <p className="text-gray-500 text-sm">{total} {total === 1 ? 'sonho' : 'sonhos'} no total</p>
-        </div>
+    <ProductPageShell tone="care" width="content">
+      <ProductHero
+        tone="care"
+        icon={HeartHandshake}
+        eyebrow="Suas histórias"
+        title="Meus sonhos"
+        description={`${total} ${total === 1 ? 'sonho cuidado' : 'sonhos cuidados'} no total. Edite, revise privacidade e acompanhe propostas sem expor mais do que deseja.`}
+        action={(
         <Link to="/paciente/sonhos/criar"
-          className="flex items-center gap-2 bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors">
+          className="inline-flex items-center gap-2 rounded-full bg-[#a8544a] px-5 py-3 text-sm font-extrabold text-white transition-colors hover:bg-[#8b3d44]">
           <Plus className="w-4 h-4" /> Novo sonho
         </Link>
-      </div>
+        )}
+        aside={(
+          <SensitiveNotice tone="care" title="Controle sempre visível">
+            Você pode ajustar título, texto, imagem e privacidade. Dados de contato continuam protegidos até o aceite de uma proposta.
+          </SensitiveNotice>
+        )}
+      />
 
       {/* Search + filter toggle */}
       <div className="flex gap-3">
@@ -111,13 +110,13 @@ export default function MyDreams() {
               setPage(1);
             }}
             placeholder="Buscar por título, descrição..."
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+            className="w-full pl-10 pr-4 py-3 bg-white border border-[#eadfd2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd] focus:border-[#a8544a]"
           />
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors
-            ${showFilters || hasFilters ? 'bg-pink-600 text-white border-pink-600' : 'bg-white border-gray-200 text-gray-600 hover:border-pink-300'}`}
+            ${showFilters || hasFilters ? 'bg-[#a8544a] text-white border-[#a8544a]' : 'bg-white border-[#eadfd2] text-[#5c4b52] hover:border-[#ecd8c8]'}`}
         >
           <SlidersHorizontal className="w-4 h-4" />
           Filtros
@@ -127,7 +126,7 @@ export default function MyDreams() {
 
       {/* Filters panel */}
       {showFilters && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+        <div className="bg-white border border-[#eadfd2] rounded-2xl p-5 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-700">Filtros</h3>
             {hasFilters && (
@@ -149,7 +148,7 @@ export default function MyDreams() {
                     setPage(1);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
-                    ${filters.status === s.value ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-200 text-gray-600 hover:border-pink-200'}`}
+                    ${filters.status === s.value ? 'bg-[#a8544a] text-white border-[#a8544a]' : 'border-[#eadfd2] text-[#5c4b52] hover:border-[#ecd8c8]'}`}
                 >
                   {s.label}
                 </button>
@@ -169,7 +168,7 @@ export default function MyDreams() {
                     setPage(1);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
-                    ${filters.category === cat ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-200 text-gray-600 hover:border-pink-200'}`}
+                    ${filters.category === cat ? 'bg-[#a8544a] text-white border-[#a8544a]' : 'border-[#eadfd2] text-[#5c4b52] hover:border-[#ecd8c8]'}`}
                 >
                   {cat}
                 </button>
@@ -189,7 +188,7 @@ export default function MyDreams() {
                     setPage(1);
                   }}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
-                    ${filters.format === f.val ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-200 text-gray-600 hover:border-pink-200'}`}
+                    ${filters.format === f.val ? 'bg-[#a8544a] text-white border-[#a8544a]' : 'border-[#eadfd2] text-[#5c4b52] hover:border-[#ecd8c8]'}`}
                 >
                   {f.label}
                 </button>
@@ -222,7 +221,7 @@ export default function MyDreams() {
           )}
           {filters.format && (
             <span className="flex items-center gap-1.5 bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs">
-              {filters.format === 'remoto' ? '💻 Online' : filters.format === 'presencial' ? '📍 Presencial' : '🤝 Ambos'}
+              {filters.format === 'remoto' ? 'Online' : filters.format === 'presencial' ? 'Presencial' : 'Ambos'}
               <button onClick={() => {
                 setFilters(f => ({ ...f, format: '' }));
                 setPage(1);
@@ -238,36 +237,32 @@ export default function MyDreams() {
           icon={Star}
           title="Nenhum sonho encontrado"
           description={hasFilters || query
-            ? 'Tente remover alguns filtros ou mudar a busca.'
-            : 'Você ainda não publicou nenhum sonho. Compartilhe o que você deseja e encontre alguém para ajudar.'}
+              ? 'Tente remover alguns filtros ou mudar a busca.'
+            : 'Você ainda não publicou nenhum sonho. Compartilhe uma cena possível, com privacidade e cuidado desde o início.'}
           actionLabel={hasFilters || query ? 'Limpar filtros' : 'Compartilhar um sonho'}
           onAction={hasFilters || query ? () => { clearFilters(); setQuery(''); } : () => navigate('/paciente/sonhos/criar')}
         />
       ) : (
         <div className="grid sm:grid-cols-2 gap-6 mt-8">
           {myDreams.map(dream => {
-            const theme = categoryTheme[dream.category] || categoryTheme['Outro'];
+            const visual = getSafeDreamVisual(dream.category);
             const dreamLink = dream.canEdit === false ? `/paciente/sonhos/${dream.id}` : `/paciente/sonhos/editar/${dream.id}`;
             return (
               <div
                 key={dream.id}
-                className="group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full relative"
+                className="group bg-white rounded-2xl overflow-hidden border border-[#eadfd2] shadow-[0_16px_44px_rgba(92,62,51,0.06)] hover:shadow-[0_22px_60px_rgba(92,62,51,0.1)] transition-all duration-300 flex flex-col h-full relative"
               >
                 <Link to={dreamLink} className="block flex-1 flex flex-col">
                   <div className="relative h-48 overflow-hidden">
-                    <ImageWithFallback
-                      src={theme.img}
-                      alt={dream.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className={`absolute inset-0 bg-gradient-to-t ${theme.accent} to-transparent opacity-80`} />
+                    <SafeDreamArtwork scene={visual.scene} alt={visual.alt} className="transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#241b24]/48 via-transparent to-transparent" />
                     <div className="absolute top-4 left-4">
-                      <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${theme.tagColor} bg-opacity-90 backdrop-blur-sm shadow-sm`}>
+                      <span className="rounded-full bg-[#fff4d8]/94 px-3 py-1.5 text-xs font-extrabold text-[#8b3d44] shadow-sm backdrop-blur-sm">
                         {dream.category}
                       </span>
                     </div>
                     <div className="absolute top-4 right-4">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/90 text-gray-700 shadow-sm">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/90 text-[#5c4b52] shadow-sm">
                         <CheckCircle className="w-3.5 h-3.5" />
                         {dream.status}
                       </span>
@@ -282,18 +277,18 @@ export default function MyDreams() {
                         Caso acompanhado por {dream.institutionName}
                       </p>
                     )}
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 leading-snug group-hover:text-pink-600 transition-colors line-clamp-2">
+                    <h3 className="text-lg font-extrabold text-[#241b24] mb-2 leading-snug group-hover:text-[#8b3d44] transition-colors line-clamp-2">
                       {dream.title}
                     </h3>
-                    <p className="text-gray-500 text-sm leading-relaxed flex-1 line-clamp-3 mb-6">
+                    <p className="text-[#5c4b52] text-sm leading-relaxed flex-1 line-clamp-3 mb-6">
                       {dream.description}
                     </p>
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
-                      <span className="inline-flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-                        {dream.format === 'remoto' ? '💻 Online' : dream.format === 'presencial' ? '📍 Presencial' : '🤝 Ambos'}
+                    <div className="flex items-center justify-between pt-4 border-t border-[#eadfd2] mt-auto">
+                      <span className="inline-flex items-center gap-1.5 text-[#66585e] text-xs font-bold">
+                        {dream.format === 'remoto' ? 'Online' : dream.format === 'presencial' ? 'Presencial' : 'Ambos'}
                       </span>
-                      <span className="text-pink-600 text-xs font-bold hover:text-pink-700">
-                        {dream.canEdit === false ? 'Ver caso →' : 'Editar sonho →'}
+                      <span className="text-[#a8544a] text-xs font-extrabold hover:text-[#8b3d44]">
+                        {dream.canEdit === false ? 'Ver história' : 'Ajustar com cuidado'}
                       </span>
                     </div>
                   </div>
@@ -304,7 +299,7 @@ export default function MyDreams() {
                       e.preventDefault();
                       navigate(`/paciente/sonhos/editar/${dream.id}`);
                     }}
-                    className="absolute bottom-6 right-6 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 hover:bg-pink-50 shadow-sm transition-all z-10"
+                    className="absolute bottom-6 right-6 w-10 h-10 bg-white border border-[#eadfd2] rounded-full flex items-center justify-center text-[#66585e] hover:text-[#a8544a] hover:border-[#ecd8c8] hover:bg-[#fff8ef] shadow-sm transition-all z-10"
                     title="Editar sonho"
                   >
                     <Edit className="w-4 h-4" />
@@ -321,6 +316,6 @@ export default function MyDreams() {
           {error}
         </div>
       )}
-    </div>
+    </ProductPageShell>
   );
 }

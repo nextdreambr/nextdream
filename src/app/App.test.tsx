@@ -1,15 +1,34 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import App from './App';
+
+const { listPublicMock } = vi.hoisted(() => ({
+  listPublicMock: vi.fn(),
+}));
+
+vi.mock('./lib/api', async () => {
+  const actual = await vi.importActual<typeof import('./lib/api')>('./lib/api');
+
+  return {
+    ...actual,
+    dreamsApi: {
+      ...actual.dreamsApi,
+      listPublic: listPublicMock,
+    },
+  };
+});
 
 describe('App', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    listPublicMock.mockReset();
+    listPublicMock.mockResolvedValue([]);
   });
 
   it('renders the public landing route', async () => {
     window.history.pushState({}, '', '/');
 
-    render(<App />);
+    const { container } = render(<App />);
 
     expect(
       screen.getByRole('heading', {
@@ -18,7 +37,11 @@ describe('App', () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText(/sempre com cuidado e consentimento/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /histórias públicas, mostradas com cuidado/i })).toBeInTheDocument();
+    await waitFor(() => expect(listPublicMock).toHaveBeenCalledTimes(1));
+    expect(container.querySelector('#sonhos')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: /histórias públicas, mostradas com cuidado/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /uma linha de cuidado até o encontro/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /escolha como estar perto/i })).toBeInTheDocument();
     expect(
@@ -28,41 +51,6 @@ describe('App', () => {
     expect(screen.getAllByText(/apoio por presença, tempo ou habilidade/i).length).toBeGreaterThanOrEqual(3);
     expect(screen.getAllByRole('link', { name: /compartilhar um sonho/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /conversar sobre parceria/i }).length).toBeGreaterThan(0);
-
-    const publicStoriesSection = screen
-      .getByRole('heading', { level: 2, name: /histórias públicas, mostradas com cuidado/i })
-      .closest('section');
-    const publicStoriesGrid = publicStoriesSection?.querySelector('.lg\\:grid-cols-3');
-
-    expect(publicStoriesGrid).toHaveClass('lg:items-stretch');
-    expect(publicStoriesGrid).not.toHaveClass('lg:items-start');
-    await waitFor(() => {
-      expect(publicStoriesGrid?.querySelectorAll('article')).toHaveLength(3);
-    });
-
-    const publicStoryCards = publicStoriesGrid?.querySelectorAll('article');
-    expect(publicStoryCards).toHaveLength(3);
-    publicStoryCards?.forEach((card) => {
-      expect(card).not.toHaveClass('lg:mt-10');
-      expect(card).not.toHaveClass('lg:mt-5');
-
-      const visual = card.firstElementChild;
-      const content = card.lastElementChild;
-      const title = card.querySelector('h3');
-      const description = title?.nextElementSibling;
-      const metadata = description?.nextElementSibling;
-      const supportBand = metadata?.nextElementSibling;
-      const cta = supportBand?.nextElementSibling;
-
-      expect(card).toHaveClass('flex', 'h-full', 'flex-col');
-      expect(visual).toHaveClass('aspect-[1.34]');
-      expect(content).toHaveClass('flex', 'flex-1', 'flex-col');
-      expect(title).toHaveClass('line-clamp-2', 'min-h-[3.75rem]');
-      expect(description).toHaveClass('line-clamp-3', 'min-h-[4.875rem]');
-      expect(metadata).toHaveClass('min-h-[4.5rem]');
-      expect(supportBand).toHaveClass('min-h-[4rem]');
-      expect(cta).toHaveClass('mt-auto');
-    });
   });
 
 });

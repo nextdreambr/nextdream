@@ -3,6 +3,7 @@ import { Bell, CheckCheck, Inbox, MessageCircle, Star, Shield, ChevronRight, Hea
 import { useNavigate } from 'react-router';
 import { useApp } from '../../context/AppContext';
 import { formatRelativeDate } from '../../lib/relativeTime';
+import { useI18n } from '../../i18n/I18nProvider';
 
 const typeIcon: Record<string, React.ReactNode> = {
   proposta: <Inbox className="w-4 h-4 text-pink-500" />,
@@ -25,13 +26,14 @@ const typeBg: Record<string, string> = {
 export default function PatientNotifications() {
   const navigate = useNavigate();
   const { notifications, markNotificationRead, markAllNotificationsRead } = useApp();
+  const { locale, localizedPath } = useI18n();
   const notifs = notifications;
 
   const unread = notifs.filter(n => !n.read).length;
 
   const handleClick = (notif: { id: string; actionPath?: string }) => {
     markNotificationRead(notif.id);
-    if (notif.actionPath) navigate(notif.actionPath);
+    if (notif.actionPath) navigate(localizedPath(notif.actionPath));
   };
 
   return (
@@ -95,7 +97,7 @@ export default function PatientNotifications() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.message}</p>
                 <div className="flex items-center justify-between mt-1.5">
-                  <span className="text-xs text-gray-400">{formatRelativeDate(notif.createdAt)}</span>
+                  <span className="text-xs text-gray-400">{formatRelativeDate(notif.createdAt, new Date(), locale)}</span>
                   {notif.actionPath && (
                     <span className="flex items-center gap-1 text-xs text-pink-600 font-medium">
                       Ver <ChevronRight className="w-3 h-3" />

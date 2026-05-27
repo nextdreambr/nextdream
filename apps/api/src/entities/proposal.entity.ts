@@ -5,6 +5,7 @@ import {
   Entity,
   ManyToOne,
   PrimaryColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Dream } from './dream.entity';
 import { User } from './user.entity';
@@ -45,6 +46,9 @@ export class Proposal {
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
 
   @BeforeInsert()
   ensureId() {

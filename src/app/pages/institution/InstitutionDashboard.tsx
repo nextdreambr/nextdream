@@ -45,24 +45,24 @@ export default function InstitutionDashboard() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div
           data-sandbox-tour-id="institution-dashboard-hero"
-          className="bg-gradient-to-r from-indigo-600 to-sky-600 rounded-2xl p-6 text-white"
+          className="bg-[#584478] rounded-2xl p-6 text-white shadow-[0_20px_60px_rgba(88,68,120,0.18)]"
         >
-          <p className="text-indigo-100 text-sm mb-1">Olá, {currentUser.name.split(' ')[0]}</p>
+          <p className="text-[#d8cdeb] text-sm mb-1">Olá, {currentUser.name.split(' ')[0]}</p>
           <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Conta em análise</h1>
-          <p className="text-indigo-100 text-sm leading-relaxed">
+          <p className="text-[#d8cdeb] text-sm leading-relaxed">
             Recebemos seu cadastro institucional. Nossa equipe vai revisar os dados antes de liberar a operação de pacientes, sonhos e conversas.
           </p>
         </div>
 
-        <div className="bg-white border border-indigo-100 rounded-2xl p-6 space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 text-indigo-700 px-3 py-1 text-xs">
+        <div className="bg-white border border-[#d8cdeb] rounded-2xl p-6 space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#f6f0ff] text-[#584478] px-3 py-1 text-xs">
             <Building2 className="w-3.5 h-3.5" />
             Conta em análise
           </div>
           <p className="text-sm text-gray-600 leading-relaxed">
             Enquanto isso, você pode acompanhar este status por aqui. Assim que a conta for aprovada, esta área vai liberar o cadastro de pacientes acompanhados e a publicação de sonhos.
           </p>
-          <Link to="/contato" className="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700">
+          <Link to="/contato" className="inline-flex items-center gap-2 text-sm text-[#584478] hover:text-[#44345f]">
             Falar com a equipe <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -85,19 +85,19 @@ export default function InstitutionDashboard() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div
         data-sandbox-tour-id="institution-dashboard-hero"
-        className="bg-gradient-to-r from-indigo-600 to-sky-600 rounded-2xl p-6 text-white"
+        className="bg-[#584478] rounded-2xl p-6 text-white shadow-[0_20px_60px_rgba(88,68,120,0.18)]"
       >
-        <p className="text-indigo-100 text-sm mb-1">Olá, {currentUser.name.split(' ')[0]}</p>
+        <p className="text-[#d8cdeb] text-sm mb-1">Olá, {currentUser.name.split(' ')[0]}</p>
         <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Operação institucional</h1>
-        <p className="text-indigo-100 text-sm leading-relaxed mb-4">
-          Cadastre pacientes acompanhados, publique sonhos em nome deles e filtre as conexões com apoiadores de forma segura.
+        <p className="text-[#d8cdeb] text-sm leading-relaxed mb-4">
+          Cadastre pacientes acompanhados, publique sonhos com consentimento e conduza conexões com apoiadores de forma segura.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link to="/instituicao/pacientes" className="inline-flex items-center gap-2 bg-white text-indigo-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-50 transition-colors">
+          <Link to="/instituicao/pacientes" className="inline-flex items-center gap-2 bg-white text-[#584478] px-4 py-2.5 rounded-full text-sm font-extrabold hover:bg-[#f6f0ff] transition-colors">
             <Users className="w-4 h-4" />
             Adicionar paciente
           </Link>
-          <Link to="/instituicao/sonhos/criar" className="inline-flex items-center gap-2 border border-white/30 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-white/10 transition-colors">
+          <Link to="/instituicao/sonhos/criar" className="inline-flex items-center gap-2 border border-white/30 text-white px-4 py-2.5 rounded-full text-sm font-extrabold hover:bg-white/10 transition-colors">
             <Star className="w-4 h-4" />
             Publicar sonho
           </Link>

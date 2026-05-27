@@ -1,7 +1,9 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { ShieldCheck } from 'lucide-react';
 import { ApiError, authApi } from '../../lib/api';
 import { useApp } from '../../context/AppContext';
+import { AuthCareFrame } from '../../components/auth/AuthCareFrame';
 
 export default function AcceptAdminInvite() {
   const navigate = useNavigate();
@@ -41,51 +43,59 @@ export default function AcceptAdminInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Aceitar convite de admin</h1>
-          <p className="text-sm text-gray-600 mt-1">Conclua seu cadastro para acessar o painel.</p>
+    <AuthCareFrame
+      eyebrow="Convite administrativo"
+      title="Acesso administrativo exige cuidado extra."
+      description="Conclua o cadastro somente se você reconhece este convite e entende que o painel lida com dados sensíveis."
+      icon={ShieldCheck}
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="mb-2">
+          <ShieldCheck className="mb-4 h-9 w-9 text-[#245b53]" />
+          <h2 className="text-2xl font-extrabold leading-tight text-[#241b24]">Aceitar convite de admin</h2>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-[#5c4b52]">
+            Conclua seu cadastro para acessar o painel com responsabilidade.
+          </p>
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="email" className="text-sm text-gray-700">Email</label>
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-bold text-[#5c4b52]">E-mail</label>
           <input
             id="email"
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="Email"
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] px-3 py-3 text-sm focus:border-[#a8544a] focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
             required
           />
         </div>
-        <div className="space-y-1">
-          <label htmlFor="token" className="text-sm text-gray-700">Token do convite</label>
+        <div>
+          <label htmlFor="token" className="mb-1.5 block text-sm font-bold text-[#5c4b52]">Token do convite</label>
           <input
             id="token"
             type="text"
             value={token}
             onChange={(event) => setToken(event.target.value)}
             placeholder="Token do convite"
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] px-3 py-3 text-sm focus:border-[#a8544a] focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
             required
           />
         </div>
-        <div className="space-y-1">
-          <label htmlFor="name" className="text-sm text-gray-700">Seu nome</label>
+        <div>
+          <label htmlFor="name" className="mb-1.5 block text-sm font-bold text-[#5c4b52]">Seu nome</label>
           <input
             id="name"
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Seu nome"
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] px-3 py-3 text-sm focus:border-[#a8544a] focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
             required
           />
         </div>
-        <div className="space-y-1">
-          <label htmlFor="password" className="text-sm text-gray-700">Senha</label>
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-sm font-bold text-[#5c4b52]">Senha</label>
           <input
             id="password"
             type="password"
@@ -93,7 +103,7 @@ export default function AcceptAdminInvite() {
             minLength={8}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Senha"
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] px-3 py-3 text-sm focus:border-[#a8544a] focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]"
             required
           />
         </div>
@@ -101,13 +111,13 @@ export default function AcceptAdminInvite() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-gray-900 hover:bg-black disabled:bg-gray-500 text-white py-2 text-sm"
+          className="w-full rounded-full bg-[#245b53] py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-[#17453f] disabled:bg-[#9ed0c1]"
         >
           {loading ? 'Confirmando...' : 'Aceitar convite'}
         </button>
 
-        {error && <p className="text-sm text-red-700">{error}</p>}
+        {error && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       </form>
-    </div>
+    </AuthCareFrame>
   );
 }

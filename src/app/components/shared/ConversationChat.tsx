@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { ApiError, ChatMessage, Conversation, conversationsApi } from '../../lib/api';
 import { isSandboxEnvironment } from '../../config/environment';
 import { containsFinancialLanguage, getSandboxFinancialModerationMessage } from '../../lib/sandboxFinancialModeration';
+import { useI18n } from '../../i18n/I18nProvider';
 
 interface ConversationChatProps {
   emptyActionTo: string;
@@ -14,6 +15,7 @@ interface ConversationChatProps {
 
 export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId }: ConversationChatProps) {
   const { currentUser } = useApp();
+  const { locale } = useI18n();
   const location = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function ConversationChat({ emptyActionTo, emptyActionLabel, tourTargetId
     if (!selectedId || !draft.trim() || sending || selectedConversation?.status === 'encerrada') return;
 
     if (isSandboxEnvironment() && containsFinancialLanguage(draft)) {
-      setError(getSandboxFinancialModerationMessage());
+      setError(getSandboxFinancialModerationMessage(locale));
       return;
     }
 

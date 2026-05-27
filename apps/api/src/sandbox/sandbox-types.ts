@@ -4,6 +4,10 @@ import {
   DreamStatus,
   DreamUrgency,
 } from '../entities/dream.entity';
+import {
+  DreamLanguage,
+  DreamTranslations,
+} from '../modules/dreams/dream-language';
 import { ProposalStatus } from '../entities/proposal.entity';
 import { UserRole } from '../entities/user.entity';
 
@@ -51,6 +55,8 @@ export interface SandboxDream {
   id: string;
   title: string;
   description: string;
+  originalLanguage: DreamLanguage;
+  translations: DreamTranslations;
   category: string;
   format: DreamFormat;
   urgency: DreamUrgency;

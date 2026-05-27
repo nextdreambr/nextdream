@@ -71,7 +71,7 @@ describe('MyDreams', () => {
       category: '',
       format: '',
     });
-    expect(screen.getByText(/10 sonhos no total/i)).toBeInTheDocument();
+    expect(screen.getByText(/10 sonhos cuidados no total/i)).toBeInTheDocument();
     expect(screen.getByText(/página 1 de 2/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(/próxima página/i));

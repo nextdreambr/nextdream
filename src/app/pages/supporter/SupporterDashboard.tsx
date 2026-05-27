@@ -50,16 +50,16 @@ export default function SupporterDashboard() {
       {/* Welcome */}
       <div
         data-sandbox-tour-id="supporter-dashboard-hero"
-        className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-6 text-white"
+        className="bg-[#245b53] rounded-2xl p-6 text-white shadow-[0_20px_60px_rgba(36,91,83,0.18)]"
       >
-        <p className="text-teal-100 text-sm mb-1">Olá, {currentUser?.name?.split(' ')[0]} 💚</p>
-        <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Você pode mudar uma vida hoje</h1>
-        <p className="text-teal-100 text-sm leading-relaxed mb-4">
-          Explore sonhos de pessoas que precisam de presença, tempo e carinho. Sua contribuição não tem preço.
+        <p className="text-[#c9e5dc] text-sm mb-1">Olá, {currentUser?.name?.split(' ')[0]}</p>
+        <h1 className="text-white mb-3" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Encontre uma forma de estar presente</h1>
+        <p className="text-[#c9e5dc] text-sm leading-relaxed mb-4">
+          Explore histórias que buscam presença, tempo, companhia ou habilidade. Escolha apenas aquilo que você consegue oferecer com responsabilidade.
         </p>
         <Link
           to="/apoiador/explorar"
-          className="inline-flex items-center gap-2 bg-white text-teal-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-50 transition-colors"
+          className="inline-flex items-center gap-2 bg-white text-[#245b53] px-5 py-2.5 rounded-full text-sm font-extrabold hover:bg-[#e5f4ee] transition-colors"
         >
           <Search className="w-4 h-4" />
           Explorar sonhos
@@ -143,7 +143,7 @@ export default function SupporterDashboard() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-800 truncate">{prop.dreamTitle ?? 'Sonho'}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {prop.status === 'aceita' ? '✅ Aceita — chat aberto!' : prop.status === 'em-analise' ? '⏳ Em análise' : '📬 Enviada'}
+                    {prop.status === 'aceita' ? 'Aceita — chat aberto' : prop.status === 'em-analise' ? 'Em análise' : 'Enviada'}
                   </p>
                 </div>
                 {prop.status === 'aceita' && (
@@ -174,7 +174,7 @@ export default function SupporterDashboard() {
             <TrendingUp className="w-5 h-5 text-pink-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-800 mb-1">Seu impacto importa</p>
+          <p className="text-sm font-medium text-gray-800 mb-1">Apoio com presença importa</p>
             <p className="text-gray-500 text-sm leading-relaxed">
               Cada conexão concluída fortalece uma rede de apoio baseada em tempo, presença e responsabilidade.
             </p>

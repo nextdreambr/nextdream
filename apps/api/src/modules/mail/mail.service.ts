@@ -13,6 +13,17 @@ type MailFlow =
   | 'password_reset'
   | 'smoke_test';
 
+export type MailTemplateCatalogItem = {
+  id: MailFlow;
+  category: string;
+  name: string;
+  subject: string;
+  recipient: string;
+  variables: string[];
+  channel: 'email';
+  editable: false;
+};
+
 type MailSendResult = {
   providerMessageId?: string;
 };
@@ -44,6 +55,81 @@ export class MailService {
   private resendClient: Resend | null = null;
   private resendApiKey: string | null = null;
   private providerSelectionLogged: string | null = null;
+
+  getTemplateCatalog(): MailTemplateCatalogItem[] {
+    return [
+      {
+        id: 'welcome',
+        category: 'Conta & Boas-vindas',
+        name: 'Boas-vindas',
+        subject: 'Bem-vindo ao NextDream',
+        recipient: 'Paciente, apoiador ou admin',
+        variables: ['to', 'name', 'role'],
+        channel: 'email',
+        editable: false,
+      },
+      {
+        id: 'notification',
+        category: 'Notificações',
+        name: 'Notificação transacional',
+        subject: '[NextDream] {{title}}',
+        recipient: 'Usuário autenticado',
+        variables: ['to', 'name', 'title', 'message'],
+        channel: 'email',
+        editable: false,
+      },
+      {
+        id: 'admin_invite',
+        category: 'Administração',
+        name: 'Convite de admin',
+        subject: 'Convite de administrador - NextDream',
+        recipient: 'Administrador convidado',
+        variables: ['to', 'inviteUrl', 'expiresInHours'],
+        channel: 'email',
+        editable: false,
+      },
+      {
+        id: 'patient_invite',
+        category: 'Instituições',
+        name: 'Convite para paciente gerenciado',
+        subject: 'Convite para acompanhar seu caso - NextDream',
+        recipient: 'Paciente acompanhado por instituição',
+        variables: ['to', 'patientName', 'institutionName', 'inviteUrl', 'expiresInHours'],
+        channel: 'email',
+        editable: false,
+      },
+      {
+        id: 'email_verification',
+        category: 'Conta & Segurança',
+        name: 'Verificação de e-mail',
+        subject: 'Ative sua conta - NextDream',
+        recipient: 'Usuário recém-cadastrado',
+        variables: ['to', 'name', 'verifyUrl', 'expiresInHours'],
+        channel: 'email',
+        editable: false,
+      },
+      {
+        id: 'password_reset',
+        category: 'Conta & Segurança',
+        name: 'Redefinição de senha',
+        subject: 'Redefina sua senha - NextDream',
+        recipient: 'Usuário com redefinição solicitada',
+        variables: ['to', 'name', 'resetUrl', 'expiresInHours', 'initiatedByAdmin'],
+        channel: 'email',
+        editable: false,
+      },
+      {
+        id: 'smoke_test',
+        category: 'Operação',
+        name: 'Smoke test operacional',
+        subject: '[NextDream] Smoke test de email',
+        recipient: 'Operador técnico',
+        variables: ['to', 'name'],
+        channel: 'email',
+        editable: false,
+      },
+    ];
+  }
 
   private escapeHtml(value: string) {
     return value
@@ -571,13 +657,17 @@ export class MailService {
     name: string;
     resetUrl: string;
     expiresInHours: number;
+    initiatedByAdmin?: boolean;
   }) {
     const subject = 'Redefina sua senha - NextDream';
+    const intro = params.initiatedByAdmin
+      ? 'Um administrador iniciou uma redefinição de senha para sua conta no NextDream.'
+      : 'Recebemos um pedido para redefinir a senha da sua conta no NextDream.';
     const template = this.renderEmailTemplate({
       preheader: 'Link para redefinir sua senha no NextDream',
       title: 'Redefinir senha',
       greeting: `Olá, ${params.name}!`,
-      intro: 'Recebemos um pedido para redefinir a senha da sua conta no NextDream.',
+      intro,
       bodyLines: [
         `Este link expira em ${params.expiresInHours} horas e pode ser usado para criar uma nova senha com segurança.`,
         'Se você não fez esta solicitação, ignore este email. Sua senha atual continuará válida.',

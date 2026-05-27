@@ -26,4 +26,8 @@ export class UpdateAdminDto {
   @IsString()
   @MinLength(8)
   newPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

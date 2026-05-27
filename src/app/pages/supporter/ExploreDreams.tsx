@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, SlidersHorizontal, X, MapPin, Video, Users } from 'lucide-react';
+import { Search, SlidersHorizontal, X, MapPin, Video, Users, HeartHandshake } from 'lucide-react';
 import { DreamCard } from '../../components/shared/DreamCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { EntityPagination } from '../../components/shared/EntityPagination';
@@ -7,19 +7,20 @@ import { useNavigate } from 'react-router';
 import { DREAM_CATEGORIES } from '../../data/dreamCategories';
 import { ApiError, PublicDream, Proposal, dreamsApi, proposalsApi } from '../../lib/api';
 import { buildProposalMapByDream } from '../../lib/proposals';
+import { ProductHero, ProductPageShell, SensitiveNotice } from '../../components/shared/VisualSystem';
 
 const PAGE_SIZE = 5;
 
 const formatLabels = {
-  remoto: '💻 Online',
-  presencial: '📍 Presencial',
-  ambos: '🤝 Ambos',
+  remoto: 'Online',
+  presencial: 'Presencial',
+  ambos: 'Ambos',
 } as const;
 
 const urgencyLabels = {
-  alta: '🔴 Alta',
-  media: '🟡 Média',
-  baixa: '🟢 Baixa',
+  alta: 'Precisa de janela mais próxima',
+  media: 'Sem pressa imediata',
+  baixa: 'Flexível',
 } as const;
 
 function matchesFormat(
@@ -99,13 +100,19 @@ export default function ExploreDreams() {
   const hasFilters = filters.categories.length > 0 || filters.format || filters.urgency;
 
   return (
-    <div data-sandbox-tour-id="supporter-explore-panel" className="max-w-3xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Explorar Sonhos</h1>
-        <p className="text-gray-500 text-sm">
-          {loading ? 'Carregando sonhos...' : `${filtered.length} sonhos aguardando um apoiador como você`}
-        </p>
-      </div>
+    <ProductPageShell data-sandbox-tour-id="supporter-explore-panel" tone="support" width="content">
+      <ProductHero
+        tone="support"
+        icon={HeartHandshake}
+        eyebrow="Explorar com cuidado"
+        title="Sonhos possíveis para apoiar"
+        description={loading ? 'Carregando histórias...' : `${filtered.length} histórias abertas para presença, tempo, companhia ou habilidade.`}
+        aside={(
+          <SensitiveNotice tone="support" title="Apoio não financeiro">
+            Leia cada história com calma. Envie proposta apenas quando puder oferecer presença realista, respeitando limites e consentimento.
+          </SensitiveNotice>
+        )}
+      />
 
       {/* Search + filter */}
       <div className="flex gap-3">
@@ -118,14 +125,14 @@ export default function ExploreDreams() {
               setQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="Buscar por título, descrição..."
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+            placeholder="Buscar por título ou tipo de presença..."
+            className="w-full pl-10 pr-4 py-3 bg-white border border-[#c9e5dc] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#9ed0c1] focus:border-[#245b53]"
           />
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors
-            ${showFilters || hasFilters ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-gray-200 text-gray-600 hover:border-teal-300'}`}
+            ${showFilters || hasFilters ? 'bg-[#245b53] text-white border-[#245b53]' : 'bg-white border-[#c9e5dc] text-[#50645d] hover:border-[#9ed0c1]'}`}
         >
           <SlidersHorizontal className="w-4 h-4" />
           Filtros
@@ -135,7 +142,7 @@ export default function ExploreDreams() {
 
       {/* Filters panel */}
       {showFilters && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+        <div className="bg-white border border-[#c9e5dc] rounded-2xl p-5 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-700">Filtros</h3>
             {hasFilters && (
@@ -161,7 +168,7 @@ export default function ExploreDreams() {
                     setPage(1);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs border transition-all
-                    ${filters.categories.includes(cat) ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
+                    ${filters.categories.includes(cat) ? 'bg-[#245b53] text-white border-[#245b53]' : 'border-[#c9e5dc] text-[#50645d] hover:border-[#9ed0c1]'}`}
                 >
                   {cat}
                 </button>
@@ -173,32 +180,36 @@ export default function ExploreDreams() {
             <p className="text-xs text-gray-500 mb-2">Formato</p>
             <div className="flex gap-2">
               {[
-                { val: 'remoto', label: '💻 Online', icon: Video },
-                { val: 'presencial', label: '📍 Presencial', icon: MapPin },
-                { val: 'ambos', label: '🤝 Ambos', icon: Users },
-              ].map(f => (
-                <button
-                  key={f.val}
-                  onClick={() => {
-                    setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }));
-                    setPage(1);
-                  }}
-                  className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
-                    ${filters.format === f.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
-                >
-                  {f.label}
-                </button>
-              ))}
+                { val: 'remoto', label: 'Online', icon: Video },
+                { val: 'presencial', label: 'Presencial', icon: MapPin },
+                { val: 'ambos', label: 'Ambos', icon: Users },
+              ].map(f => {
+                const Icon = f.icon;
+                return (
+                  <button
+                    key={f.val}
+                    onClick={() => {
+                      setFilters(fm => ({ ...fm, format: fm.format === f.val ? '' : f.val }));
+                      setPage(1);
+                    }}
+                    className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
+                      ${filters.format === f.val ? 'bg-[#245b53] text-white border-[#245b53]' : 'border-[#c9e5dc] text-[#50645d] hover:border-[#9ed0c1]'}`}
+                  >
+                    <Icon className="mx-auto mb-1 h-4 w-4" />
+                    {f.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           <div>
-            <p className="text-xs text-gray-500 mb-2">Urgência</p>
+            <p className="text-xs text-gray-500 mb-2">Janela de cuidado</p>
             <div className="flex gap-2">
               {[
-                { val: 'alta', label: '🔴 Alta' },
-                { val: 'media', label: '🟡 Média' },
-                { val: 'baixa', label: '🟢 Baixa' },
+                { val: 'alta', label: 'Mais próxima' },
+                { val: 'media', label: 'Moderada' },
+                { val: 'baixa', label: 'Flexível' },
               ].map(u => (
                 <button
                   key={u.val}
@@ -207,7 +218,7 @@ export default function ExploreDreams() {
                     setPage(1);
                   }}
                   className={`flex-1 py-2 rounded-xl text-xs border font-medium transition-all
-                    ${filters.urgency === u.val ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
+                    ${filters.urgency === u.val ? 'bg-[#245b53] text-white border-[#245b53]' : 'border-[#c9e5dc] text-[#50645d] hover:border-[#9ed0c1]'}`}
                 >
                   {u.label}
                 </button>
@@ -242,7 +253,7 @@ export default function ExploreDreams() {
           )}
           {filters.urgency && (
             <span className="flex items-center gap-1.5 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs">
-              Urgência: {urgencyLabels[filters.urgency as keyof typeof urgencyLabels]}
+              {urgencyLabels[filters.urgency as keyof typeof urgencyLabels]}
               <button onClick={() => {
                 setFilters(f => ({ ...f, urgency: '' }));
                 setPage(1);
@@ -287,6 +298,6 @@ export default function ExploreDreams() {
           <EntityPagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}
-    </div>
+    </ProductPageShell>
   );
 }

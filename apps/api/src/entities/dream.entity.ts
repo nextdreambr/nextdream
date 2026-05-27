@@ -11,6 +11,11 @@ import {
 import { ManagedPatient } from './managed-patient.entity';
 import { User } from './user.entity';
 import { Proposal } from './proposal.entity';
+import {
+  DEFAULT_DREAM_LANGUAGE,
+  DreamLanguage,
+  DreamTranslations,
+} from '../modules/dreams/dream-language';
 
 export type DreamStatus = 'rascunho' | 'publicado' | 'em-conversa' | 'realizando' | 'concluido' | 'pausado' | 'cancelado';
 export type DreamFormat = 'remoto' | 'presencial' | 'ambos';
@@ -27,6 +32,12 @@ export class Dream {
 
   @Column('text')
   description!: string;
+
+  @Column({ type: 'varchar', default: DEFAULT_DREAM_LANGUAGE })
+  originalLanguage!: DreamLanguage;
+
+  @Column({ type: 'simple-json', nullable: true, default: '{}' })
+  translations!: DreamTranslations;
 
   @Column({ type: 'varchar' })
   category!: string;

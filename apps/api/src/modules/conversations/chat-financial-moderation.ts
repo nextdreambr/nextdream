@@ -1,3 +1,6 @@
+import { type ApiLocale } from '../../i18n/locale';
+import { tApi } from '../../i18n/messages';
+
 const BLOCKED_FINANCIAL_PATTERNS = [
   /\bpix\b/u,
   /\bdinheiro\b/u,
@@ -21,6 +24,6 @@ export function containsFinancialLanguage(value: string) {
   return BLOCKED_FINANCIAL_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-export function getChatFinancialModerationMessage() {
-  return 'Mensagens com PIX, dinheiro ou doações não são permitidas neste chat. Reformule oferecendo tempo, presença ou companhia.';
+export function getChatFinancialModerationMessage(locale?: ApiLocale) {
+  return tApi('chat.financialModeration', locale);
 }

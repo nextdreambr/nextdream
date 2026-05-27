@@ -8,6 +8,7 @@ import { ConversationsController } from '../modules/conversations/conversations.
 import { ConversationsService } from '../modules/conversations/conversations.service';
 import { DreamsController } from '../modules/dreams/dreams.controller';
 import { DreamsService } from '../modules/dreams/dreams.service';
+import { DreamTranslationService } from '../modules/dreams/dream-translation.service';
 import { InstitutionController } from '../modules/institution/institution.controller';
 import { InstitutionService } from '../modules/institution/institution.service';
 import { NotificationsController } from '../modules/notifications/notifications.controller';
@@ -41,6 +42,7 @@ import { SandboxStateService } from './sandbox-state.service';
     SandboxConversationsService,
     SandboxNotificationsService,
     SandboxInstitutionService,
+    DreamTranslationService,
     JwtAuthGuard,
     RolesGuard,
     {

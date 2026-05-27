@@ -1,5 +1,6 @@
 import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { DreamFormat, DreamPrivacy, DreamUrgency } from '../../../entities/dream.entity';
+import { DreamLanguage, SUPPORTED_DREAM_LANGUAGES } from '../dream-language';
 
 export class UpdateDreamDto {
   @IsOptional()
@@ -9,6 +10,10 @@ export class UpdateDreamDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsIn(SUPPORTED_DREAM_LANGUAGES)
+  originalLanguage?: DreamLanguage;
 
   @IsOptional()
   @IsString()

@@ -24,7 +24,15 @@ import { InstitutionService } from '../institution/institution.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDreamDto } from './dto/create-dream.dto';
 import { CreateProposalDto } from './dto/create-proposal.dto';
+import { TranslateDreamDto } from './dto/translate-dream.dto';
 import { UpdateDreamDto } from './dto/update-dream.dto';
+import {
+  DreamTranslation,
+  isDreamLanguage,
+  normalizeDreamLanguage,
+  normalizeDreamTranslations,
+} from './dream-language';
+import { DreamTranslationService } from './dream-translation.service';
 
 function buildOperatorRoute(role: User['role'], section: 'propostas' | 'chat') {
   if (role === 'instituicao') {
@@ -45,6 +53,7 @@ export class DreamsService {
   private readonly conversationsRepository: Repository<Conversation>;
   private readonly institutionService: InstitutionService;
   private readonly notificationsService: NotificationsService;
+  private readonly translationService: DreamTranslationService;
 
   constructor(
     @InjectRepository(Dream) dreamsRepository: Repository<Dream>,
@@ -53,6 +62,7 @@ export class DreamsService {
     @InjectRepository(Conversation) conversationsRepository: Repository<Conversation>,
     @Inject(InstitutionService) institutionService: InstitutionService,
     @Inject(NotificationsService) notificationsService: NotificationsService,
+    @Inject(DreamTranslationService) translationService: DreamTranslationService,
   ) {
     this.dreamsRepository = dreamsRepository;
     this.usersRepository = usersRepository;
@@ -60,6 +70,7 @@ export class DreamsService {
     this.conversationsRepository = conversationsRepository;
     this.institutionService = institutionService;
     this.notificationsService = notificationsService;
+    this.translationService = translationService;
   }
 
   async createDream(currentUser: JwtPayload, dto: CreateDreamDto) {
@@ -82,6 +93,8 @@ export class DreamsService {
       const dream = this.dreamsRepository.create({
         title: dto.title,
         description: dto.description,
+        originalLanguage: normalizeDreamLanguage(dto.originalLanguage),
+        translations: {},
         category: dto.category,
         format: dto.format,
         urgency: dto.urgency,
@@ -100,6 +113,8 @@ export class DreamsService {
     const dream = this.dreamsRepository.create({
       title: dto.title,
       description: dto.description,
+      originalLanguage: normalizeDreamLanguage(dto.originalLanguage),
+      translations: {},
       category: dto.category,
       format: dto.format,
       urgency: dto.urgency,
@@ -286,11 +301,19 @@ export class DreamsService {
       throw new BadRequestException('Only institutions can assign managed patients');
     }
 
+    let shouldClearTranslations = false;
+
     if (dto.title !== undefined) {
       dream.title = dto.title.trim();
+      shouldClearTranslations = true;
     }
     if (dto.description !== undefined) {
       dream.description = dto.description.trim();
+      shouldClearTranslations = true;
+    }
+    if (dto.originalLanguage !== undefined) {
+      dream.originalLanguage = normalizeDreamLanguage(dto.originalLanguage);
+      shouldClearTranslations = true;
     }
     if (dto.category !== undefined) {
       dream.category = dto.category.trim();
@@ -304,9 +327,66 @@ export class DreamsService {
     if (dto.privacy !== undefined) {
       dream.privacy = dto.privacy;
     }
+    if (shouldClearTranslations) {
+      dream.translations = {};
+    }
 
     const saved = await this.dreamsRepository.save(dream);
     return this.serializeDream(saved);
+  }
+
+  async translateDream(
+    currentUser: JwtPayload | undefined,
+    dreamId: string,
+    targetLanguageInput: TranslateDreamDto['targetLanguage'] | string,
+  ) {
+    if (!isDreamLanguage(targetLanguageInput)) {
+      throw new BadRequestException('Unsupported dream translation language');
+    }
+
+    const dream = await this.dreamsRepository.findOneBy({ id: dreamId });
+    if (!dream) {
+      throw new NotFoundException('Dream not found');
+    }
+
+    await this.ensureCanTranslateDream(currentUser, dream);
+
+    const originalLanguage = normalizeDreamLanguage(dream.originalLanguage);
+    if (targetLanguageInput === originalLanguage) {
+      throw new BadRequestException('Dream is already written in the target language');
+    }
+
+    const translations = normalizeDreamTranslations(dream.translations);
+    const cachedTranslation = translations[targetLanguageInput];
+    if (cachedTranslation) {
+      return cachedTranslation;
+    }
+
+    const generated = await this.translationService.translateDream({
+      title: dream.title,
+      description: dream.description,
+      sourceLanguage: originalLanguage,
+      targetLanguage: targetLanguageInput,
+    });
+    const now = new Date().toISOString();
+    const translation: DreamTranslation = {
+      title: generated.title,
+      description: generated.description,
+      source: 'machine',
+      createdAt: now,
+      updatedAt: now,
+      reviewedAt: null,
+      model: generated.model,
+    };
+
+    dream.originalLanguage = originalLanguage;
+    dream.translations = {
+      ...translations,
+      [targetLanguageInput]: translation,
+    };
+    await this.dreamsRepository.save(dream);
+
+    return translation;
   }
 
   async listDreamProposals(currentUser: JwtPayload, dreamId: string) {
@@ -558,6 +638,47 @@ export class DreamsService {
     );
   }
 
+  private async ensureCanTranslateDream(currentUser: JwtPayload | undefined, dream: Dream) {
+    if (dream.status === 'publicado') {
+      return;
+    }
+
+    if (!currentUser) {
+      throw new ForbiddenException('You are not allowed to view this dream');
+    }
+
+    if (currentUser.role === 'admin') {
+      return;
+    }
+
+    if (currentUser.role === 'instituicao' && dream.patientId === currentUser.sub) {
+      await this.ensureInstitutionManagedPatientAccess(currentUser, dream);
+      return;
+    }
+
+    if (currentUser.role === 'paciente') {
+      const canSeeLinkedCase = await this.institutionService.isLinkedManagedPatient(
+        currentUser.sub,
+        dream.managedPatientId,
+      );
+      if (dream.patientId === currentUser.sub || canSeeLinkedCase) {
+        return;
+      }
+    }
+
+    if (currentUser.role === 'apoiador') {
+      const hasProposal = await this.proposalsRepository.findOneBy({
+        dreamId: dream.id,
+        supporterId: currentUser.sub,
+      });
+      if (hasProposal) {
+        return;
+      }
+    }
+
+    throw new ForbiddenException('You are not allowed to view this dream');
+  }
+
   private serializeDream(dream: Dream, currentUser?: JwtPayload) {
     const patientName = dream.managedPatient?.name ?? dream.patient?.name;
     const patientCity = dream.managedPatient
@@ -574,6 +695,8 @@ export class DreamsService {
       id: dream.id,
       title: dream.title,
       description: dream.description,
+      originalLanguage: normalizeDreamLanguage(dream.originalLanguage),
+      translations: normalizeDreamTranslations(dream.translations),
       category: dream.category,
       format: dream.format,
       urgency: dream.urgency,

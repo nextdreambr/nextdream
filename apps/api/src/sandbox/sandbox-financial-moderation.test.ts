@@ -12,4 +12,5 @@ describe('sandbox financial moderation', () => {
     expect(containsFinancialLanguage('Sou capixaba e posso oferecer companhia.')).toBe(false);
     expect(containsFinancialLanguage('Posso estar presente e ouvir com calma.')).toBe(false);
   });
+
 });

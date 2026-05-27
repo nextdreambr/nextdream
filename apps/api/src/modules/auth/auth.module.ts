@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminInvite } from '../../entities/admin-invite.entity';
+import { AuditLog } from '../../entities/audit-log.entity';
 import { EmailVerificationToken } from '../../entities/email-verification-token.entity';
 import { ManagedPatient } from '../../entities/managed-patient.entity';
 import { PasswordResetToken } from '../../entities/password-reset-token.entity';
+import { PasswordResetRequest } from '../../entities/password-reset-request.entity';
 import { PatientInvite } from '../../entities/patient-invite.entity';
 import { User } from '../../entities/user.entity';
 import { AuthController } from './auth.controller';
@@ -15,7 +17,16 @@ import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, AdminInvite, PatientInvite, ManagedPatient, PasswordResetToken, EmailVerificationToken]),
+    TypeOrmModule.forFeature([
+      User,
+      AdminInvite,
+      PatientInvite,
+      ManagedPatient,
+      PasswordResetToken,
+      EmailVerificationToken,
+      PasswordResetRequest,
+      AuditLog,
+    ]),
     JwtModule.register({}),
     MailModule,
   ],

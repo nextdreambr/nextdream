@@ -1,4 +1,5 @@
 import { loadStoredSession } from './authSession';
+import { getCurrentBrowserLocale, type SupportedLocale } from '../i18n/locale';
 
 export class ApiError extends Error {
   status: number;
@@ -107,6 +108,13 @@ async function apiRequestInternal<T>(
   if (!headers['Content-Type'] && init.body && !(init.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
+  const activeLocale = getCurrentBrowserLocale();
+  if (!Object.keys(headers).some((key) => key.toLowerCase() === 'x-nextdream-locale')) {
+    headers['X-NextDream-Locale'] = activeLocale;
+  }
+  if (!Object.keys(headers).some((key) => key.toLowerCase() === 'accept-language')) {
+    headers['Accept-Language'] = activeLocale;
+  }
   if (overrideAccessToken) {
     if (authorizationHeaderKey) {
       delete headers[authorizationHeaderKey];
@@ -174,6 +182,8 @@ async function refreshAuthSession(): Promise<AuthSession | null> {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'X-NextDream-Locale': getCurrentBrowserLocale(),
+          'Accept-Language': getCurrentBrowserLocale(),
         },
         body: JSON.stringify({ refreshToken: initialRefreshToken }),
       });
@@ -260,6 +270,7 @@ export interface AuthRegisterResponse {
 export interface CreateDreamInput {
   title: string;
   description: string;
+  originalLanguage?: DreamLanguage;
   category: string;
   format: 'remoto' | 'presencial' | 'ambos';
   urgency: 'baixa' | 'media' | 'alta';
@@ -267,10 +278,24 @@ export interface CreateDreamInput {
   managedPatientId?: string;
 }
 
+export type DreamLanguage = SupportedLocale;
+
+export interface DreamTranslation {
+  title: string;
+  description: string;
+  source: 'machine' | 'human';
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string | null;
+  model?: string;
+}
+
 export interface PublicDream {
   id: string;
   title: string;
   description: string;
+  originalLanguage?: DreamLanguage;
+  translations?: Partial<Record<DreamLanguage, DreamTranslation>>;
   category: string;
   format: 'remoto' | 'presencial' | 'ambos';
   urgency: 'baixa' | 'media' | 'alta';
@@ -392,6 +417,18 @@ export const authApi = {
       body: JSON.stringify(payload),
     });
   },
+  forgotPassword(payload: { email: string }) {
+    return apiRequest<{ ok: boolean }>('/auth/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  resetPassword(payload: { requestId: string; token: string; newPassword: string }) {
+    return apiRequest<{ ok: boolean }>('/auth/password/reset', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };
 
 export const dreamsApi = {
@@ -417,7 +454,10 @@ export const dreamsApi = {
   create(payload: CreateDreamInput) {
     return apiRequest<PublicDream>('/dreams', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        originalLanguage: payload.originalLanguage ?? getCurrentBrowserLocale(),
+      }),
     });
   },
   update(dreamId: string, payload: Partial<CreateDreamInput>) {
@@ -433,6 +473,12 @@ export const dreamsApi = {
     return apiRequest<Proposal>(`/dreams/${dreamId}/proposals`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+  translateDream(dreamId: string, targetLanguage: DreamLanguage) {
+    return apiRequest<DreamTranslation>(`/dreams/${dreamId}/translations`, {
+      method: 'POST',
+      body: JSON.stringify({ targetLanguage }),
     });
   },
 };
@@ -506,6 +552,45 @@ export interface AdminOverview {
   totalProposals: number;
   totalChats: number;
   totalReportsOpen: number;
+  generatedAt?: string;
+  environment?: string;
+  systemStatus?: {
+    api: 'online' | 'degraded';
+    email: 'resend' | 'smtp' | 'sandbox' | 'test' | 'not-configured';
+    dataMode: 'database' | 'sandbox';
+  };
+  workQueues?: {
+    reportsOpen: number;
+    institutionsPendingApproval: number;
+    chatsWithModeration: number;
+    contactMessagesNew: number;
+    dreamsPaused: number;
+    proposalsInReview: number;
+  };
+  health?: {
+    usersByRole: Partial<Record<ApiUserRole, number>>;
+    dreamsByStatus: Record<string, number>;
+    proposalsByStatus: Record<string, number>;
+    activeChats: number;
+    closedChats: number;
+    backlog: number;
+  };
+  riskCare?: {
+    moderatedMessages: number;
+    suspendedUsersRecent: number;
+    recurringReportedTargets: Array<{
+      targetType: string;
+      targetId: string;
+      count: number;
+      latestReason?: string;
+    }>;
+  };
+  recent?: {
+    auditLogs: AdminAuditLog[];
+    reports: AdminReportSummary[];
+    moderatedChats: AdminChatSummary[];
+    adminInvites: AdminInvite[];
+  };
 }
 
 export interface AdminUser {
@@ -523,6 +608,299 @@ export interface AdminUser {
   suspensionReason?: string;
   suspendedAt?: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminUserActivitySummary {
+  dreams?: number;
+  proposalsReceived?: number;
+  proposalsSent?: number;
+  acceptedProposals?: number;
+  conversations?: number;
+  activeConversations?: number;
+  managedPatients?: number;
+  linkedPatients?: number;
+  supporterConnections?: number;
+}
+
+export interface AdminUserActivityDream {
+  id: string;
+  title: string;
+  category: string;
+  status: PublicDream['status'];
+  urgency: PublicDream['urgency'];
+  updatedAt: string;
+}
+
+export interface AdminUserActivityProposal {
+  id: string;
+  dreamId: string;
+  dreamTitle?: string;
+  supporterId?: string;
+  supporterName?: string;
+  patientId?: string;
+  patientName?: string;
+  status: Proposal['status'];
+  offering?: string;
+  createdAt: string;
+}
+
+export interface AdminUserActivityConversation {
+  id: string;
+  dreamId: string;
+  dreamTitle?: string;
+  supporterId?: string;
+  supporterName?: string;
+  patientId?: string;
+  patientName?: string;
+  status: Conversation['status'];
+  messageCount: number;
+  createdAt: string;
+  lastMessageAt?: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  emailNotificationsEnabled?: boolean;
+  institutionType?: string;
+  institutionResponsibleName?: string;
+  institutionResponsiblePhone?: string;
+  institutionDescription?: string;
+  activitySummary: AdminUserActivitySummary;
+  recentDreams: AdminUserActivityDream[];
+  recentProposals: AdminUserActivityProposal[];
+  recentConversations: AdminUserActivityConversation[];
+}
+
+export interface UpdateAdminUserInput {
+  name?: string;
+  email?: string;
+  state?: string;
+  city?: string;
+  verified?: boolean;
+  approved?: boolean;
+  institutionType?: string;
+  institutionResponsibleName?: string;
+  institutionResponsiblePhone?: string;
+  institutionDescription?: string;
+}
+
+export interface AdminPasswordResetResult {
+  id: string;
+  mode: 'manual' | 'reset-link';
+  delivery?: 'email';
+  email?: string;
+  expiresAt?: string;
+}
+
+export interface AdminSecurityTrailItem {
+  id: string;
+  action: string;
+  details: string;
+  date: string;
+  severity: 'alta' | 'media' | 'baixa';
+  outcome: 'ok' | 'warn' | 'danger';
+}
+
+export interface AdminAccountDetail extends AdminUser {
+  securityTrail: AdminSecurityTrailItem[];
+}
+
+export interface AdminSettingsRule {
+  id: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface AdminSettingsCategory {
+  id: string;
+  name: string;
+}
+
+export interface AdminInstitutionalText {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export interface AdminSettingsPayload {
+  blockedWords: string[];
+  rules: AdminSettingsRule[];
+  categories: AdminSettingsCategory[];
+  institutionalTexts: AdminInstitutionalText[];
+  updatedAt?: string;
+}
+
+export interface AdminDreamSummary {
+  id: string;
+  title: string;
+  originalLanguage?: DreamLanguage;
+  translations?: Partial<Record<DreamLanguage, DreamTranslation>>;
+  category: string;
+  format: PublicDream['format'];
+  urgency: PublicDream['urgency'];
+  privacy: PublicDream['privacy'];
+  status: PublicDream['status'];
+  patientId?: string;
+  patientName?: string;
+  operatorName?: string;
+  managedPatientName?: string;
+  institutionName?: string;
+  city?: string;
+  state?: string;
+  locationLabel?: string;
+  proposalCount?: number;
+  chatCount?: number;
+  reportCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminDreamDetail extends AdminDreamSummary {
+  description: string;
+  relatedProposals: Array<{
+    id: string;
+    supporterId?: string;
+    supporterName?: string;
+    status: Proposal['status'];
+    message?: string;
+    offering?: string;
+    availability?: string;
+    duration?: string;
+    createdAt: string;
+  }>;
+  linkedConversation: AdminChatDetail | null;
+  relatedReports?: AdminReportSummary[];
+}
+
+export interface AdminProposalSummary {
+  id: string;
+  dreamId: string;
+  dreamTitle?: string;
+  dreamCategory?: string;
+  dreamStatus?: PublicDream['status'];
+  supporterId?: string;
+  supporterName?: string;
+  supporterEmail?: string;
+  patientName?: string;
+  institutionName?: string;
+  city?: string;
+  state?: string;
+  locationLabel?: string;
+  status: Proposal['status'];
+  message?: string;
+  offering?: string;
+  availability?: string;
+  duration?: string;
+  conversationId?: string;
+  conversationStatus?: 'ativa' | 'encerrada';
+  reportCount?: number;
+  riskLevel?: 'high' | 'medium' | 'pending' | 'low';
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminProposalDetail extends AdminProposalSummary {
+  supporterEmail?: string;
+  dreamStatus?: PublicDream['status'];
+  relatedConversation?: AdminChatDetail | null;
+  relatedReports?: AdminReportSummary[];
+}
+
+export interface AdminContactMessageSummary {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  status: 'novo' | 'em-analise' | 'respondido';
+  createdAt: string;
+}
+
+export interface AdminChatSummary {
+  id: string;
+  dreamId: string;
+  dreamTitle?: string;
+  patientId?: string;
+  patientName?: string;
+  institutionName?: string;
+  managedPatientName?: string;
+  supporterId: string;
+  supporterName?: string;
+  status: 'ativa' | 'encerrada';
+  messageCount: number;
+  lastMessageAt: string | null;
+  lastMessagePreview?: string | null;
+  createdAt: string;
+  hasModeratedMessages: boolean;
+  hasModerationReport: boolean;
+  lastModerationAt: string | null;
+}
+
+export interface AdminChatDetail extends AdminChatSummary {
+  latestMessages: Array<{
+    id: string;
+    senderId: string;
+    senderName?: string;
+    body: string;
+    moderated: boolean;
+    createdAt: string;
+  }>;
+  moderationReports: Array<{
+    id: string;
+    type: string;
+    status: 'aberto' | 'em-analise' | 'resolvido';
+    reason: string;
+    createdAt: string;
+  }>;
+}
+
+export type AdminReportSeverity = 'critical' | 'high' | 'medium' | 'low';
+
+export interface AdminReportTargetSummary {
+  chatId?: string;
+  dreamTitle?: string;
+  patientId?: string;
+  patientName?: string;
+  institutionName?: string;
+  supporterId?: string;
+  supporterName?: string;
+  hasModeratedMessages?: boolean;
+  messageId?: string;
+  conversationId?: string;
+  senderId?: string;
+  senderName?: string;
+  moderated?: boolean;
+  body?: string;
+  dreamId?: string;
+  proposalId?: string;
+  targetUserId?: string;
+  targetUserName?: string;
+  targetUserEmail?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export interface AdminReportSummary {
+  id: string;
+  type: string;
+  targetType: string;
+  targetId: string;
+  reason: string;
+  status: 'aberto' | 'em-analise' | 'resolvido';
+  severity?: AdminReportSeverity;
+  entityLabel?: string;
+  reporterName?: string;
+  accusedName?: string;
+  responsibleName?: string;
+  resolution?: string;
+  createdAt: string;
+  updatedAt?: string;
+  resolvedAt?: string;
+  targetSummary?: AdminReportTargetSummary | null;
+}
+
+export interface AdminReportDetail extends AdminReportSummary {
+  targetSummary?: AdminReportTargetSummary | null;
 }
 
 export interface InstitutionOverview {
@@ -604,6 +982,8 @@ export interface AdminInvite {
   id: string;
   email: string;
   expiresAt: string;
+  usedAt?: string;
+  createdAt?: string;
 }
 
 export interface AdminChat {
@@ -659,6 +1039,9 @@ export interface AdminEmailTemplateMeta {
   name: string;
   subject: string;
   recipient: string;
+  variables?: string[];
+  channel?: 'email';
+  editable?: boolean;
 }
 
 export const conversationsApi = {
@@ -711,11 +1094,42 @@ export const adminApi = {
   overview() {
     return apiRequest<AdminOverview>('/admin/overview');
   },
-  listUsers() {
-    return apiRequest<AdminUser[]>('/admin/users');
+  listUsers(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    role?: ApiUserRole | '';
+    status?: 'ativo' | 'suspenso' | '';
+    approval?: 'aprovado' | 'pendente' | '';
+    verification?: 'verificado' | 'pendente' | '';
+  } = {}) {
+    return apiRequest<PaginatedResult<AdminUser>>(`/admin/users${buildQueryString(params)}`);
+  },
+  getUserDetail(userId: string) {
+    return apiRequest<AdminUserDetail>(`/admin/users/${userId}`);
+  },
+  updateUser(userId: string, payload: UpdateAdminUserInput) {
+    return apiRequest<AdminUserDetail>(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
   },
   listAdmins() {
     return apiRequest<AdminUser[]>('/admin/admins');
+  },
+  listAdminsPage(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: 'ativo' | 'suspenso' | '';
+  } = {}) {
+    return apiRequest<PaginatedResult<AdminUser>>(`/admin/admins/page${buildQueryString(params)}`);
+  },
+  getAdminDetail(userId: string) {
+    return apiRequest<AdminAccountDetail>(`/admin/admins/${userId}`);
+  },
+  listAdminInvites() {
+    return apiRequest<AdminInvite[]>('/admin/admins/invites');
   },
   suspendUser(userId: string, reason: string) {
     return apiRequest<{ id: string; suspended: boolean; suspensionReason?: string }>(`/admin/users/${userId}/suspend`, {
@@ -723,9 +1137,21 @@ export const adminApi = {
       body: JSON.stringify({ reason }),
     });
   },
+  reactivateUser(userId: string, reason: string) {
+    return apiRequest<{ id: string; suspended: boolean; suspensionReason?: string }>(`/admin/users/${userId}/reactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
   approveUser(userId: string) {
     return apiRequest<{ id: string; role: ApiUserRole; approved: boolean; approvedAt?: string }>(`/admin/users/${userId}/approve`, {
       method: 'POST',
+    });
+  },
+  resetUserPassword(userId: string, payload: { mode: 'manual'; newPassword: string } | { mode: 'reset-link' }) {
+    return apiRequest<AdminPasswordResetResult>(`/admin/users/${userId}/password/reset`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
   updateAdmin(
@@ -737,6 +1163,7 @@ export const adminApi = {
       isActive?: boolean;
       currentPassword?: string;
       newPassword?: string;
+      reason?: string;
     },
   ) {
     return apiRequest<AdminUser>(`/admin/admins/${userId}`, {
@@ -750,8 +1177,25 @@ export const adminApi = {
       body: JSON.stringify({ email }),
     });
   },
-  listDreams() {
-    return apiRequest<Array<{ id: string; title: string; category: string; status: PublicDream['status']; patientName?: string; createdAt: string }>>('/admin/dreams');
+  listDreams(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: PublicDream['status'] | '';
+    category?: string;
+    format?: PublicDream['format'] | '';
+    urgency?: PublicDream['urgency'] | '';
+    privacy?: PublicDream['privacy'] | '';
+    location?: string;
+    report?: 'true' | 'false' | '';
+    proposal?: 'with' | 'without' | '';
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    return apiRequest<PaginatedResult<AdminDreamSummary>>(`/admin/dreams${buildQueryString(params)}`);
+  },
+  getDreamDetail(dreamId: string) {
+    return apiRequest<AdminDreamDetail>(`/admin/dreams/${dreamId}`);
   },
   updateDreamStatus(dreamId: string, status: PublicDream['status'], reason?: string) {
     return apiRequest<{ id: string; status: PublicDream['status'] }>(`/admin/dreams/${dreamId}/status`, {
@@ -759,8 +1203,24 @@ export const adminApi = {
       body: JSON.stringify({ status, reason }),
     });
   },
-  listProposals() {
-    return apiRequest<Array<{ id: string; dreamTitle?: string; supporterName?: string; status: Proposal['status']; createdAt: string }>>('/admin/proposals');
+  listProposals(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: Proposal['status'] | '';
+    supporter?: string;
+    dream?: string;
+    location?: string;
+    conversation?: 'true' | 'false' | '';
+    report?: 'true' | 'false' | '';
+    risk?: 'high' | 'medium' | 'pending' | 'low' | '';
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    return apiRequest<PaginatedResult<AdminProposalSummary>>(`/admin/proposals${buildQueryString(params)}`);
+  },
+  getProposalDetail(proposalId: string) {
+    return apiRequest<AdminProposalDetail>(`/admin/proposals/${proposalId}`);
   },
   updateProposalStatus(proposalId: string, status: Proposal['status'], reason?: string) {
     return apiRequest<{ id: string; status: Proposal['status'] }>(`/admin/proposals/${proposalId}/status`, {
@@ -768,11 +1228,40 @@ export const adminApi = {
       body: JSON.stringify({ status, reason }),
     });
   },
-  listMessages() {
-    return apiRequest<AdminContactMessage[]>('/admin/messages');
+  listMessages(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: AdminContactMessage['status'] | '';
+    email?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    return apiRequest<PaginatedResult<AdminContactMessageSummary>>(`/admin/messages${buildQueryString(params)}`);
   },
-  listChats() {
-    return apiRequest<AdminChat[]>('/admin/chats');
+  getMessageDetail(messageId: string) {
+    return apiRequest<AdminContactMessage>(`/admin/messages/${messageId}`);
+  },
+  listChats(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: Conversation['status'] | '';
+    dream?: string;
+    patient?: string;
+    supporter?: string;
+    moderated?: 'true' | 'false' | '';
+    report?: 'true' | 'false' | '';
+    risk?: 'high' | 'medium' | 'low' | '';
+    unanswered?: '24h' | '72h' | '7d' | '';
+    entity?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    return apiRequest<PaginatedResult<AdminChatSummary>>(`/admin/chats${buildQueryString(params)}`);
+  },
+  getChatDetail(chatId: string) {
+    return apiRequest<AdminChatDetail>(`/admin/chats/${chatId}`);
   },
   closeChat(chatId: string, reason: string) {
     return apiRequest<{ id: string; status: 'ativa' | 'encerrada' }>(`/admin/chats/${chatId}/close`, {
@@ -780,8 +1269,22 @@ export const adminApi = {
       body: JSON.stringify({ reason }),
     });
   },
-  listReports() {
-    return apiRequest<AdminReport[]>('/admin/reports');
+  listReports(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    status?: AdminReport['status'] | '';
+    severity?: AdminReportSeverity | '';
+    type?: string;
+    targetType?: string;
+    entity?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    return apiRequest<PaginatedResult<AdminReportSummary>>(`/admin/reports${buildQueryString(params)}`);
+  },
+  getReportDetail(reportId: string) {
+    return apiRequest<AdminReportDetail>(`/admin/reports/${reportId}`);
   },
   updateReportStatus(reportId: string, status: AdminReport['status'], resolution?: string) {
     return apiRequest<{ id: string; status: AdminReport['status'] }>(`/admin/reports/${reportId}/status`, {
@@ -791,6 +1294,27 @@ export const adminApi = {
   },
   listAudit() {
     return apiRequest<AdminAuditLog[]>('/admin/audit');
+  },
+  listAuditPage(params: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    type?: string;
+    severity?: AdminAuditLog['severity'] | '';
+    outcome?: AdminAuditLog['outcome'] | '';
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}) {
+    return apiRequest<PaginatedResult<AdminAuditLog>>(`/admin/audit/page${buildQueryString(params)}`);
+  },
+  getSettings() {
+    return apiRequest<AdminSettingsPayload>('/admin/settings');
+  },
+  updateSettings(payload: Omit<AdminSettingsPayload, 'updatedAt'>) {
+    return apiRequest<AdminSettingsPayload>('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
   },
   listEmailTemplates() {
     return apiRequest<AdminEmailTemplateMeta[]>('/admin/email-templates');

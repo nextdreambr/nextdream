@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router';
+import type { RouteObject } from 'react-router';
 
 // Root layout (provides AppContext to ALL routes)
 import { RootLayout } from './components/layout/RootLayout';
@@ -31,6 +32,13 @@ import NotFound from './pages/NotFound';
 import PublicDreamDetail from './pages/PublicDreamDetail';
 import Contact from './pages/Contact';
 import Partnerships from './pages/Partnerships';
+import {
+  CreateDreamConceptA,
+  CreateDreamConceptB,
+  CreateDreamConceptC,
+} from './pages/concepts/CreateDreamConcepts';
+import { getLocalePrefix, supportedLocales, type SupportedLocale } from './i18n/locale';
+import { publicSlug } from './i18n/routes';
 
 // Onboarding
 import PatientOnboarding from './pages/onboarding/PatientOnboarding';
@@ -73,13 +81,117 @@ import AdminOverview from './pages/admin/AdminOverview';
 import AdminAdmins from './pages/admin/AdminAdmins';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminDreams from './pages/admin/AdminDreams';
+import AdminDreamDetailPage from './pages/admin/AdminDreamDetailPage';
 import AdminProposals from './pages/admin/AdminProposals';
+import AdminProposalDetailPage from './pages/admin/AdminProposalDetailPage';
 import AdminMessages from './pages/admin/AdminMessages';
 import AdminChats from './pages/admin/AdminChats';
 import AdminReports from './pages/admin/AdminReports';
+import AdminReportDetailPage from './pages/admin/AdminReportDetailPage';
+import AdminEmailTemplates from './pages/admin/AdminEmailTemplates';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminAudit from './pages/admin/AdminAudit';
-import AdminEmailTemplates from './pages/admin/AdminEmailTemplates';
+
+const createPublicChildren = (locale: SupportedLocale | null): RouteObject[] => {
+  const slug = (key: Parameters<typeof publicSlug>[0]) => locale ? publicSlug(key, locale) : publicSlug(key, 'pt-BR');
+
+  return [
+    { index: true, Component: Landing },
+    { path: slug('howItWorks'), Component: HowItWorks },
+    { path: slug('security'), Component: Security },
+    { path: slug('faq'), Component: FAQ },
+    { path: slug('terms'), Component: Terms },
+    { path: slug('privacy'), Component: Privacy },
+    { path: slug('guidelines'), Component: Guidelines },
+    { path: slug('sandbox'), Component: SandboxAccess },
+    { path: slug('login'), Component: Login },
+    { path: slug('register'), Component: Register },
+    { path: slug('profileSelect'), Component: ProfileSelect },
+    { path: slug('forgotPassword'), Component: ForgotPassword },
+    { path: slug('resetPassword'), Component: ResetPassword },
+    { path: slug('verifyEmail'), Component: VerifyEmail },
+    { path: slug('acceptAdminInvite'), Component: AcceptAdminInvite },
+    { path: slug('acceptPatientInvite'), Component: AcceptPatientInvite },
+    { path: `${slug('publicDream')}/:id`, Component: PublicDreamDetail },
+    { path: slug('contact'), Component: Contact },
+    { path: slug('partnerships'), Component: Partnerships },
+    { path: 'concept-a/paciente/sonhos/criar', Component: CreateDreamConceptA },
+    { path: 'concept-b/paciente/sonhos/criar', Component: CreateDreamConceptB },
+    { path: 'concept-c/paciente/sonhos/criar', Component: CreateDreamConceptC },
+    { path: '*', Component: NotFound },
+  ];
+};
+
+const createPatientChildren = (): RouteObject[] => [
+  { index: true, Component: PatientDashboard },
+  { path: 'dashboard', Component: PatientDashboard },
+  { path: 'sonhos', Component: MyDreams },
+  { path: 'sonhos/criar', Component: CreateDream },
+  { path: 'sonhos/editar/:id', Component: CreateDream },
+  { path: 'sonhos/:id', Component: DreamDetail },
+  { path: 'propostas', Component: PatientProposals },
+  { path: 'chat', Component: PatientChat },
+  { path: 'perfil', Component: PatientProfile },
+  { path: 'notificacoes', Component: PatientNotifications },
+  { path: '*', Component: NotFound },
+];
+
+const createSupporterChildren = (): RouteObject[] => [
+  { index: true, Component: SupporterDashboard },
+  { path: 'dashboard', Component: SupporterDashboard },
+  { path: 'explorar', Component: ExploreDreams },
+  { path: 'sonhos/:id', Component: SupporterDreamDetail },
+  { path: 'propostas', Component: MyProposals },
+  { path: 'chat', Component: SupporterChat },
+  { path: 'perfil', Component: SupporterProfile },
+  { path: 'notificacoes', Component: SupporterNotifications },
+  { path: '*', Component: NotFound },
+];
+
+const createInstitutionChildren = (): RouteObject[] => [
+  { index: true, Component: InstitutionDashboard },
+  { path: 'dashboard', Component: InstitutionDashboard },
+  { path: 'pacientes', Component: InstitutionPatients },
+  { path: 'pacientes/:managedPatientId', Component: InstitutionPatientDetail },
+  { path: 'sonhos', Component: InstitutionDreams },
+  { path: 'sonhos/criar', Component: InstitutionCreateDream },
+  { path: 'sonhos/editar/:id', Component: InstitutionCreateDream },
+  { path: 'propostas', Component: InstitutionProposals },
+  { path: 'chat', Component: InstitutionChat },
+  { path: 'notificacoes', Component: InstitutionNotifications },
+  { path: 'perfil', Component: InstitutionProfile },
+  { path: '*', Component: NotFound },
+];
+
+const localizedRoutes = supportedLocales.flatMap<RouteObject>((locale) => {
+  const prefix = getLocalePrefix(locale);
+
+  return [
+    {
+      path: prefix,
+      Component: PublicLayout,
+      children: createPublicChildren(locale),
+    },
+    { path: `${prefix}/onboarding/paciente`, Component: PatientOnboarding },
+    { path: `${prefix}/onboarding/apoiador`, Component: SupporterOnboarding },
+    { path: `${prefix}/paciente/sonhos/:id/concluido`, Component: DreamCompletion },
+    {
+      path: `${prefix}/paciente`,
+      Component: PatientLayout,
+      children: createPatientChildren(),
+    },
+    {
+      path: `${prefix}/apoiador`,
+      Component: SupporterLayout,
+      children: createSupporterChildren(),
+    },
+    {
+      path: `${prefix}/instituicao`,
+      Component: InstitutionLayout,
+      children: createInstitutionChildren(),
+    },
+  ];
+});
 
 export const router = createBrowserRouter([
   {
@@ -89,29 +201,9 @@ export const router = createBrowserRouter([
       {
         path: '/',
         Component: PublicLayout,
-        children: [
-          { index: true, Component: Landing },
-          { path: 'como-funciona', Component: HowItWorks },
-          { path: 'seguranca', Component: Security },
-          { path: 'faq', Component: FAQ },
-          { path: 'termos', Component: Terms },
-          { path: 'privacidade', Component: Privacy },
-          { path: 'diretrizes', Component: Guidelines },
-          { path: 'sandbox', Component: SandboxAccess },
-          { path: 'login', Component: Login },
-          { path: 'cadastro', Component: Register },
-          { path: 'selecionar-perfil', Component: ProfileSelect },
-          { path: 'esqueci-senha', Component: ForgotPassword },
-          { path: 'redefinir-senha', Component: ResetPassword },
-          { path: 'verificar-email', Component: VerifyEmail },
-          { path: 'aceitar-convite-admin', Component: AcceptAdminInvite },
-          { path: 'aceitar-convite-paciente', Component: AcceptPatientInvite },
-          { path: 'sonhos/:id', Component: PublicDreamDetail },
-          { path: 'contato', Component: Contact },
-          { path: 'parcerias', Component: Partnerships },
-          { path: '*', Component: NotFound },
-        ],
+        children: createPublicChildren(null),
       },
+      ...localizedRoutes,
       // Onboarding (standalone)
       { path: '/onboarding/paciente', Component: PatientOnboarding },
       { path: '/onboarding/apoiador', Component: SupporterOnboarding },
@@ -121,54 +213,19 @@ export const router = createBrowserRouter([
       {
         path: '/paciente',
         Component: PatientLayout,
-        children: [
-          { index: true, Component: PatientDashboard },
-          { path: 'dashboard', Component: PatientDashboard },
-          { path: 'sonhos', Component: MyDreams },
-          { path: 'sonhos/criar', Component: CreateDream },
-          { path: 'sonhos/editar/:id', Component: CreateDream },
-          { path: 'sonhos/:id', Component: DreamDetail },
-          { path: 'propostas', Component: PatientProposals },
-          { path: 'chat', Component: PatientChat },
-          { path: 'perfil', Component: PatientProfile },
-          { path: 'notificacoes', Component: PatientNotifications },
-          { path: '*', Component: NotFound },
-        ],
+        children: createPatientChildren(),
       },
       // Supporter routes
       {
         path: '/apoiador',
         Component: SupporterLayout,
-        children: [
-          { index: true, Component: SupporterDashboard },
-          { path: 'dashboard', Component: SupporterDashboard },
-          { path: 'explorar', Component: ExploreDreams },
-          { path: 'sonhos/:id', Component: SupporterDreamDetail },
-          { path: 'propostas', Component: MyProposals },
-          { path: 'chat', Component: SupporterChat },
-          { path: 'perfil', Component: SupporterProfile },
-          { path: 'notificacoes', Component: SupporterNotifications },
-          { path: '*', Component: NotFound },
-        ],
+        children: createSupporterChildren(),
       },
       // Institution routes
       {
         path: '/instituicao',
         Component: InstitutionLayout,
-        children: [
-          { index: true, Component: InstitutionDashboard },
-          { path: 'dashboard', Component: InstitutionDashboard },
-          { path: 'pacientes', Component: InstitutionPatients },
-          { path: 'pacientes/:managedPatientId', Component: InstitutionPatientDetail },
-          { path: 'sonhos', Component: InstitutionDreams },
-          { path: 'sonhos/criar', Component: InstitutionCreateDream },
-          { path: 'sonhos/editar/:id', Component: InstitutionCreateDream },
-          { path: 'propostas', Component: InstitutionProposals },
-          { path: 'chat', Component: InstitutionChat },
-          { path: 'notificacoes', Component: InstitutionNotifications },
-          { path: 'perfil', Component: InstitutionProfile },
-          { path: '*', Component: NotFound },
-        ],
+        children: createInstitutionChildren(),
       },
       // Admin routes
       {
@@ -177,15 +234,22 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: AdminOverview },
           { path: 'usuarios', Component: AdminUsers },
+          { path: 'usuarios/:userId', Component: AdminUsers },
           { path: 'admins', Component: AdminAdmins },
+          { path: 'admins/:adminId', Component: AdminAdmins },
           { path: 'sonhos', Component: AdminDreams },
+          { path: 'sonhos/:dreamId', Component: AdminDreamDetailPage },
           { path: 'propostas', Component: AdminProposals },
+          { path: 'propostas/:proposalId', Component: AdminProposalDetailPage },
           { path: 'mensagens', Component: AdminMessages },
+          { path: 'mensagens/:messageId', Component: AdminMessages },
           { path: 'chats', Component: AdminChats },
+          { path: 'chats/:chatId', Component: AdminChats },
           { path: 'denuncias', Component: AdminReports },
+          { path: 'denuncias/:reportId', Component: AdminReportDetailPage },
+          { path: 'email-templates', Component: AdminEmailTemplates },
           { path: 'configuracoes', Component: AdminSettings },
           { path: 'auditoria', Component: AdminAudit },
-          { path: 'emails', Component: AdminEmailTemplates },
           { path: '*', Component: NotFound },
         ],
       },

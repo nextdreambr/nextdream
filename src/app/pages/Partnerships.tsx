@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router';
 import { PublicEditorialVisual } from '../components/public/PublicEditorialVisual';
 import { CareCallout, PublicPageHero, SectionHeader, StoryCard, WarmSection } from '../components/public/PublicPagePrimitives';
+import { useI18n } from '../i18n/I18nProvider';
 
 const networkReasons = [
   'Conhecem o território e os limites de quem está sendo cuidado.',
@@ -71,6 +72,8 @@ const partnershipMailto =
   'mailto:contato@nextdream.ong.br?subject=NextDream%20-%20Conversa%20sobre%20parceria&body=Ol%C3%A1%2C%20equipe%20NextDream.%0A%0AQuero%20conversar%20sobre%20uma%20parceria.%0A%0ARede%2Finstitui%C3%A7%C3%A3o%3A%0ATerrit%C3%B3rio%20ou%20contexto%20agregado%3A%0ATipo%20de%20presen%C3%A7a%20ou%20habilidade%20poss%C3%ADvel%3A%0AMelhor%20contato%20para%20retorno%3A%0A%0AObserva%C3%A7%C3%A3o%3A%20vou%20evitar%20nomes%2C%20diagn%C3%B3sticos%2C%20documentos%2C%20telefones%2C%20endere%C3%A7os%20ou%20relatos%20identific%C3%A1veis.';
 
 export default function Partnerships() {
+  const { localizedPath } = useI18n();
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#ffffff] text-[#172033]">
       <PublicPageHero
@@ -193,7 +196,7 @@ export default function Partnerships() {
                   Escrever sobre parceria
                 </a>
                 <Link
-                  to="/contato"
+                  to={localizedPath('/contato')}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#c9e5dc] bg-white px-6 py-3 text-sm font-extrabold text-[#245b53] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#e5f4ee] focus:outline-none focus:ring-4 focus:ring-[#c9e5dc]"
                 >
                   <Heart className="h-4 w-4" />

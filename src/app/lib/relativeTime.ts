@@ -1,4 +1,10 @@
-export function formatRelativeDate(dateInput: string | Date, nowInput = new Date()) {
+import type { SupportedLocale } from '../i18n/locale';
+
+export function formatRelativeDate(
+  dateInput: string | Date,
+  nowInput = new Date(),
+  locale: SupportedLocale = 'pt-BR',
+) {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
 
@@ -8,6 +14,8 @@ export function formatRelativeDate(dateInput: string | Date, nowInput = new Date
 
   const diffMs = now.getTime() - date.getTime();
   if (diffMs <= 0) {
+    if (locale === 'en-US') return 'Just now';
+    if (locale === 'es-ES') return 'Ahora mismo';
     return 'Agora mesmo';
   }
 
@@ -17,17 +25,16 @@ export function formatRelativeDate(dateInput: string | Date, nowInput = new Date
 
   if (diffMs < hour) {
     const minutes = Math.max(1, Math.floor(diffMs / minute));
-    return minutes === 1 ? '1 min atrás' : `${minutes} min atrás`;
+    return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-minutes, 'minute');
   }
 
   if (diffMs < day) {
     const hours = Math.floor(diffMs / hour);
-    return hours === 1 ? '1 hora atrás' : `${hours} horas atrás`;
+    return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-hours, 'hour');
   }
 
   const days = Math.floor(diffMs / day);
-  if (days === 1) return 'Ontem';
-  if (days < 7) return `${days} dias atrás`;
+  if (days < 7) return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-days, 'day');
 
-  return date.toLocaleDateString('pt-BR');
+  return date.toLocaleDateString(locale);
 }

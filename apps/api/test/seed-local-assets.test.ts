@@ -26,9 +26,15 @@ describe('local seed assets', () => {
 
     expect(seedScript).toContain("import { ManagedPatient } from '../entities/managed-patient.entity';");
     expect(seedScript).toContain("import { PatientInvite } from '../entities/patient-invite.entity';");
+    expect(seedScript).toContain("import { AdminInvite } from '../entities/admin-invite.entity';");
+    expect(seedScript).toContain("import { AdminSettings } from '../entities/admin-settings.entity';");
+    expect(seedScript).toContain("import { PasswordResetRequest } from '../entities/password-reset-request.entity';");
     expect(seedScript).toContain('const candidateRoots = [');
     expect(seedScript).toContain("resolve(process.cwd(), '..', '..', '..', '..')");
     expect(seedScript).toContain('managed_patients');
+    expect(seedScript).toContain('admin_invites');
+    expect(seedScript).toContain('password_reset_requests');
+    expect(seedScript).toContain('admin_settings');
     expect(seedScript).toContain("id: 'u-instituicao-1'");
     expect(seedScript).toContain("email: 'instituicao1@nextdream.local'");
     expect(seedScript).toContain("role: 'instituicao'");
@@ -58,5 +64,18 @@ describe('local seed assets', () => {
     expect(seedScript).toContain("status: 'recusada'");
     expect(seedScript).toContain("id: 'c-demo-inst-1'");
     expect(seedScript).toContain("id: 'n-demo-5'");
+    expect(seedScript).toContain("id: 'u-instituicao-2'");
+    expect(seedScript).toContain("id: 'u-admin-2'");
+    expect(seedScript).toContain("id: 'ai-demo-1'");
+    expect(seedScript).toContain("id: 'prr-demo-1'");
+    expect(seedScript).toContain('const generatedDreamTemplates = [');
+    expect(seedScript).toContain('const extraDreams: Array<Partial<Dream>> = Array.from({ length: 24 }');
+    expect(seedScript).toContain("id: `d-volume-${index + 1}`");
+    expect(seedScript).toContain("id: `pr-volume-${proposalIndex + 1}`");
+    expect(seedScript).toContain("id: `c-volume-${index + 1}`");
+    expect(seedScript).toContain("id: `m-volume-${index + 1}-3`");
+    expect(seedScript).toContain("id: `r-volume-chat-${index + 1}`");
+    expect(seedScript).toContain("id: `n-volume-${index * 2 + slot + 1}`");
+    expect(seedScript).toContain('Local seed completed successfully.');
   });
 });

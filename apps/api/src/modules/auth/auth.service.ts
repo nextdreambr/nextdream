@@ -14,9 +14,11 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 import { AdminInvite } from '../../entities/admin-invite.entity';
 import ms, { type StringValue } from 'ms';
 import { getEnvOrDefault, getRequiredEnv } from '../../config/env';
+import { AuditLog } from '../../entities/audit-log.entity';
 import { EmailVerificationToken } from '../../entities/email-verification-token.entity';
 import { ManagedPatient } from '../../entities/managed-patient.entity';
 import { PasswordResetToken } from '../../entities/password-reset-token.entity';
+import { PasswordResetRequest } from '../../entities/password-reset-request.entity';
 import { PatientInvite } from '../../entities/patient-invite.entity';
 import { User } from '../../entities/user.entity';
 import { buildLocationLabel, normalizeLocationPart } from '../../lib/location';
@@ -24,9 +26,11 @@ import { AcceptAdminInviteDto } from './dto/accept-admin-invite.dto';
 import { AcceptPatientInviteDto } from './dto/accept-patient-invite.dto';
 import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { DemoLoginDto } from './dto/demo-login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { MailService } from '../mail/mail.service';
 
@@ -71,6 +75,8 @@ export class AuthService {
   private readonly emailVerificationTokensRepository: Repository<EmailVerificationToken>;
   private readonly passwordResetTokensRepository: Repository<PasswordResetToken>;
   private readonly managedPatientsRepository: Repository<ManagedPatient>;
+  private readonly passwordResetRequestsRepository: Repository<PasswordResetRequest>;
+  private readonly auditLogsRepository: Repository<AuditLog>;
   private readonly jwtService: JwtService;
   private readonly mailService: MailService;
   private readonly dataSource: DataSource;
@@ -82,6 +88,8 @@ export class AuthService {
     @InjectRepository(EmailVerificationToken) emailVerificationTokensRepository: Repository<EmailVerificationToken>,
     @InjectRepository(PasswordResetToken) passwordResetTokensRepository: Repository<PasswordResetToken>,
     @InjectRepository(ManagedPatient) managedPatientsRepository: Repository<ManagedPatient>,
+    @InjectRepository(PasswordResetRequest) passwordResetRequestsRepository: Repository<PasswordResetRequest>,
+    @InjectRepository(AuditLog) auditLogsRepository: Repository<AuditLog>,
     @Inject(JwtService) jwtService: JwtService,
     @Inject(MailService) mailService: MailService,
     @InjectDataSource() dataSource: DataSource,
@@ -92,6 +100,8 @@ export class AuthService {
     this.emailVerificationTokensRepository = emailVerificationTokensRepository;
     this.passwordResetTokensRepository = passwordResetTokensRepository;
     this.managedPatientsRepository = managedPatientsRepository;
+    this.passwordResetRequestsRepository = passwordResetRequestsRepository;
+    this.auditLogsRepository = auditLogsRepository;
     this.jwtService = jwtService;
     this.mailService = mailService;
     this.dataSource = dataSource;
@@ -364,6 +374,26 @@ export class AuthService {
     return this.buildAuthResponse(saved);
   }
 
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const normalizedEmail = dto.email.toLowerCase();
+    const user = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
+
+    if (user) {
+      await this.issuePasswordResetLink(user);
+    }
+
+    return { ok: true };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    await this.consumePasswordReset(dto);
+    return { ok: true };
+  }
+
+  async issueAdminPasswordResetLink(user: User, requestedByAdminId: string) {
+    return this.issuePasswordResetLink(user, requestedByAdminId);
+  }
+
   async refresh(refreshToken: string): Promise<AuthSessionPayload> {
     let payload: {
       sub: string;
@@ -592,6 +622,108 @@ export class AuthService {
         emailNotificationsEnabled: user.emailNotificationsEnabled,
       },
     };
+  }
+
+  private async issuePasswordResetLink(user: User, requestedByAdminId?: string) {
+    await this.passwordResetRequestsRepository.delete({
+      userId: user.id,
+      usedAt: IsNull(),
+    });
+
+    const rawToken = randomBytes(32).toString('hex');
+    const expiresInHours = 24;
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+
+    const resetRequest = this.passwordResetRequestsRepository.create({
+      userId: user.id,
+      requestedByAdminId: requestedByAdminId ?? null,
+      tokenHash: await bcrypt.hash(rawToken, 10),
+      expiresAt,
+    });
+    const saved = await this.passwordResetRequestsRepository.save(resetRequest);
+
+    const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
+    const resetUrl = `${appUrl}/redefinir-senha?requestId=${encodeURIComponent(saved.id)}&token=${encodeURIComponent(rawToken)}`;
+
+    try {
+      await this.mailService.sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetUrl,
+        expiresInHours,
+        initiatedByAdmin: Boolean(requestedByAdminId),
+      });
+    } catch (error) {
+      await this.passwordResetRequestsRepository.delete({ id: saved.id });
+      throw error;
+    }
+
+    return {
+      requestId: saved.id,
+      email: user.email,
+      delivery: 'email' as const,
+      expiresAt: saved.expiresAt,
+    };
+  }
+
+  private async consumePasswordReset(dto: ResetPasswordDto) {
+    const now = new Date();
+    const resetRequest = await this.passwordResetRequestsRepository.findOne({
+      where: { id: dto.requestId },
+    });
+
+    if (!resetRequest || resetRequest.usedAt || resetRequest.expiresAt <= now) {
+      throw new BadRequestException('Reset request is no longer valid');
+    }
+
+    const tokenMatches = await bcrypt.compare(dto.token, resetRequest.tokenHash);
+    if (!tokenMatches) {
+      throw new BadRequestException('Reset request is no longer valid');
+    }
+
+    const user = await this.usersRepository.findOneBy({ id: resetRequest.userId });
+    if (!user) {
+      throw new BadRequestException('Reset request is no longer valid');
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      const txResetRequestsRepository = manager.getRepository(PasswordResetRequest);
+      const txUsersRepository = manager.getRepository(User);
+      const transactionRequest = await txResetRequestsRepository.findOne({
+        where: { id: dto.requestId },
+      });
+
+      if (!transactionRequest || transactionRequest.usedAt || transactionRequest.expiresAt <= now) {
+        throw new BadRequestException('Reset request is no longer valid');
+      }
+
+      transactionRequest.usedAt = now;
+      await txResetRequestsRepository.save(transactionRequest);
+
+      user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+      user.sessionVersion = (user.sessionVersion ?? 0) + 1;
+      await txUsersRepository.save(user);
+    });
+
+    const actor = resetRequest.requestedByAdminId
+      ? await this.usersRepository.findOneBy({ id: resetRequest.requestedByAdminId })
+      : null;
+
+    await this.auditLogsRepository.save(
+      this.auditLogsRepository.create({
+        action: 'Senha redefinida por link',
+        by: actor?.name ?? user.email,
+        target: `${user.name} (${user.id})`,
+        type: user.role === 'admin' ? 'admin' : 'usuario',
+        severity: 'alta',
+        outcome: 'ok',
+        details: resetRequest.requestedByAdminId
+          ? 'Link administrativo de redefinição consumido com sucesso.'
+          : 'Fluxo público de redefinição de senha concluído.',
+        refPath: resetRequest.requestedByAdminId ? '/admin/usuarios' : '/esqueci-senha',
+        refId: user.id,
+      }),
+    );
   }
 
   private readJwtTtl(name: string, fallback: StringValue): StringValue {

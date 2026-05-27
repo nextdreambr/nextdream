@@ -2,13 +2,17 @@ import { Outlet, Link, useLocation } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isSandboxEnvironment } from '../../config/environment';
+import { LanguageSwitcher } from '../../i18n/LanguageSwitcher';
+import { useI18n } from '../../i18n/I18nProvider';
+import { stripLocalePrefix } from '../../i18n/routes';
 import logoImg from '../../../assets/df29d28e06eae9a96d131fc75e2fd7064bd951d1.png';
 
 export function PublicLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const sandbox = isSandboxEnvironment();
   const location = useLocation();
-  const isHome = location.pathname === '/';
+  const { t, localizedPath } = useI18n();
+  const isHome = stripLocalePrefix(location.pathname) === '/';
   const currentYear = new Date().getFullYear();
   const navLinkClassName = isHome
     ? 'text-sm font-bold text-[#5c4b52] transition-colors hover:text-[#a8544a]'
@@ -28,46 +32,47 @@ export function PublicLayout() {
         }
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center group">
+          <Link to={localizedPath('/')} className="flex items-center group">
             <img src={logoImg} alt="NextDream" className="h-9 w-auto" />
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">
-            <Link to="/como-funciona" className={navLinkClassName}>Como funciona</Link>
-            <Link to="/parcerias" className={navLinkClassName}>Parcerias</Link>
-            <Link to="/seguranca" className={navLinkClassName}>Segurança</Link>
-            <Link to="/faq" className={navLinkClassName}>FAQ</Link>
-            <Link to="/contato" className={navLinkClassName}>Fale conosco</Link>
+            <Link to={localizedPath('/como-funciona')} className={navLinkClassName}>{t('public.nav.howItWorks')}</Link>
+            <Link to={localizedPath('/parcerias')} className={navLinkClassName}>{t('public.nav.partnerships')}</Link>
+            <Link to={localizedPath('/seguranca')} className={navLinkClassName}>{t('public.nav.security')}</Link>
+            <Link to={localizedPath('/faq')} className={navLinkClassName}>{t('public.nav.faq')}</Link>
+            <Link to={localizedPath('/contato')} className={navLinkClassName}>{t('public.nav.contact')}</Link>
           </div>
 
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSwitcher compact />
             <Link
-              to={sandbox ? '/sandbox' : '/login'}
+              to={localizedPath(sandbox ? '/sandbox' : '/login')}
               className={
                 isHome
                   ? 'rounded-full px-4 py-2 text-sm font-extrabold text-[#245b53] transition-colors hover:bg-white/70'
                   : 'rounded-full px-4 py-2 text-sm font-extrabold text-[#245b53] transition-colors hover:bg-[#e5f4ee]'
               }
             >
-              {sandbox ? 'Conhecer a plataforma' : 'Entrar'}
+              {sandbox ? t('public.nav.openSandbox') : t('public.nav.enter')}
             </Link>
             {!sandbox && (
               <Link
-                to="/cadastro"
+                to={localizedPath('/cadastro')}
                 className={
                   isHome
                     ? 'rounded-full bg-[#a8544a] px-4 py-2 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-[#8b3d44]'
                     : 'rounded-full bg-[#a8544a] px-4 py-2 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-[#8b3d44]'
                 }
               >
-                Criar conta
+                {t('public.nav.createAccount')}
               </Link>
             )}
           </div>
 
           <button
             type="button"
-            aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-label={mobileOpen ? t('public.nav.closeMenu') : t('public.nav.openMenu')}
             className={
               isHome
                 ? 'rounded-full p-2 text-[#241b24] transition-colors hover:bg-white/70 md:hidden'
@@ -87,26 +92,29 @@ export function PublicLayout() {
                 : 'space-y-3 border-t border-[#eadfd2] bg-[#fffaf4] px-4 py-4 md:hidden'
             }
           >
-            <Link to="/como-funciona" className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>Como funciona</Link>
-            <Link to="/parcerias" className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>Parcerias</Link>
-            <Link to="/seguranca" className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>Segurança</Link>
-            <Link to="/faq" className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>FAQ</Link>
-            <Link to="/contato" className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>Fale conosco</Link>
+            <div className="pb-2">
+              <LanguageSwitcher />
+            </div>
+            <Link to={localizedPath('/como-funciona')} className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>{t('public.nav.howItWorks')}</Link>
+            <Link to={localizedPath('/parcerias')} className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>{t('public.nav.partnerships')}</Link>
+            <Link to={localizedPath('/seguranca')} className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>{t('public.nav.security')}</Link>
+            <Link to={localizedPath('/faq')} className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>{t('public.nav.faq')}</Link>
+            <Link to={localizedPath('/contato')} className="block py-2 text-sm font-bold text-[#5c4b52]" onClick={() => setMobileOpen(false)}>{t('public.nav.contact')}</Link>
             <div className="flex gap-3 pt-2">
               <Link
-                to={sandbox ? '/sandbox' : '/login'}
+                to={localizedPath(sandbox ? '/sandbox' : '/login')}
                 className="flex-1 rounded-full border border-[#c9e5dc] py-2 text-center text-sm font-bold text-[#245b53]"
                 onClick={() => setMobileOpen(false)}
               >
-                {sandbox ? 'Conhecer a plataforma' : 'Entrar'}
+                {sandbox ? t('public.nav.openSandbox') : t('public.nav.enter')}
               </Link>
               {!sandbox && (
                 <Link
-                  to="/cadastro"
+                  to={localizedPath('/cadastro')}
                   className="flex-1 rounded-full bg-[#a8544a] py-2 text-center text-sm font-bold text-white"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Criar conta
+                  {t('public.nav.createAccount')}
                 </Link>
               )}
             </div>
@@ -125,7 +133,7 @@ export function PublicLayout() {
               NextDream
             </p>
             <p className="mt-3 max-w-3xl text-2xl font-extrabold leading-tight text-white md:text-3xl">
-              Presença, tempo e cuidado também realizam sonhos.
+              {t('public.footer.headline')}
             </p>
           </div>
 
@@ -133,32 +141,31 @@ export function PublicLayout() {
             <div>
               <img src={logoImg} alt="NextDream" className="mb-4 h-8 w-auto" />
               <p className="max-w-md text-sm font-semibold leading-relaxed text-[#e8d9cf]">
-                NextDream conecta pessoas em momentos delicados de saúde a apoiadores dispostos a
-                oferecer presença, tempo, companhia e habilidades com cuidado.
+                {t('public.footer.description')}
               </p>
             </div>
             <div>
-              <h4 className="mb-3 text-sm font-extrabold text-white">Caminhos</h4>
+              <h4 className="mb-3 text-sm font-extrabold text-white">{t('public.footer.paths')}</h4>
               <ul className="space-y-2 text-sm text-[#e8d9cf]">
-                <li><Link to="/como-funciona" className="transition-colors hover:text-[#f7d9c6]">Como funciona</Link></li>
-                <li><Link to="/seguranca" className="transition-colors hover:text-[#f7d9c6]">Segurança</Link></li>
-                <li><Link to="/faq" className="transition-colors hover:text-[#f7d9c6]">FAQ</Link></li>
-                <li><Link to="/contato" className="transition-colors hover:text-[#f7d9c6]">Fale conosco</Link></li>
+                <li><Link to={localizedPath('/como-funciona')} className="transition-colors hover:text-[#f7d9c6]">{t('public.nav.howItWorks')}</Link></li>
+                <li><Link to={localizedPath('/seguranca')} className="transition-colors hover:text-[#f7d9c6]">{t('public.nav.security')}</Link></li>
+                <li><Link to={localizedPath('/faq')} className="transition-colors hover:text-[#f7d9c6]">{t('public.nav.faq')}</Link></li>
+                <li><Link to={localizedPath('/contato')} className="transition-colors hover:text-[#f7d9c6]">{t('public.nav.contact')}</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="mb-3 text-sm font-extrabold text-white">Contato</h4>
+              <h4 className="mb-3 text-sm font-extrabold text-white">{t('public.footer.contact')}</h4>
               <ul className="space-y-2 text-sm text-[#e8d9cf]">
-                <li><Link to="/termos" className="transition-colors hover:text-[#f7d9c6]">Termos de Uso</Link></li>
-                <li><Link to="/privacidade" className="transition-colors hover:text-[#f7d9c6]">Privacidade</Link></li>
-                <li><Link to="/diretrizes" className="transition-colors hover:text-[#f7d9c6]">Diretrizes</Link></li>
+                <li><Link to={localizedPath('/termos')} className="transition-colors hover:text-[#f7d9c6]">{t('public.footer.terms')}</Link></li>
+                <li><Link to={localizedPath('/privacidade')} className="transition-colors hover:text-[#f7d9c6]">{t('public.footer.privacy')}</Link></li>
+                <li><Link to={localizedPath('/diretrizes')} className="transition-colors hover:text-[#f7d9c6]">{t('public.footer.guidelines')}</Link></li>
                 <li><a href="mailto:contato@nextdream.ong.br" className="transition-colors hover:text-[#f7d9c6]">contato@nextdream.ong.br</a></li>
               </ul>
             </div>
           </div>
           <div className="flex flex-col justify-between gap-3 border-t border-white/10 pt-5 text-xs text-[#d8c9bf] sm:flex-row">
-            <p>© {currentYear} NextDream. Construído para conexões humanas com cuidado.</p>
-            <p>Presença, privacidade e consentimento primeiro.</p>
+            <p>© {currentYear} {t('public.footer.copyright')}</p>
+            <p>{t('public.footer.promise')}</p>
           </div>
         </div>
       </footer>

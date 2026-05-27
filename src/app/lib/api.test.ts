@@ -3,6 +3,7 @@ import {
   ApiError,
   apiRequest,
   authApi,
+  dreamsApi,
   setAccessTokenGetter,
   setRefreshTokenGetter,
   setSessionChangeHandler,
@@ -50,6 +51,21 @@ describe('apiRequest', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer token-123');
+  });
+
+  it('sends the active NextDream locale to the API', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ id: 'u1' }),
+    } as Response);
+    document.documentElement.lang = 'es-ES';
+
+    await apiRequest<{ id: string }>('/dreams/public');
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers['X-NextDream-Locale']).toBe('es-ES');
+    expect(headers['Accept-Language']).toBe('es-ES');
   });
 
   it('falls back to the persisted session token when the in-memory getter is not ready yet', async () => {
@@ -181,6 +197,31 @@ describe('apiRequest', () => {
         method: 'POST',
         credentials: 'include',
         body: JSON.stringify({ token: 'token-123', newPassword: 'NovaSenha123!' }),
+      }),
+    );
+  });
+
+  it('requests a dream translation in the selected target language', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        title: 'See the sea once more',
+        description: 'I want a quiet afternoon to feel the breeze.',
+        source: 'machine',
+        createdAt: '2026-04-21T12:00:00.000Z',
+        updatedAt: '2026-04-21T12:00:00.000Z',
+      }),
+    } as Response);
+
+    await dreamsApi.translateDream('dream-1', 'en-US');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/dreams/dream-1/translations',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ targetLanguage: 'en-US' }),
       }),
     );
   });

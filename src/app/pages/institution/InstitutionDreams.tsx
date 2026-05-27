@@ -61,14 +61,14 @@ export default function InstitutionDreams() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#d8cdeb] bg-[#f6f0ff] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-gray-800" style={{ fontWeight: 700 }}>Sonhos acompanhados</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-[#241b24]" style={{ fontWeight: 800 }}>Sonhos acompanhados</h1>
+          <p className="text-sm font-semibold text-[#5f5268]">
             {total} sonho{total === 1 ? '' : 's'} operado{total === 1 ? '' : 's'} pela instituição
           </p>
         </div>
-        <Link to="/instituicao/sonhos/criar" className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
+        <Link to="/instituicao/sonhos/criar" className="inline-flex items-center gap-2 bg-[#584478] hover:bg-[#44345f] text-white px-4 py-2.5 rounded-full text-sm font-extrabold">
           <Plus className="w-4 h-4" />
           Novo sonho
         </Link>
@@ -84,7 +84,7 @@ export default function InstitutionDreams() {
               setPage(1);
             }}
             placeholder="Buscar sonhos"
-            className="w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="w-full rounded-xl border border-[#d8cdeb] bg-white pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb]"
           />
         </div>
         <select
@@ -93,7 +93,7 @@ export default function InstitutionDreams() {
             setStatus(event.target.value as PublicDream['status'] | '');
             setPage(1);
           }}
-          className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          className="rounded-xl border border-[#d8cdeb] bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb]"
         >
           {statusOptions.map((option) => (
             <option key={option.label} value={option.value}>
@@ -104,13 +104,13 @@ export default function InstitutionDreams() {
       </div>
 
       {loading ? (
-        <div className="bg-white border border-indigo-100 rounded-2xl p-6 text-sm text-gray-500">
+        <div className="bg-white border border-[#d8cdeb] rounded-2xl p-6 text-sm text-gray-500">
           Carregando sonhos...
         </div>
       ) : dreams.length === 0 ? (
-        <div className="bg-white border border-indigo-100 rounded-2xl p-8 text-center space-y-3">
-          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto">
-            <Star className="w-5 h-5 text-indigo-600" />
+        <div className="bg-white border border-[#d8cdeb] rounded-2xl p-8 text-center space-y-3">
+          <div className="w-12 h-12 bg-[#f6f0ff] rounded-2xl flex items-center justify-center mx-auto">
+            <Star className="w-5 h-5 text-[#584478]" />
           </div>
           <p className="text-sm text-gray-800">Nenhum sonho encontrado</p>
           <p className="text-xs text-gray-500">Ajuste os filtros ou publique um novo sonho para a instituição.</p>
@@ -121,13 +121,13 @@ export default function InstitutionDreams() {
             <Link
               key={dream.id}
               to={`/instituicao/sonhos/editar/${dream.id}`}
-              className="block bg-white border border-indigo-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-sm transition-all"
+              className="block bg-white border border-[#d8cdeb] rounded-2xl p-5 hover:border-[#cbbce9] hover:shadow-sm transition-all"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <DreamStatusBadge status={dream.status} />
-                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">{dream.category}</span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-[#f6f0ff] text-[#584478]">{dream.category}</span>
                     <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700">
                       Beneficiário: {dream.patientName ?? 'Paciente acompanhado'}
                     </span>
@@ -137,12 +137,12 @@ export default function InstitutionDreams() {
                     {dream.patientName} {dream.patientCity ? `• ${dream.patientCity}` : ''}
                   </p>
                   {dream.patientContext && (
-                    <p className="text-sm text-indigo-700 bg-indigo-50 rounded-2xl px-3 py-2">
+                    <p className="text-sm text-[#584478] bg-[#f6f0ff] rounded-2xl px-3 py-2">
                       {dream.patientContext}
                     </p>
                   )}
                   {dream.institutionName && (
-                    <p className="text-xs text-indigo-600">Paciente beneficiário operado por {dream.institutionName}</p>
+                    <p className="text-xs text-[#584478]">Paciente beneficiário operado por {dream.institutionName}</p>
                   )}
                   <p className="text-sm text-gray-600">{dream.description}</p>
                 </div>

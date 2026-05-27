@@ -47,65 +47,65 @@ type RoleCopy = {
 };
 
 const roleCardStyles: Record<PublicRole, string> = {
-  paciente: 'border-pink-200 text-pink-700 hover:bg-pink-50',
-  apoiador: 'border-teal-200 text-teal-700 hover:bg-teal-50',
-  instituicao: 'border-indigo-200 text-indigo-700 hover:bg-indigo-50',
+  paciente: 'border-[#ead8c4] text-[#8b3d44] hover:bg-[#fff8ef]',
+  apoiador: 'border-[#c9e5dc] text-[#245b53] hover:bg-[#e5f4ee]',
+  instituicao: 'border-[#d8cdeb] text-[#584478] hover:bg-[#f6f0ff]',
 };
 
 const roleCardActiveStyles: Record<PublicRole, string> = {
-  paciente: 'bg-pink-600 text-white border-pink-600',
-  apoiador: 'bg-teal-600 text-white border-teal-600',
-  instituicao: 'bg-indigo-600 text-white border-indigo-600',
+  paciente: 'bg-[#a8544a] text-white border-[#a8544a]',
+  apoiador: 'bg-[#245b53] text-white border-[#245b53]',
+  instituicao: 'bg-[#584478] text-white border-[#584478]',
 };
 
 const roleThemes: Record<PublicRole, RoleTheme> = {
   paciente: {
-    pageBg: 'bg-gradient-to-br from-pink-50 via-white to-rose-50',
-    cardBorder: 'border-pink-100',
-    input: 'w-full rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300',
-    inputWithIcon: 'w-full rounded-xl border border-pink-100 bg-pink-50 pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300',
-    inputWithTrailingIcon: 'w-full rounded-xl border border-pink-100 bg-pink-50 pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300',
-    icon: 'text-pink-400',
-    button: 'bg-pink-600 hover:bg-pink-700 disabled:bg-pink-300',
-    link: 'text-pink-600 hover:text-pink-700',
-    checkbox: 'text-pink-600',
-    banner: 'border-pink-100 bg-gradient-to-r from-pink-50 to-rose-50',
-    bannerEyebrow: 'text-pink-700',
-    bannerBody: 'text-pink-700',
-    asideEyebrow: 'text-pink-200',
-    asideIcon: 'text-pink-300',
+    pageBg: 'bg-[#fff8ef]',
+    cardBorder: 'border-[#ead8c4]',
+    input: 'w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]',
+    inputWithIcon: 'w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]',
+    inputWithTrailingIcon: 'w-full rounded-xl border border-[#ead8c4] bg-[#fffaf4] pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#f4cbbd]',
+    icon: 'text-[#a8544a]',
+    button: 'bg-[#a8544a] hover:bg-[#8b3d44] disabled:bg-[#e4aaa0]',
+    link: 'text-[#a8544a] hover:text-[#8b3d44]',
+    checkbox: 'text-[#a8544a]',
+    banner: 'border-[#ead8c4] bg-[#fff4d8]',
+    bannerEyebrow: 'text-[#8b3d44]',
+    bannerBody: 'text-[#5c4b52]',
+    asideEyebrow: 'text-[#f7d9c6]',
+    asideIcon: 'text-[#f4cbbd]',
   },
   apoiador: {
-    pageBg: 'bg-gradient-to-br from-teal-50 via-white to-cyan-50',
-    cardBorder: 'border-teal-100',
-    input: 'w-full rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300',
-    inputWithIcon: 'w-full rounded-xl border border-teal-100 bg-teal-50 pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300',
-    inputWithTrailingIcon: 'w-full rounded-xl border border-teal-100 bg-teal-50 pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300',
-    icon: 'text-teal-400',
-    button: 'bg-teal-600 hover:bg-teal-700 disabled:bg-teal-300',
-    link: 'text-teal-600 hover:text-teal-700',
-    checkbox: 'text-teal-600',
-    banner: 'border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50',
-    bannerEyebrow: 'text-teal-700',
-    bannerBody: 'text-teal-700',
-    asideEyebrow: 'text-teal-200',
-    asideIcon: 'text-teal-300',
+    pageBg: 'bg-[#f2fbf8]',
+    cardBorder: 'border-[#c9e5dc]',
+    input: 'w-full rounded-xl border border-[#c9e5dc] bg-[#fbfffc] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#9ed0c1]',
+    inputWithIcon: 'w-full rounded-xl border border-[#c9e5dc] bg-[#fbfffc] pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#9ed0c1]',
+    inputWithTrailingIcon: 'w-full rounded-xl border border-[#c9e5dc] bg-[#fbfffc] pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#9ed0c1]',
+    icon: 'text-[#245b53]',
+    button: 'bg-[#245b53] hover:bg-[#17453f] disabled:bg-[#9ed0c1]',
+    link: 'text-[#245b53] hover:text-[#17453f]',
+    checkbox: 'text-[#245b53]',
+    banner: 'border-[#c9e5dc] bg-[#e5f4ee]',
+    bannerEyebrow: 'text-[#245b53]',
+    bannerBody: 'text-[#50645d]',
+    asideEyebrow: 'text-[#c9e5dc]',
+    asideIcon: 'text-[#9ed0c1]',
   },
   instituicao: {
-    pageBg: 'bg-gradient-to-br from-indigo-50 via-slate-50 to-sky-50',
-    cardBorder: 'border-indigo-100',
-    input: 'w-full rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300',
-    inputWithIcon: 'w-full rounded-xl border border-indigo-100 bg-indigo-50 pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300',
-    inputWithTrailingIcon: 'w-full rounded-xl border border-indigo-100 bg-indigo-50 pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300',
-    icon: 'text-indigo-400',
-    button: 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300',
-    link: 'text-indigo-600 hover:text-indigo-700',
-    checkbox: 'text-indigo-600',
-    banner: 'border-indigo-100 bg-gradient-to-r from-indigo-50 to-sky-50',
-    bannerEyebrow: 'text-indigo-700',
-    bannerBody: 'text-indigo-700',
-    asideEyebrow: 'text-indigo-200',
-    asideIcon: 'text-indigo-300',
+    pageBg: 'bg-[#f8f5ff]',
+    cardBorder: 'border-[#d8cdeb]',
+    input: 'w-full rounded-xl border border-[#d8cdeb] bg-[#fffdfd] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb]',
+    inputWithIcon: 'w-full rounded-xl border border-[#d8cdeb] bg-[#fffdfd] pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb]',
+    inputWithTrailingIcon: 'w-full rounded-xl border border-[#d8cdeb] bg-[#fffdfd] pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#d8cdeb]',
+    icon: 'text-[#584478]',
+    button: 'bg-[#584478] hover:bg-[#44345f] disabled:bg-[#cbbce9]',
+    link: 'text-[#584478] hover:text-[#44345f]',
+    checkbox: 'text-[#584478]',
+    banner: 'border-[#d8cdeb] bg-[#f6f0ff]',
+    bannerEyebrow: 'text-[#584478]',
+    bannerBody: 'text-[#5f5268]',
+    asideEyebrow: 'text-[#d8cdeb]',
+    asideIcon: 'text-[#cbbce9]',
   },
 };
 
@@ -144,7 +144,7 @@ const roleCopy: Record<PublicRole, RoleCopy> = {
     secondarySectionTitle: 'Acesso à conta',
     secondarySectionBody: 'Defina como você vai acessar a plataforma e manter sua conta protegida.',
     sidebarEyebrow: 'Como funciona para apoiador',
-    sidebarTitle: 'Seu perfil de apoiador foi pensado para explorar e agir com rapidez.',
+    sidebarTitle: 'Seu perfil de apoiador foi pensado para explorar e agir com cuidado.',
     sidebarBullets: [
       'Crie sua conta, confirme seu e-mail e só então acesse a área para explorar sonhos publicados.',
       'Envie propostas com contexto e acompanhe o andamento de cada caso.',
@@ -285,12 +285,12 @@ export default function Register() {
     <div className={`min-h-screen flex items-center justify-center px-4 py-12 ${theme.pageBg}`}>
       <div className="w-full max-w-5xl">
         <div className="mb-8 text-center xl:text-left">
-          <h1 className="text-gray-800" style={{ fontWeight: 700, fontSize: '1.5rem' }}>Criar conta no NextDream</h1>
-          <p className="text-gray-500 text-sm mt-1">{copy.profileDescription}</p>
+          <h1 className="text-[#241b24]" style={{ fontWeight: 800, fontSize: '1.75rem' }}>Criar conta no NextDream</h1>
+          <p className="text-[#5c4b52] text-sm mt-2 font-semibold">{copy.profileDescription}</p>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_320px] items-start">
-          <div className={`bg-white rounded-3xl shadow-sm border ${theme.cardBorder} p-6 md:p-8`}>
+          <div className={`bg-white rounded-3xl shadow-[0_24px_70px_rgba(92,62,51,0.08)] border ${theme.cardBorder} p-6 md:p-8`}>
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2">
@@ -624,7 +624,7 @@ export default function Register() {
 
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                 <p className="text-xs text-amber-700 font-medium">🚫 Importante ao criar sua conta:</p>
-                <p className="text-xs text-amber-600 mt-1">O NextDream não permite pedidos de dinheiro, PIX ou doações. Nosso foco é presença, tempo e carinho.</p>
+                <p className="text-xs text-amber-600 mt-1">O NextDream não permite pedidos de dinheiro, PIX ou doações. Nosso foco é presença, tempo, companhia e cuidado.</p>
               </div>
 
               {isInstitution && (
@@ -670,7 +670,7 @@ export default function Register() {
             </form>
 
             <div className="mt-6 space-y-2">
-              {['Sem cobrança nunca', 'Dados protegidos com criptografia', 'Sem dinheiro, PIX ou doações'].map((item) => (
+              {['Sem cobrança financeira', 'Dados protegidos com criptografia', 'Sem PIX, vaquinha ou doações'].map((item) => (
                 <div key={item} className="flex items-center gap-2 text-xs text-gray-400">
                   <CheckCircle className="w-3.5 h-3.5 text-green-500" />
                   {item}
@@ -679,7 +679,7 @@ export default function Register() {
             </div>
           </div>
 
-          <aside className="bg-slate-900 text-white rounded-3xl p-6 space-y-5 border border-slate-800">
+          <aside className="bg-[#24332b] text-white rounded-3xl p-6 space-y-5 border border-white/10">
             <div>
               <p className={`text-xs uppercase tracking-[0.18em] ${theme.asideEyebrow}`}>{copy.sidebarEyebrow}</p>
               <h2 className="mt-2 text-lg" style={{ fontWeight: 700 }}>{copy.sidebarTitle}</h2>
@@ -687,7 +687,7 @@ export default function Register() {
 
             <div className="space-y-3">
               {copy.sidebarBullets.map((item) => (
-                <div key={item} className="flex items-start gap-3 text-sm text-slate-200">
+                <div key={item} className="flex items-start gap-3 text-sm text-[#d9e7dd]">
                   <ShieldCheck className={`w-4 h-4 mt-0.5 shrink-0 ${theme.asideIcon}`} />
                   <span>{item}</span>
                 </div>
@@ -696,7 +696,7 @@ export default function Register() {
 
             <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
               <p className="text-sm text-white" style={{ fontWeight: 600 }}>{copy.sidebarOutcomeTitle}</p>
-              <div className="mt-3 space-y-2 text-sm text-slate-200">
+              <div className="mt-3 space-y-2 text-sm text-[#d9e7dd]">
                 {copy.sidebarOutcomes.map((item) => (
                   <div key={item} className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-300" />
